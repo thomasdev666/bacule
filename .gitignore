@@ -1,0 +1,35 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/Exports/
+/*.csproj
+/*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.apk
+*.aab
+*.ipa
+.vs/
+.idea/
+.DS_Store
+
+# Outils .NET (tests hors Unity)
+Tests/**/bin/
+Tests/**/obj/
+Tools/**/bin/
+Tools/**/obj/
+
+# Ancien essai Expo (à supprimer)
+/_expo_abandonne/
+/Bascule_Unity.zip
+/Bascule*.zip
+/Xcode/ 

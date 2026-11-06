@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<!-- Barre d'état transparente : le fond bleu du jeu remonte jusqu'en haut, sous l'encoche (Dynamic Island). -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bascule">
+<meta name="theme-color" content="#5DB8F0">
+<title>{{{ PRODUCT_NAME }}}</title>
+<link rel="icon" type="image/png" href="TemplateData/icone_180.png">
+<link rel="apple-touch-icon" href="TemplateData/icone_180.png">
+<!--
+  Écran de chargement de Bascule (Orphée X) : « le chargement est une bascule ».
+  Basile porte la planche sur sa tête ; les lettres de BASCULE tombent une à une sur la planche au rythme du
+  chargement, la planche penche et oscille à chaque lettre, puis se stabilise quand le mot est complet.
+  La progression est affichée par le niveau à bulle du jeu.
+-->
+<style>
+@font-face { font-family: "Fredoka"; src: url("TemplateData/fredoka.ttf") format("truetype"); font-weight: 700; font-display: block; }
+html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior:none; touch-action: none; background: #5DB8F0; }
+input, textarea, select { font-size: 16px !important; }
+canvas#unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #5DB8F0; outline: none; }
+div#loader {
+  position: fixed; inset: 0; z-index: 10; overflow: hidden;
+  background: linear-gradient(180deg, #4FAEEB 0%, #8ACDF5 52%, #D9F2FF 100%);
+  font-family: "Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif; color: #fff;
+  transition: opacity .6s ease; -webkit-user-select: none; user-select: none;
+}
+div#loader.done { opacity: 0; pointer-events: none; }
+div.sun { position: absolute; right: 12%; top: 11%; width: 26vmin; height: 26vmin; border-radius: 50%;
+  background: radial-gradient(circle, #FFF6C9 0%, #FFE58A 45%, rgba(255,229,138,0) 70%); animation: glow 3.2s ease-in-out infinite; }
+div.cloud { position: absolute; height: 7vmin; border-radius: 999px; background: #fff; opacity: .92; box-shadow: 0 .6vmin 0 rgba(140,190,230,.5); }
+div.cloud::before, div.cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+div.cloud::before { width: 45%; height: 150%; left: 15%; bottom: 30%; }
+div.cloud::after { width: 35%; height: 120%; left: 50%; bottom: 30%; }
+div.c1 { width: 26vmin; top: 17%; animation: drift 38s linear infinite; }
+div.c2 { width: 18vmin; top: 31%; animation: drift 52s linear infinite -20s; opacity: .8; }
+div.c3 { width: 22vmin; top: 8%; animation: drift 46s linear infinite -34s; opacity: .7; }
+div.hills { position: absolute; left: -15%; right: -15%; bottom: -8vh; height: 30vh; border-radius: 50% 50% 0 0; background: #A5DDB0; }
+div.hills2 { position: absolute; left: -10%; right: -25%; bottom: -12vh; height: 26vh; border-radius: 55% 45% 0 0; background: #6CC47E; }
+div.grass { position: absolute; left: 0; right: 0; bottom: 0; height: 13vh; background: linear-gradient(180deg, #5BB865, #4DAA58); }
+
+/* Scène : Basile porte la planche, les lettres tombent dessus. Tailles calculées en JS (--u = une unité du jeu). */
+div#stage { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); }
+div#plankRig { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; }
+img#plank { position: absolute; left: 0; bottom: 0; display: block; }
+img.lip { position: absolute; bottom: 0; }
+span.letter { position: absolute; bottom: 0; display: block; text-align: center; font-weight: 700; line-height: 1;
+  -webkit-text-stroke: .09em #2A1E3D; paint-order: stroke fill; text-shadow: 0 .08em 0 rgba(40,26,64,.85); will-change: transform; }
+img#head { position: absolute; display: block; filter: drop-shadow(0 .8vmin 0 rgba(40,26,64,.25)); }
+div#shadow { position: absolute; border-radius: 50%; background: rgba(30,40,60,.22); }
+
+/* Niveau à bulle : la barre de progression du jeu. */
+div#level { position: absolute; left: 50%; transform: translateX(-50%); }
+img#tube { position: absolute; inset: 0; width: 100%; height: 100%; }
+img#bubble { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left .25s ease-out; }
+div#tip { position: absolute; left: 0; right: 0; text-align: center; font-size: min(5vw, 2.8vh); -webkit-text-stroke: .12em #2A1E3D; paint-order: stroke fill;
+  padding: 0 8vw; transition: opacity .3s; }
+div#pct { position: absolute; left: 0; right: 0; text-align: center; font-size: min(4.2vw, 2.4vh); color: #FFE7A0; -webkit-text-stroke: .1em #2A1E3D; paint-order: stroke fill; }
+div#by { position: absolute; left: 0; right: 0; bottom: max(3vh, env(safe-area-inset-bottom)); text-align: center; font-size: min(4.2vw, 2.3vh); letter-spacing: .1em;
+  -webkit-text-stroke: .1em #2A1E3D; paint-order: stroke fill; opacity: .95; }
+div.spark { position: absolute; width: 1.6vmin; height: 1.6vmin; border-radius: 50%; pointer-events: none; }
+div#banner { position: fixed; left: 0; right: 0; top: 0; z-index: 20; font-family: system-ui, sans-serif; text-align: center; }
+div#banner div { margin: 8px; padding: 10px 14px; border-radius: 14px; background: #FFF6E5; color: #2B2D42; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+div#banner div.error { background: #FF5A5F; color: #fff; }
+@keyframes drift { from { transform: translateX(-40vmin); } to { transform: translateX(140vw); } }
+@keyframes glow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { div.cloud, div.sun { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="unity-canvas" tabindex="-1"></canvas>
+<div id="loader">
+  <div class="sun"></div>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+  <div class="hills"></div><div class="hills2"></div><div class="grass"></div>
+  <div id="stage">
+    <div id="shadow"></div>
+    <img id="head" src="TemplateData/ui/basile_tete.png" alt="">
+    <div id="plankRig">
+      <img id="plank" src="TemplateData/ui/planche.png" alt="">
+      <img class="lip" id="lipL" src="TemplateData/ui/rebord.png" alt="">
+      <img class="lip" id="lipR" src="TemplateData/ui/rebord.png" alt="" style="transform: scaleX(-1)">
+    </div>
+  </div>
+  <div id="level"><img id="tube" src="TemplateData/ui/niveau.png" alt=""><img id="bubble" src="TemplateData/ui/bulle.png" alt=""></div>
+  <div id="pct">0 %</div>
+  <div id="tip">Basile s'échauffe…</div>
+  <div id="by">ORPHÉE X</div>
+</div>
+<div id="banner"></div>
+<script>
+  // Clavier (duel, pseudo) : la page revient en place quand il se ferme ; pas de zoom à deux doigts.
+  document.addEventListener('focusout', function () { setTimeout(function () { window.scrollTo(0, 0); document.body.scrollTop = 0; }, 50); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  var canvas = document.querySelector("#unity-canvas");
+  var loader = document.querySelector("#loader");
+  var tip = document.querySelector("#tip");
+  var pct = document.querySelector("#pct");
+
+  function unityShowBanner(msg, type) {
+    var banner = document.querySelector("#banner");
+    var div = document.createElement("div");
+    div.textContent = msg;
+    if (type === "error") div.className = "error";
+    banner.appendChild(div);
+    if (type !== "error") setTimeout(function () { if (div.parentNode) banner.removeChild(div); }, 5000);
+  }
+
+  // Petites phrases pendant le chargement, dans le ton du jeu.
+  var tips = ["Basile s'échauffe…", "On cire la planche…", "Deux poids pareils = un poids double !", "Un 128 s'envole : gros bonus !", "Garde Basile en équilibre !"];
+  var tipIndex = 0;
+  var tipTimer = setInterval(function () {
+    tipIndex = (tipIndex + 1) % tips.length;
+    tip.style.opacity = 0;
+    setTimeout(function () { tip.textContent = tips[tipIndex]; tip.style.opacity = 1; }, 300);
+  }, 2600);
+
+  // ------------------------------------------------------------------ La bascule de chargement
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var stage = document.querySelector("#stage"), rig = document.querySelector("#plankRig");
+  var plank = document.querySelector("#plank"), head = document.querySelector("#head"), shadow = document.querySelector("#shadow");
+  var lipL = document.querySelector("#lipL"), lipR = document.querySelector("#lipR");
+  var level = document.querySelector("#level"), bubble = document.querySelector("#bubble");
+  var WORD = "BASCULE", COLORS = ["#FF5A5F", "#FFC93C", "#5BD16E", "#4A9BFF", "#A66CFF", "#FF5A5F", "#FFC93C"];
+  // Ordre d'arrivée : d'un bout à l'autre, pour que la planche penche à gauche, à droite… puis s'équilibre.
+  var ORDER = [0, 6, 1, 5, 2, 4, 3];
+  var letters = [], u = 1, plankW = 1, plankH = 1;
+  var angle = 0, vel = 0, landedCount = 0, celebrated = false;
+
+  for (var i = 0; i < WORD.length; i++) {
+    var s = document.createElement("span");
+    s.className = "letter"; s.textContent = WORD[i]; s.style.color = COLORS[i]; s.style.opacity = 0;
+    rig.appendChild(s);
+    letters.push({ el: s, slot: i - 3, state: 0, y: 0, vy: 0, squash: 0 });
+  }
+
+  // Mise en page : une « unité » du jeu = un 6,6e de la largeur de la planche (comme dans le jeu).
+  function layout() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    plankW = Math.min(vw * 0.86, vh * 0.5);
+    u = plankW / 6.6;
+    plankH = plankW * 64 / 1068;
+    var headS = u * 2.7;
+    stage.style.width = plankW + "px"; stage.style.height = (headS + plankH) + "px";
+    rig.style.width = plankW + "px"; rig.style.height = plankH + "px";
+    rig.style.top = "0px"; plank.style.width = plankW + "px"; plank.style.height = plankH + "px";
+    head.style.width = headS + "px"; head.style.height = headS + "px";
+    // La planche repose sur le haut des cheveux (le portrait a une marge transparente en haut).
+    head.style.left = (plankW - headS) / 2 + "px"; head.style.top = (plankH * 0.35 - headS * 0.07) + "px";
+    shadow.style.width = headS * 0.9 + "px"; shadow.style.height = u * 0.22 + "px";
+    shadow.style.left = (plankW - headS * 0.9) / 2 + "px"; shadow.style.top = (plankH * 0.35 + headS * 0.86) + "px";
+    // Rebords : dessinés à 250 px par unité (0,38 × 0,48 unité), posés sur le dessus plat de la planche.
+    var lw = 0.38 * u, lh = 0.48 * u, pad = 0.05 * u, inset = 0.078 * u, sink = 0.02 * u, edge = 6 * plankW / 1068;
+    [lipL, lipR].forEach(function (l, k) {
+      l.style.width = lw + "px"; l.style.height = lh + "px";
+      l.style.bottom = (plankH - edge - sink - pad) + "px";
+      if (k === 0) l.style.left = (edge + inset - pad) + "px";
+      else l.style.left = (plankW - edge - inset - lw + pad) + "px";
+    });
+    var fs = u * 0.82;
+    letters.forEach(function (L) {
+      L.el.style.fontSize = fs + "px";
+      L.el.style.width = u * 0.78 + "px";
+      L.el.style.left = (plankW / 2 + L.slot * u * 0.76 - u * 0.39) + "px";
+    });
+    var lvW = Math.min(vw * 0.62, vh * 0.34), lvH = lvW * 192 / 1280;
+    level.style.width = lvW + "px"; level.style.height = lvH + "px";
+    var stageBottom = vh * 0.47 + (headS + plankH) / 2;
+    level.style.top = (stageBottom + vh * 0.05) + "px";
+    bubble.style.width = bubble.style.height = lvH * 0.78 + "px";
+    pct.style.top = (stageBottom + vh * 0.05 + lvH + vh * 0.008) + "px";
+    tip.style.top = (stageBottom + vh * 0.05 + lvH + vh * 0.05) + "px";
+  }
+  layout();
+  window.addEventListener("resize", layout);
+
+  // Progression : le téléchargement compte pour 85 %, le démarrage du jeu pour le reste.
+  var shown = 0, target = 0;
+  function setProgress(p) { target = Math.max(target, p); }
+
+  function dropLetter(L) {
+    L.state = 1; L.el.style.opacity = 1;
+    L.y = reduce ? 0 : window.innerHeight * 0.55; L.vy = 0;
+  }
+
+  function landed(L) {
+    L.state = 2; L.y = 0; L.squash = 1; landedCount++;
+    // La planche penche du côté de la lettre, puis le ressort la ramène.
+    vel += -L.slot * (reduce ? 0 : 26);
+    sparks(L);
+  }
+
+  function sparks(L) {
+    if (reduce) return;
+    var r = stage.getBoundingClientRect();
+    for (var k = 0; k < 6; k++) {
+      var d = document.createElement("div");
+      d.className = "spark"; d.style.background = COLORS[L.slot + 3];
+      d.style.left = (r.left + plankW / 2 + L.slot * u * 0.76) + "px"; d.style.top = (r.top) + "px";
+      loader.appendChild(d);
+      (function (d, a) {
+        var t0 = performance.now(), vx = Math.cos(a) * u * 2.2, vy0 = -Math.abs(Math.sin(a)) * u * 2.6;
+        function step(t) {
+          var s = (t - t0) / 1000; if (s > 0.6) { d.remove(); return; }
+          d.style.transform = "translate(" + vx * s + "px," + (vy0 * s + 9 * u * s * s) + "px) scale(" + (1 - s / 0.6) + ")";
+          requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      })(d, Math.PI * (0.15 + 0.7 * Math.random()));
+    }
+  }
+
+  // Couple des lettres posées : la planche penche vers le côté le plus chargé, comme dans le jeu.
+  function torque() {
+    var t = 0;
+    letters.forEach(function (L) { if (L.state === 2) t += L.slot; });
+    return t;
+  }
+
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (target >= 0.85 && target < 1) target = Math.min(0.97, target + dt * 0.08);
+    shown += (target - shown) * Math.min(1, dt * 6);
+    var p = Math.max(0, Math.min(1, shown));
+    bubble.style.left = (9 + 82 * p) + "%";
+    pct.textContent = Math.round(p * 100) + " %";
+
+    // Une lettre de plus tombe à chaque septième du chargement (toutes au plus tard quand le jeu est prêt).
+    var want = Math.min(WORD.length, Math.floor(p * WORD.length + 0.35));
+    var started = letters.filter(function (L) { return L.state > 0; }).length;
+    if (started < want) dropLetter(letters[ORDER[started]]);
+
+    letters.forEach(function (L) {
+      if (L.state === 1) {
+        L.vy += window.innerHeight * 3.2 * dt; L.y -= L.vy * dt;
+        if (L.y <= 0) landed(L);
+      }
+      if (L.squash > 0) L.squash = Math.max(0, L.squash - dt * 5);
+      var sx = 1 + L.squash * 0.25, sy = 1 - L.squash * 0.22;
+      L.el.style.transform = "translateY(" + (-L.y - plankH * 0.62) + "px) scale(" + sx + "," + sy + ")";
+      L.el.style.transformOrigin = "50% 100%";
+    });
+
+    // Ressort amorti : la planche oscille puis se pose ; elle reste un peu penchée tant que le mot n'est pas complet.
+    var goal = -torque() * 3.2;
+    var acc = (goal - angle) * 38 - vel * 6.5;
+    vel += acc * dt; angle += vel * dt;
+    // Angle compté dans le sens inverse des aiguilles d'une montre (comme dans Unity) : la planche descend du côté chargé.
+    rig.style.transform = "rotate(" + (-angle).toFixed(2) + "deg)";
+    head.style.transform = "rotate(" + (angle * 0.15).toFixed(2) + "deg)";
+
+    if (target >= 1 && landedCount === WORD.length && !celebrated) celebrate();
+    if (!finished) requestAnimationFrame(frame);
+  }
+  var finished = false;
+  requestAnimationFrame(frame);
+
+  function celebrate() {
+    celebrated = true;
+    // Le mot est complet et le jeu est prêt : les lettres sautent en vague, puis on passe au jeu.
+    letters.forEach(function (L, k) {
+      setTimeout(function () { L.squash = 1; sparks(L); }, k * 70);
+    });
+    setTimeout(function () {
+      loader.classList.add("done");
+      setTimeout(function () { finished = true; clearInterval(tipTimer); if (loader.parentNode) loader.parentNode.removeChild(loader); }, 700);
+    }, reduce ? 150 : 700);
+  }
+
+  var buildUrl = "Build";
+  var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+  var config = {
+    arguments: [],
+    dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+    frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+    workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+    codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if MEMORY_FILENAME
+    memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+    symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+    productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+    productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+    showBanner: unityShowBanner,
+  };
+
+  var script = document.createElement("script");
+  script.src = loaderUrl;
+  script.onload = function () {
+    createUnityInstance(canvas, config, function (progress) {
+      setProgress(progress * 0.85);
+    }).then(function () {
+      // Le jeu est prêt : la dernière lettre tombe, le mot s'équilibre, puis fondu vers le jeu.
+      target = 1;
+    }).catch(function (message) {
+      unityShowBanner("Le jeu n'a pas pu démarrer : " + message, "error");
+    });
+  };
+  document.body.appendChild(script);
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+ "joueurs": 1000,
+ "jours": 60,
+ "versions": {
+  "apres": {
+   "partis": 625,
+   "raisons": {
+    "lassitude": 253,
+    "rien_de_neuf": 262,
+    "pubs": 23,
+    "parties_ratees": 87
+   }
+  },
+  "v10": {
+   "partis": 602,
+   "raisons": {
+    "lassitude": 326,
+    "rien_de_neuf": 129,
+    "parties_ratees": 126,
+    "pubs": 21
+   }
+  }
+ }
+}

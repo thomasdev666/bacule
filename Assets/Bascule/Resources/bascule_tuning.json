@@ -1,0 +1,96 @@
+{
+  "_aide": "Réglages de Bascule. Modifier, sauvegarder, puis dans le jeu : Réglages > Prototype > Recharger (ou relancer). Les clés qui commencent par _ sont des commentaires.",
+  "plank": {
+    "_aide": "tiltDirection 1 = penche vers le côté lourd, -1 = vers le léger. maxAngle en degrés. degreesPerTorque : inclinaison par unité de couple. Couple = (valeur^torqueExponent) x position (-1 bout gauche, +1 bout droit). Couple de défaite = maxAngle / degreesPerTorque (ici environ 11,5 : un 16 aux trois quarts de la planche). torqueExponent 1 = réaliste ; 0,85 = les gros poids écrasent un peu moins le reste.",
+    "tiltDirection": 1,
+    "degreesPerTorque": 2.6,
+    "_aide_rebords": "Petits rebords aux bouts de la planche : ils retiennent les poids qui glissent (simulation : 18 % de poids tombés au lieu de 22 %, parties plus longues). 0 = sans rebord.",
+    "endLipHeight": 0.22,
+    "endLipWidth": 0.12,
+    "torqueExponent": 0.85,
+    "frequency": 0.55,
+    "loadSlowdown": 0.012,
+    "dampingRatio": 0.5,
+    "maxAngle": 30,
+    "loseGraceSeconds": 0.7,
+    "overshootAngle": 6,
+    "startLength": 6.6,
+    "minLength": 4.2,
+    "shrinkPer1000Points": 0.14,
+    "thickness": 0.3,
+    "referenceHalfLength": 3.3,
+    "balloonLiftSeconds": 1.6,
+    "balloonGraceSeconds": 2.5,
+    "balloonGraceDamping": 2.2,
+    "bigMergeValue": 64,
+    "bigMergeSteadySeconds": 1.5,
+    "bigMergeDamping": 1.6,
+    "bigMergeStrainRate": 0.6
+  },
+  "weights": {
+    "_aide": "Taille = baseSize x valeur^sizeExponent, plafonnée à maxSize (unités monde ; l'écran fait environ 8,5 de large). friction : plus bas = les poids glissent quand ça penche.",
+    "baseSize": 0.58,
+    "sizeExponent": 0.27,
+    "maxSize": 1.75,
+    "friction": 0.45,
+    "bounciness": 0.04,
+    "gravityScale": 1.7,
+    "massExponent": 0.5
+  },
+  "spawn": {
+    "_aide": "À partir du poids numéro fromDrop, les poids sont tirés parmi values avec ces chances (pas besoin de faire 100). Le 128 ne tombe jamais : il se fabrique.",
+    "dropCooldown": 0.45,
+    "tiers": [
+      { "fromDrop": 0,  "values": [1, 2, 4],         "chances": [50, 35, 15] },
+      { "fromDrop": 15, "values": [1, 2, 4, 8],      "chances": [35, 35, 22, 8] },
+      { "fromDrop": 40, "values": [1, 2, 4, 8, 16],  "chances": [25, 30, 28, 14, 3] },
+      { "fromDrop": 90, "values": [1, 2, 4, 8, 16],  "chances": [18, 26, 30, 19, 7] }
+    ]
+  },
+  "score": {
+    "_aide": "Points d'une fusion = valeur créée x pointsPerValue x combo. Combo : +comboStep par fusion enchaînée (moins de comboWindow secondes d'écart).",
+    "pointsPerValue": 3,
+    "comboWindow": 1.2,
+    "comboStep": 0.5,
+    "maxComboMultiplier": 4,
+    "balloonBonus": 600,
+    "_aide_chute": "Un poids qui tombe de la planche coûte lostWeightPenalty x sa valeur en points et casse le combo.",
+    "lostWeightPenalty": 4
+  },
+  "mascot": {
+    "_aide": "Seuils d'humeur, en part de l'inclinaison max : détendue < tenseRatio < crispée < strainedRatio < grimace < lastEffortRatio < dernier effort.",
+    "tenseRatio": 0.3,
+    "strainedRatio": 0.55,
+    "lastEffortRatio": 0.82,
+    "mascotName": "Basile"
+  },
+  "economy": {
+    "_aide": "Pièces par partie = score / scorePerCoin. XP par partie = xpPerGame + score / scorePerXp. XP du niveau n au suivant = levelXpBase + levelXpStep x n. Pièces au passage du niveau n = levelCoinsBase + levelCoinsStep x n. dailyGift : pièces des jours 1 à 7 de suite ; dailyGiftItems : objet du jour en plus (coins, chest = coffre, ticket = surprise gratuite, plank = planche). Les pièces n'achètent que des têtes (jamais d'avantage en partie).",
+    "scorePerCoin": 25,
+    "xpPerGame": 10,
+    "scorePerXp": 10,
+    "levelXpBase": 75,
+    "levelXpStep": 50,
+    "levelCoinsBase": 50,
+    "levelCoinsStep": 10,
+    "dailyGift": [50, 0, 120, 0, 200, 0, 300],
+    "dailyGiftItems": ["coins", "chest", "coins", "ticket", "coins", "chest", "plank"],
+    "missionsBonus": 150,
+    "missionXp": 40
+  },
+  "ads": {
+    "_aide": "Pub imposée (interstitiel) : seulement entre deux parties, jamais avant la partie numéro firstInterstitialAfterGames, au plus une toutes les interstitialEveryGames parties ET minSecondsBetweenInterstitials secondes, jamais moins de minSecondsAfterRewarded secondes après une vidéo choisie, jamais après un record ou une partie de moins de minRunSecondsForInterstitial secondes. Simulation de 1000 joueurs (docs/RAPPORT.md) : « toutes les 3 parties et 3 minutes » est le meilleur compromis rétention / revenus.",
+    "firstInterstitialAfterGames": 6,
+    "interstitialEveryGames": 3,
+    "minSecondsBetweenInterstitials": 180,
+    "minSecondsAfterRewarded": 120,
+    "minRunSecondsForInterstitial": 25,
+    "maxInterstitialsPerDay": 12,
+    "maxRewardedPerDay": 20,
+    "freeCoinsPerDay": 5,
+    "freeCoinsAmount": 60,
+    "removeAdsHintAfter": 4,
+    "starterOfferAfterGames": 8,
+    "starterOfferHours": 48
+  }
+}
