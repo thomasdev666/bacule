@@ -1,0 +1,1368 @@
+using System;
+using System.Collections.Generic;
+using Bascule.Core;
+using Bascule.Services;
+using Bascule.UI;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+namespace Bascule
+{
+    /// <summary>
+    /// Point d'entrée : construit tout le jeu par le code au lancement (caméra, monde, interface, services),
+    /// dans n'importe quelle scène. Rien à câbler dans l'éditeur.
+    /// </summary>
+    public sealed class GameApp : MonoBehaviour
+    {
+        public static GameApp Instance { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Boot()
+        {
+            if (Instance != null) return;
+            new GameObject("Bascule").AddComponent<GameApp>();
+        }
+
+        /// <summary>Lien vers la politique de confidentialité (obligatoire sur les stores). À remplacer.</summary>
+        public const string PrivacyUrl = "https://orpheex.fr/bascule/confidentialite";
+        /// <summary>Page d'aide et de contact (demandée par les stores).</summary>
+        public const string SupportUrl = "https://orpheex.fr/bascule";
+        /// <summary>Version des conditions (aucun écran au lancement ; la politique de confidentialité est dans les réglages).</summary>
+        const int ConsentVersion = 2;
+        const float AutosaveSeconds = 10f;
+
+        /// <summary>Identifiants Unity Ads (tableau de bord Unity Ads > Monetization). À remplacer avant la publication.</summary>
+        static class AdIds
+        {
+#if UNITY_IOS
+            public const string Game = "0000000", Rewarded = "Rewarded_iOS", Interstitial = "Interstitial_iOS";
+#else
+            public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
+#endif
+            /// <summary>Pubs de test tant que le jeu n'est pas publié.</summary>
+            public const bool TestMode = true;
+        }
+
+        public Tuning Tuning { get; private set; }
+        public Profile Profile { get; private set; }
+        public ArtCache Art { get; private set; }
+        public GameSession Session { get; private set; }
+        public LeaderboardSync Leaderboard { get; private set; }
+        public string TodayKey => Daily.Key(DateTime.UtcNow);
+        /// <summary>Jour local (cadeau, missions, publicités) : change à minuit chez le joueur.</summary>
+        public string LocalDay => DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        public double Now => Dates.UnixSeconds(DateTime.UtcNow);
+        public bool HasSavedRun => _save.HasRun;
+        public Analytics Stats { get; private set; }
+        public EconomyGain LastGain => _pendingGain;
+        public bool LastGainDoubled => _gainDoubled;
+        public IPurchaseService Purchases => _purchases;
+        public bool NotificationsSupported => _notifications.IsSupported;
+
+        SaveService _save;
+        AudioService _audio;
+        MusicPlayer _music;
+        HapticsService _haptics;
+        IAdService _ads;
+        IPurchaseService _purchases;
+        IShareService _share;
+        INotificationService _notifications;
+        ScoreCard _card;
+        Camera _cam;
+        Font _font;
+        int _tiltFromFile = 1;
+
+        Canvas _canvas;
+        CanvasScaler _scaler;
+        RectTransform _frame;
+        Camera _borders;
+        HomeScreen _home;
+        HudScreen _hud;
+        PauseScreen _pause;
+        GameOverScreen _gameOver;
+        CollectionScreen _collection;
+        ChestScreen _chest;
+        SurpriseScreen _surprise;
+        bool _chestOpened;
+        LeaderboardScreen _leaderboard;
+        SettingsScreen _settings;
+        PromptScreen _prompt;
+        GiftScreen _gift;
+        MissionsScreen _missions;
+        ShopScreen _shop;
+        ConfirmScreen _confirm;
+        AdOverlay _adOverlay;
+        Toast _toast;
+        UiScreen _current;
+
+        RunResult _pendingResult;
+        RunRewards _pendingRewards;
+        EconomyGain _pendingGain;
+        bool _gainDoubled, _celebration, _leavingGameOver, _starterPopupPending, _ratePending;
+        float _lastRunSeconds;
+        bool _pendingFinalized = true;
+        float _autosave;
+        Vector2Int _screenSize;
+
+        // ------------------------------------------------------------------ Lancement
+
+        void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            AudioService.UseSafeBuffer();
+
+            // Écrans 120 Hz (iPhone Pro, ProMotion, beaucoup d'Android) : le jeu suit l'écran, jusqu'à 120 images/s.
+#if UNITY_2022_2_OR_NEWER
+            int hz = Mathf.RoundToInt((float)Screen.currentResolution.refreshRateRatio.value);
+#else
+            int hz = Screen.currentResolution.refreshRate;
+#endif
+            _displayHz = Mathf.Clamp(hz, 60, 120);
+            ApplyFrameRate(false);
+            QualitySettings.vSyncCount = 0;
+            Time.fixedDeltaTime = 1f / 60f;
+#if !(BASCULE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER)
+            Input.multiTouchEnabled = false; // une seule main, un seul doigt
+#endif
+            Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
+            _save = new SaveService();
+            Profile = _save.LoadProfile();
+            Stats = new Analytics();
+            Tuning = TuningLoader.Load();
+            _tiltFromFile = Tuning.plank.tiltDirection;
+            Loc.Language = Loc.Resolve(Profile.settings.language, Application.systemLanguage.ToString());
+
+            _font = Resources.Load<Font>("Fonts/Fredoka-Bold");
+            if (_font == null) _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Art = new ArtCache();
+            Art.Build();
+            Ui.Font = _font;
+            Ui.Art = Art;
+            BootCurtain.Create(_font); // même ciel et même logo que l'écran de chargement : pas de flash au démarrage
+            Ui.Click = () => { _audio.Play(Sfx.Click, 1, 0.6f); _haptics.Light(); };
+
+            _cam = Camera.main;
+            if (_cam == null)
+            {
+                var camGo = new GameObject("Camera");
+                camGo.tag = "MainCamera";
+                _cam = camGo.AddComponent<Camera>();
+            }
+            _cam.clearFlags = CameraClearFlags.SolidColor;
+            _cam.cullingMask &= ~(1 << 5); // l'interface (couche UI) n'est pas filmée par la caméra du jeu
+            DontDestroyOnLoad(_cam.gameObject);
+            // Un seul écouteur, sur la caméra du jeu, avec le limiteur qui évite la saturation du mélange.
+#if UNITY_2023_1_OR_NEWER
+            var listener = FindFirstObjectByType<AudioListener>();
+#else
+            var listener = FindObjectOfType<AudioListener>();
+#endif
+            if (listener == null) listener = _cam.gameObject.AddComponent<AudioListener>();
+#if !UNITY_WEBGL || UNITY_EDITOR
+            // Pas sur le web : Unity n'y prend pas en charge OnAudioFilterRead (le navigateur mixe lui-même le son).
+            if (listener.GetComponent<SoftLimiter>() == null) listener.gameObject.AddComponent<SoftLimiter>();
+#endif
+
+            _audio = new AudioService(gameObject);
+            _music = new MusicPlayer(gameObject);
+            _audio.Duck = a => _music.Duck(a);
+            _haptics = new HapticsService();
+
+            var sessionGo = new GameObject("Partie");
+            sessionGo.transform.SetParent(transform, false);
+            Session = sessionGo.AddComponent<GameSession>();
+            Session.Init(Tuning, Art, _font, _cam, _audio, _haptics);
+            Session.RunEnded += OnRunEnded;
+            Session.Dropped += () => _hud.OnDropped();
+            Session.Merged += v => _hud.OnMerged(v);
+            Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
+            Session.WeightLost += v => _hud.OnWeightLost(v);
+
+#if BASCULE_UNITYADS && !UNITY_EDITOR
+            _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode);
+#else
+            _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
+#endif
+#if BASCULE_IAP && !UNITY_EDITOR
+            _purchases = new UnityIapService();
+#else
+            _purchases = new StubPurchaseService();
+#endif
+            _purchases.Purchased += OnPurchased;
+#if BASCULE_NOTIFICATIONS && (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+            _notifications = new MobileNotificationService(this);
+#else
+            _notifications = new NoNotificationService();
+#endif
+#if UNITY_WEBGL && !UNITY_EDITOR
+            _share = new WebShareService();
+#else
+            _share = new NativeShareService(msg => _toast.Say(msg));
+#endif
+            _card = new ScoreCard(Art);
+
+#if BASCULE_UGS
+            ILeaderboardService lb = new UgsLeaderboardService();
+#else
+            ILeaderboardService lb = new OfflineLeaderboardService();
+#endif
+            Leaderboard = new LeaderboardSync(lb, Profile, SaveProfile);
+            Leaderboard.RankKnown += OnRankKnown;
+            InitLeaderboard();
+
+            BuildCanvas();
+            ApplySettings(false);
+            _screenSize = new Vector2Int(Screen.width, Screen.height);
+            Session.Layout();
+            // Au lancement, la mascotte arrive et ramasse sa planche (sauf si une partie attend d'être reprise).
+            if (!HasSavedRun) Session.PlayIntro();
+
+            NewDayCheck();
+            StartCoroutine(WarmUp());
+            Stats.Event("app_open", ("day", Profile.daysPlayed), ("games", Profile.gamesPlayed), ("level", Profile.level), ("coins", Profile.coins));
+            // Pas d'écran d'explication au lancement : on arrive directement sur le jeu.
+            if (Profile.consentVersion < ConsentVersion) { Profile.consentVersion = ConsentVersion; SaveProfile(); }
+            ShowHome();
+        }
+
+        /// <summary>
+        /// Fluidité : toutes les images sont dessinées en arrière-plan dès le lancement (sur un autre cœur), puis chargées
+        /// en mémoire une par image affichée, de préférence pendant les menus. Pendant une partie, plus rien n'est
+        /// calculé au dernier moment (nouveau poids, expression, ambiance qui change à 2 500 points…).
+        /// </summary>
+        System.Collections.IEnumerator WarmUp()
+        {
+            Art.PrepareInBackground(Art.GameplayJobs());
+            Art.PrepareInBackground(Backdrop.AllSceneJobs());
+            Art.PrepareInBackground(Art.HeadJobs(false));
+            yield return null;
+
+            // 1. Ce qui sert en partie : poids, expressions, rougeur.
+            foreach (var v in WeightCatalog.Values) { yield return WaitFile("weight" + v); Art.Weight(v); yield return null; }
+            foreach (Expression e in Enum.GetValues(typeof(Expression))) { yield return WaitFile("face_" + e); Art.Face(e); yield return null; }
+            yield return WaitFile("flush");
+            _ = Art.Flush;
+
+            // Portraits affichés pendant ou juste après une partie (prochaine tête), et ceux de la boutique.
+            var soon = new List<HeadDef>();
+            var nextScore = HeadCatalog.NextScoreHead(Profile.unlockedHeads);
+            foreach (var h in HeadCatalog.All)
+                if ((h.Unlock == UnlockKind.Score && nextScore != null && h.UnlockValue >= nextScore.UnlockValue && soon.Count < 3) || h.Unlock == UnlockKind.Premium)
+                    soon.Add(h);
+            var shopNext = HeadCatalog.NextShopHead(Profile.unlockedHeads);
+            if (shopNext != null) soon.Add(shopNext);
+            var urgent = new List<KeyValuePair<string, Func<Raster>>>();
+            foreach (var h in soon) { urgent.Add(ArtCache.PortraitJob(h, false)); urgent.Add(ArtCache.PortraitJob(h, true)); }
+            Art.PrepareInBackground(urgent, true);
+            foreach (var h in soon)
+            {
+                yield return WaitFile("portrait" + h.Id); Art.Portrait(h); yield return null;
+                yield return WaitFile("locked" + h.Id); Art.Locked(h); yield return null;
+            }
+
+            // 2. Les ambiances du décor (grosses images) : chargées hors partie, sauf la suivante si on joue déjà.
+            for (int i = 1; i < Theme.All.Length; i++)
+            {
+                while (Session.IsRunning && !Session.Paused && Difficulty.BackgroundIndex(Session.Score, Theme.All.Length) + 1 < i) yield return null;
+                yield return WaitFile("scene_t" + i + "ground");
+                yield return Session.Backdrop.Preload(i);
+            }
+
+            // 3. Les portraits (collection, boutique).
+            foreach (var h in HeadCatalog.All)
+            {
+                while (Session.IsRunning && !Session.Paused) yield return null;
+                yield return WaitFile("portrait" + h.Id);
+                Art.Portrait(h);
+                yield return null;
+            }
+        }
+
+        /// <summary>Attend (au plus quelques secondes) qu'une image préparée en arrière-plan soit prête.</summary>
+        System.Collections.IEnumerator WaitFile(string key)
+        {
+            float limit = Time.realtimeSinceStartup + 20f;
+            while (!ArtCache.IsReady(key) && Art.Preparing && Time.realtimeSinceStartup < limit) yield return null;
+        }
+
+        /// <summary>Nouveau jour : missions, jours joués. Appelé au lancement et au retour dans l'appli.</summary>
+        void NewDayCheck()
+        {
+            Progress.TouchDay(Profile, LocalDay);
+            if (Missions.Refresh(Profile, LocalDay)) SaveProfile();
+        }
+
+        async void InitLeaderboard()
+        {
+            if (!await Leaderboard.Service.InitializeAsync()) return;
+            if (!string.IsNullOrEmpty(Profile.pseudo)) await Leaderboard.Service.SetPseudoAsync(Profile.pseudo);
+            Leaderboard.Flush(TodayKey);
+        }
+
+        void BuildCanvas()
+        {
+            if (EventSystem.current == null)
+            {
+                var es = new GameObject("EventSystem", typeof(EventSystem));
+#if BASCULE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+                es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+#else
+                es.AddComponent<StandaloneInputModule>();
+#endif
+                DontDestroyOnLoad(es);
+            }
+
+            if (_canvas == null)
+            {
+                var go = new GameObject("Interface", typeof(RectTransform));
+                go.layer = 5;
+                DontDestroyOnLoad(go);
+                _canvas = go.AddComponent<Canvas>();
+                _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                _canvas.sortingOrder = 10;
+                _scaler = go.AddComponent<CanvasScaler>();
+                _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                _scaler.referenceResolution = new Vector2(Ui.RefWidth, Ui.RefHeight);
+                _scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                go.AddComponent<GraphicRaycaster>();
+            }
+            FitCanvas();
+
+            Ui.Clear(_canvas.transform);
+            Ui.TextScale = Profile.settings.textScale;
+            // Cadre portrait : sur un écran paysage (éditeur, PC), toute l'interface tient dans une colonne 9:16.
+            _frame = Ui.Rect("Cadre", _canvas.transform);
+            FitFrame();
+            var t = _frame;
+            _home = Make<HomeScreen>(t, null);
+            _hud = Make<HudScreen>(t, null);
+            _gameOver = Make<GameOverScreen>(t, Palette.Shade);
+            _collection = Make<CollectionScreen>(t, Palette.Shade);
+            _leaderboard = Make<LeaderboardScreen>(t, Palette.Shade);
+            _settings = Make<SettingsScreen>(t, Palette.Shade);
+            _pause = Make<PauseScreen>(t, Palette.Shade);
+            _prompt = Make<PromptScreen>(t, Palette.Shade);
+            _missions = Make<MissionsScreen>(t, Palette.Shade);
+            _shop = Make<ShopScreen>(t, Palette.Shade);
+            _gift = Make<GiftScreen>(t, Palette.Shade);
+            _confirm = Make<ConfirmScreen>(t, Palette.Shade);
+            _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
+            _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
+            _adOverlay = Make<AdOverlay>(t, new Color(0, 0, 0, 0.92f));
+            _toast = Make<Toast>(t, null);
+        }
+
+        T Make<T>(Transform canvas, Color? bg) where T : UiScreen, new()
+        {
+            var s = new T();
+            s.Create(this, canvas, bg);
+            return s;
+        }
+
+        /// <summary>
+        /// Le jeu est en portrait. Téléphones (même très allongés, iPhone 14 Pro : 0,46) et tablettes (iPad : 0,69 à 0,75)
+        /// remplissent tout l'écran ; seul un écran plus large (ordinateur, tablette tournée) affiche une colonne portrait.
+        /// </summary>
+        public const float MaxAspect = 0.8f;
+
+        static bool Landscape => Screen.height > 0 && Screen.width / (float)Screen.height > MaxAspect;
+
+        void FitCanvas()
+        {
+            // Téléphones fins : on cale la largeur. Tablettes et écrans paysage : la hauteur.
+            float aspect = Screen.height > 0 ? Screen.width / (float)Screen.height : 0.5f;
+            _scaler.matchWidthOrHeight = aspect > 9f / 16f ? 1f : 0f;
+            FitFrame();
+
+            // Caméra du jeu limitée à la colonne portrait, bandes noires autour.
+            if (Landscape)
+            {
+                float w = Screen.height * (9f / 16f) / Screen.width;
+                _cam.rect = new Rect(0.5f - w * 0.5f, 0f, w, 1f);
+                if (_borders == null)
+                {
+                    var go = new GameObject("Bordures");
+                    DontDestroyOnLoad(go);
+                    _borders = go.AddComponent<Camera>();
+                    _borders.depth = _cam.depth - 10;
+                    _borders.clearFlags = CameraClearFlags.SolidColor;
+                    _borders.backgroundColor = new Color(0.06f, 0.05f, 0.1f);
+                    _borders.cullingMask = 0;
+                }
+                _borders.enabled = true;
+            }
+            else
+            {
+                _cam.rect = new Rect(0, 0, 1, 1);
+                if (_borders != null) _borders.enabled = false;
+            }
+        }
+
+        void FitFrame()
+        {
+            if (_frame == null) return;
+            if (Landscape)
+            {
+                _frame.anchorMin = new Vector2(0.5f, 0f);
+                _frame.anchorMax = new Vector2(0.5f, 1f);
+                _frame.pivot = new Vector2(0.5f, 0.5f);
+                _frame.sizeDelta = new Vector2(Ui.RefHeight * 9f / 16f, 0f);
+                _frame.anchoredPosition = Vector2.zero;
+            }
+            else Ui.Stretch(_frame);
+        }
+
+        // ------------------------------------------------------------------ Navigation
+
+        void Show(UiScreen screen)
+        {
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm })
+                if (s != screen) s.Hide();
+            _current = screen;
+            screen?.Show();
+        }
+
+        public void GoHome()
+        {
+            if (_current == _gameOver && !_leavingGameOver) { if (ChestWaiting) { OpenRunChest(GoHome); return; } LeaveGameOver(GoHome); return; }
+            FinalizeRun();
+            if (Session.IsRunning) SaveRunSnapshot();
+            Session.SetPaused(false);
+            Session.GoIdle();
+            ShowHome();
+        }
+
+        void ShowHome()
+        {
+            Show(_home);
+            HomePopups();
+        }
+
+        /// <summary>
+        /// Au plus une fenêtre à chaque retour à l'accueil, par ordre d'importance :
+        /// cadeau du jour, offre de départ (une fois), suggestion « sans pubs » (une fois), rappels (une fois).
+        /// </summary>
+        void HomePopups()
+        {
+            // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.
+            if (Profile.gamesPlayed >= 1 && DailyGift.Available(Profile.gift, LocalDay)) { _gift.Show(); return; }
+            if (_starterPopupPending && Offers.StarterActive(Profile, Now))
+            {
+                _starterPopupPending = false;
+                Profile.offers.starterPopupShown = true;
+                SaveProfile();
+                Stats.Event("offer_shown", ("offer", "starter"));
+                ShowShop("offre_depart");
+                return;
+            }
+            if (AdPolicy.ShouldHintRemoveAds(Tuning.ads, Profile.ads, Profile))
+            {
+                Profile.ads.removeAdsHintShown = true;
+                SaveProfile();
+                Stats.Event("offer_shown", ("offer", "removeads"));
+                _confirm.Ask(Loc.Get("removeads_hint_title"), Loc.Get("removeads_hint_body"), Art.IconSprite(Icon.Film),
+                    Loc.Get("p_removeads") + "  " + _purchases.Price(Shop.RemoveAds), () => BuyProduct(Shop.RemoveAds), Loc.Get("later"), null);
+                return;
+            }
+            // Note sur le store : une seule fois, juste après un record, chez un joueur revenu au moins une fois.
+            if (_ratePending && !Profile.ratingAsked && Profile.gamesPlayed >= 8 && Profile.daysPlayed >= 2)
+            {
+                _ratePending = false;
+                Profile.ratingAsked = true;
+                SaveProfile();
+                Stats.Event("rate_prompt");
+                _confirm.Ask(Loc.Get("rate_title"), Loc.Get("rate_body"), Art.IconSprite(Icon.Star), Loc.Get("rate_yes"), OpenStoreReview, Loc.Get("rate_no"), null);
+                return;
+            }
+            if (!Profile.notificationsAsked && _notifications.IsSupported && Profile.gamesPlayed >= 3)
+            {
+                Profile.notificationsAsked = true;
+                SaveProfile();
+                _confirm.Ask(Loc.Get("notif_ask_title"), Loc.Get("notif_ask_body"), Art.IconSprite(Icon.Bell),
+                    Loc.Get("notif_yes"), () => SetNotifications(true), Loc.Get("later"), null);
+            }
+        }
+
+        public void ShowCollection() => Show(_collection);
+
+        /// <summary>Depuis le bilan : aller acheter la tête de la boutique qu'on peut s'offrir (la partie est enregistrée).</summary>
+        public void OpenShopHeads()
+        {
+            if (_current == _gameOver && !_leavingGameOver) { if (ChestWaiting) { OpenRunChest(OpenShopHeads); return; } LeaveGameOver(OpenShopHeads); return; }
+            FinalizeRun();
+            Session.SetPaused(false);
+            Session.GoIdle();
+            _collection.SetTab("sec_shop");
+            Show(_collection);
+        }
+        public void ShowSettings() => Show(_settings);
+        public void ShowMissions() { Missions.Refresh(Profile, LocalDay); Show(_missions); }
+
+        public void ShowShop(string from)
+        {
+            Stats.Event("shop_open", ("from", from));
+            Show(_shop);
+        }
+
+        public void ShowLeaderboard()
+        {
+            Show(_leaderboard);
+            if (string.IsNullOrEmpty(Profile.pseudo) && Leaderboard.Service.IsOnline) AskPseudo();
+        }
+
+        // ------------------------------------------------------------------ Partie
+
+        public void Play(GameMode mode)
+        {
+            FinalizeRun();
+            _save.ClearRun();
+            uint seed = mode == GameMode.Daily ? Daily.Seed(TodayKey) : GameRng.RandomSeed();
+            StartRun(mode, seed);
+        }
+
+        void StartRun(GameMode mode, uint seed)
+        {
+            Session.SetPaused(false);
+            if (Profile.randomHead) RollRandomHead(); // tête au hasard : une autre tête à chaque partie
+            // Mode infini seulement : objectif de la partie et partie spéciale (récompenses, jamais le score).
+            Session.Goal = mode == GameMode.Infinite ? RunGoal.For(Profile) : 0;
+            Session.Special = mode == GameMode.Infinite ? SpecialRun.Next(Profile) : SpecialKind.None;
+            Session.StartRun(mode, seed, mode == GameMode.Daily ? TodayKey : "");
+            Show(_hud);
+            if (Session.Special != SpecialKind.None)
+                _toast.Reward(Icon.Star, Palette.Purple, Loc.Get("special_now"), Loc.Get("special_" + Session.Special), 0, 3.2f);
+            Stats.Event("run_start", ("mode", mode.ToString()), ("n", Profile.gamesPlayed + 1));
+        }
+
+        /// <summary>Défi du jour : on explique la règle et le record avant de lancer, au lieu de démarrer une partie sans prévenir.</summary>
+        public void ShowDailyIntro()
+        {
+            var p = Profile;
+            int streak = Daily.CurrentStreak(p.daily, TodayKey);
+            bool played = Daily.PlayedToday(p.daily, TodayKey);
+            int today = p.daily.bestDate == TodayKey ? p.daily.bestScoreToday : 0;
+            string body = Loc.Get("daily_rule");
+            if (today > 0) body += "\n\n" + Loc.Format("daily_best", Loc.FormatScore(today));
+            if (streak > 0) body += "\n" + Loc.Format("daily_streak", streak);
+            _confirm.Ask(Loc.Get("daily"), body, Art.IconSprite(Icon.Calendar),
+                Loc.Get(played ? "daily_again" : "play"), () => Play(GameMode.Daily), Loc.Get("back"), null);
+        }
+
+        /// <summary>Duels entre amis : pas encore ouverts. On le dit simplement (sans champ de code inutilisable).</summary>
+        public void DuelSoon()
+        {
+            _confirm.Ask(Loc.Get("duel_soon_title"), Loc.Get("duel_soon_body"), Art.IconSprite(Icon.Swords), Loc.Get("ok"), null, null, null);
+        }
+
+        public void AskDuelCode()
+        {
+            _prompt.Ask(Loc.Get("duel_prompt"), "", InputField.ContentType.Alphanumeric, code =>
+            {
+                if (ChallengeCode.TryDecode(code, out uint seed))
+                {
+                    FinalizeRun();
+                    _save.ClearRun();
+                    StartRun(GameMode.Duel, seed);
+                }
+                else _toast.Say(Loc.Get("duel_invalid"));
+            });
+        }
+
+        public void ResumeSavedRun()
+        {
+            var snapshot = _save.LoadRun();
+            if (snapshot == null) { _home.Refresh(); return; }
+            Session.SetPaused(false);
+            Session.ResumeRun(snapshot);
+            Show(_hud);
+        }
+
+        public void PauseGame()
+        {
+            if (!Session.IsRunning) return;
+            Session.SetPaused(true);
+            SaveRunSnapshot();
+            _pause.Show();
+        }
+
+        public void ResumeGame()
+        {
+            _pause.Hide();
+            Session.SetPaused(false);
+        }
+
+        public void RestartRun()
+        {
+            _pause.Hide();
+            var mode = Session.Mode;
+            uint seed = mode == GameMode.Infinite ? GameRng.RandomSeed() : Session.Seed;
+            _save.ClearRun();
+            StartRun(mode, seed);
+        }
+
+        public void Replay()
+        {
+            if (_current == _gameOver && !_leavingGameOver) { if (ChestWaiting) { OpenRunChest(Replay); return; } LeaveGameOver(Replay); return; }
+            FinalizeRun();
+            var mode = Session.Mode;
+            uint seed = mode == GameMode.Infinite ? GameRng.RandomSeed() : mode == GameMode.Daily ? Daily.Seed(TodayKey) : Session.Seed;
+            StartRun(mode, seed);
+        }
+
+        void OnRunEnded(RunResult result)
+        {
+            _save.ClearRun();
+            _pendingResult = result;
+            _pendingFinalized = false;
+            _gainDoubled = false;
+            _leavingGameOver = false;
+            _chestOpened = false;
+
+            // Aperçu des récompenses sans rien enregistrer : le joueur peut encore revivre.
+            var preview = JsonUtility.FromJson<Profile>(JsonUtility.ToJson(Profile));
+            preview.Sanitize();
+            var rewards = Progress.ApplyRun(preview, result.Mode, result.Achievements, TodayKey);
+            _pendingRewards = rewards;
+            _pendingGain = EconomyRun.Apply(Tuning.economy, preview, result.Stats, LocalDay);
+            _celebration = rewards.NewBest || rewards.NewHeads.Count > 0 || _pendingGain.LevelHeads.Count > 0;
+            _lastRunSeconds = result.Seconds;
+
+            // La carte de score n'est fabriquée qu'au moment de partager (sinon : à-coup à chaque défaite).
+            Texture card = null;
+
+            _hud.Hide();
+            bool canRevive = Session.CanRevive && (Profile.adsRemoved || (_ads.CanShowRewarded && AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay)));
+            _gameOver.Present(result, rewards, _pendingGain, canRevive, Profile.adsRemoved, card);
+            _current = _gameOver;
+        }
+
+        /// <summary>Enregistre la partie terminée (record, têtes, pièces, missions, classement). Sans effet si déjà fait.</summary>
+        void FinalizeRun()
+        {
+            if (_pendingFinalized || _pendingResult == null) return;
+            _pendingFinalized = true;
+            var r = _pendingResult;
+            int levelBefore = Profile.level;
+            var rewards = Progress.ApplyRun(Profile, r.Mode, r.Achievements, TodayKey);
+            var gain = EconomyRun.Apply(Tuning.economy, Profile, r.Stats, LocalDay);
+            Profile.totalScore += r.Score;
+            Profile.totalMerges += r.Merges;
+            Profile.totalBalloons += r.Balloons;
+            Profile.totalSeconds += r.Seconds;
+            AdPolicy.OnRunEnded(Profile.ads);
+            if (Offers.CheckStarter(Tuning.ads, Profile, Now)) _starterPopupPending = true;
+            if (rewards.NewBest) _ratePending = true;
+            if (r.Mode == GameMode.Infinite) Leaderboard.Enqueue(Boards.World, r.Score, Profile.selectedHead, "");
+            if (r.Mode == GameMode.Daily) Leaderboard.Enqueue(Boards.Daily, r.Score, Profile.selectedHead, r.DayKey);
+            if (!Profile.tutorialDone) { Profile.tutorialDone = true; Stats.Event("tutorial_done", ("score", r.Score)); }
+            SaveProfile();
+            Leaderboard.Flush(TodayKey);
+            if (rewards.NewHeads.Count > 0 || gain.LevelHeads.Count > 0) Session.SetHead(HeadCatalog.Get(Profile.selectedHead));
+
+            Stats.Event("run_end", ("mode", r.Mode.ToString()), ("n", Profile.gamesPlayed), ("score", r.Score), ("seconds", r.Seconds), ("drops", r.Drops),
+("lost", r.LostWeights), ("revived", r.Revived), ("best", rewards.NewBest),
+                ("heads", rewards.NewHeads.Count + gain.LevelHeads.Count), ("coins", gain.Total), ("level", Profile.level));
+            if (Profile.level > levelBefore) Stats.Event("level_up", ("level", Profile.level));
+            foreach (var m in gain.MissionsDone) Stats.Event("mission_done", ("kind", m.kind.ToString()), ("target", m.target));
+            if (gain.MissionsBonus) Stats.Event("missions_all");
+        }
+
+        /// <summary>
+        /// Le joueur quitte l'écran de fin (Rejouer ou Accueil) : c'est le seul moment où une pub imposée peut passer,
+        /// et seulement si Core.AdPolicy l'autorise.
+        /// </summary>
+        /// <summary>Un coffre gagné à cette partie attend d'être ouvert.</summary>
+        public bool ChestWaiting => _pendingGain?.Chest != null && !_chestOpened && _pendingResult != null;
+
+        /// <summary>
+        /// Ouvre le coffre de la partie devant le joueur (écran du coffre). La partie est alors enregistrée : on ne peut
+        /// plus revivre. <paramref name="after"/> : ce qui suit la fermeture (rejouer, accueil), ou rien.
+        /// </summary>
+        public void OpenRunChest(Action after = null)
+        {
+            if (!ChestWaiting) { after?.Invoke(); return; }
+            _chestOpened = true;
+            int goal = _pendingResult.Goal;
+            FinalizeRun();
+            _gameOver.HideRevive();
+            _chest.Present(_pendingGain, goal, () => { _gameOver.OnChestOpened(); after?.Invoke(); });
+        }
+
+        public void PlaySfx(Sfx s, int step = 0, float volume = 1f) => _audio.Play(s, step, volume);
+        public void HapticMedium() => _haptics.Medium();
+
+        void LeaveGameOver(Action next)
+        {
+            _leavingGameOver = true;
+            _toast.Clear(); // le bilan de la partie ne suit pas le joueur sur l'écran suivant
+            FinalizeRun();
+            if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay))
+            {
+                Stats.Event("ad_interstitial", ("games", Profile.gamesPlayed), ("today", Profile.ads.interstitialsToday + 1));
+                _ads.ShowInterstitial(() =>
+                {
+                    AdPolicy.OnInterstitialShown(Profile.ads, Now, LocalDay);
+                    SaveProfile();
+                    next();
+                    _leavingGameOver = false;
+                });
+                return;
+            }
+            next();
+            _leavingGameOver = false;
+        }
+
+        /// <summary>Pub récompensée choisie par le joueur, avec plafond quotidien.</summary>
+        public void WatchRewarded(string placement, Action onReward)
+        {
+            if (!AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay)) { _toast.Say(Loc.Get("free_coins_none")); return; }
+            if (!_ads.CanShowRewarded) { _toast.Say(Loc.Get("ad_unavailable")); Stats.Event("ad_unavailable", ("placement", placement)); return; }
+            _ads.ShowRewarded(placement, ok =>
+            {
+                if (!ok) { _toast.Say(Loc.Get("ad_unavailable")); return; }
+                AdPolicy.OnRewardedWatched(Profile.ads, Now, LocalDay);
+                Stats.Event("ad_rewarded", ("placement", placement), ("today", Profile.ads.rewardedToday));
+                onReward?.Invoke();
+                SaveProfile();
+            });
+        }
+
+        public void ReviveWithAd()
+        {
+            if (!Session.CanRevive) return;
+            _gameOver.HideRevive();
+            void Revive()
+            {
+                _pendingFinalized = true; // la partie continue : on enregistrera à la vraie fin
+                _pendingResult = null;
+                Session.Revive();
+                Show(_hud);
+            }
+            if (Profile.adsRemoved) { Stats.Event("revive", ("free", true)); Revive(); return; }
+            WatchRewarded(Placements.Revive, () => { Stats.Event("revive", ("free", false)); Revive(); });
+        }
+
+        /// <summary>Doubler les pièces de la partie (vidéo), une fois par partie.</summary>
+        public void DoubleRunCoins()
+        {
+            if (_gainDoubled || _pendingGain == null || _pendingGain.Coins <= 0) return;
+            WatchRewarded(Placements.DoubleCoins, () =>
+            {
+                _gainDoubled = true;
+                Wallet.Add(Profile, _pendingGain.Coins);
+                _toast.Reward(Icon.Coin, Palette.Accent, Loc.Get("coins_doubled"), null, _pendingGain.Coins);
+                _gameOver.OnDoubled();
+            });
+        }
+
+        /// <summary>Ce que raconte la partie qu'on vient de finir (titre, frise, record frôlé…).</summary>
+        public BragInfo BragOf(RunResult r, RunRewards rewards)
+        {
+            return new BragInfo
+            {
+                Mode = r.Mode, DayKey = r.DayKey, Seed = r.Seed, Score = r.Score,
+                NewBest = rewards != null ? rewards.NewBest : r.Score > Profile.bestScore,
+                PreviousBest = rewards != null ? rewards.PreviousBest : Profile.bestScore,
+                BestSave = r.BestSave, Saves = r.Saves, BestChain = r.BestChain, Balloons = r.Balloons,
+                MaxValue = r.MaxValue, LostWeights = r.LostWeights, Seconds = r.Seconds, Tension = r.Tension,
+            };
+        }
+
+        /// <summary>
+        /// Partage : la carte 9:16 (photo de la chute, titre, score, code défi) et le résumé « à la Wordle ».
+        /// Le résumé est aussi copié : TikTok et Instagram ignorent souvent le texte joint, on le colle en légende.
+        /// </summary>
+        public void ShareScore()
+        {
+            var r = _pendingResult ?? Session.BuildResult();
+            var b = BragOf(r, _pendingResult != null ? _pendingRewards : null);
+            var head = HeadCatalog.Get(Profile.selectedHead);
+            try
+            {
+                string text = Core.Brag.Summary(b);
+                _card.Render(b, head, Tuning.mascot.mascotName, Session.HasPhoto && Session.Photo.IsCreated() ? Session.Photo : null, Session.PhotoFocusY);
+                GUIUtility.systemCopyBuffer = text;
+                if (_card.Path != null) _share.ShareImage(_card.Path, text);
+                else _share.ShareText(text);
+                if (!_share.ShowsOwnPanel) _toast.Say(Loc.Get("caption_copied"), Icon.Share, Palette.Secondary);
+                Stats.Event("share_score", ("mode", r.Mode.ToString()), ("score", r.Score), ("title", Core.Brag.TitleKey(b)), ("best", b.NewBest));
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Partage : " + e.Message); }
+        }
+
+        void OnRankKnown(string board, int rank)
+        {
+            if (board != Boards.World) return;
+            foreach (var h in HeadCatalog.All)
+            {
+                if (h.Unlock != UnlockKind.WorldTop || Profile.unlockedHeads.Contains(h.Id) || rank > h.UnlockValue) continue;
+                Profile.unlockedHeads.Add(h.Id);
+                SaveProfile();
+                _toast.Say(Loc.Format("new_head", h.Name(Loc.Language)), Icon.Face, Palette.Purple);
+            }
+        }
+
+        // ------------------------------------------------------------------ Collection, réglages, achats
+
+        /// <summary>Tête au hasard : activée ou coupée depuis la collection. Activée, elle change tout de suite de tête.</summary>
+        public void SetRandomHead(bool on)
+        {
+            Profile.randomHead = on;
+            if (on) RollRandomHead();
+            SaveProfile();
+            _collection.Refresh();
+            if (on) _toast.Say(Loc.Get("random_head_on"), Icon.Face, Palette.Purple);
+        }
+
+        void RollRandomHead()
+        {
+            int id = HeadCatalog.PickRandom(Profile.unlockedHeads, Profile.selectedHead, () => UnityEngine.Random.value * 0.99999);
+            if (id == Profile.selectedHead) return;
+            Profile.selectedHead = id;
+            SaveProfile();
+            Session.SetHead(HeadCatalog.Get(id));
+        }
+
+        public void SelectHead(int id)
+        {
+            if (!Profile.unlockedHeads.Contains(id)) return;
+            Profile.randomHead = false; // choisir une tête précise coupe le hasard
+            Profile.selectedHead = id;
+            SaveProfile();
+            Session.SetHead(HeadCatalog.Get(id));
+            _collection.Refresh();
+        }
+
+        /// <summary>Tête verrouillée touchée dans la collection : l'acheter (pièces) ou aller à la boutique (premium).</summary>
+        public void TapLockedHead(HeadDef h)
+        {
+            if (h.Unlock == UnlockKind.Premium) { ShowShop("collection"); return; }
+            if (h.Unlock != UnlockKind.Shop) { _toast.Say(Loc.UnlockText(h)); return; }
+            if (Profile.coins < h.UnlockValue)
+            {
+                _confirm.Ask(Loc.Format("missing_coins", Loc.FormatScore(h.UnlockValue - Profile.coins)), Loc.Get("p_coins_desc"), Art.Portrait(h),
+                    Loc.Get("shop"), () => ShowShop("tete"), Loc.Get("cancel"), null);
+                return;
+            }
+            _confirm.Ask(Loc.Format("buy_head", h.Name(Loc.Language)), Loc.FormatScore(h.UnlockValue), Art.Portrait(h),
+                Loc.Get("buy"), () =>
+                {
+                    if (!EconomyRun.BuyHead(Profile, h)) return;
+                    Stats.Event("head_buy", ("id", h.Id), ("price", h.UnlockValue));
+                    _toast.Say(Loc.Format("bought_head", h.Name(Loc.Language)), Icon.Face, Palette.Purple);
+                    SelectHead(h.Id);
+                    ShowCollection();
+                }, Loc.Get("cancel"), null);
+        }
+
+        // ------------------------------------------------------------------ Dépenses en pièces (rien ne change le score)
+
+        /// <summary>Pas assez de pièces : on dit combien il manque et on propose la boutique.</summary>
+        void MissingCoins(int price, Sprite image)
+        {
+            _confirm.Ask(Loc.Format("missing_coins", Loc.FormatScore(price - Profile.coins)), Loc.Get("p_coins_desc"), image,
+                Loc.Get("see_coins"), () => { ShowShop("manque"); _shop.ScrollToCoins(); }, Loc.Get("cancel"), null);
+        }
+
+        /// <summary>Planche touchée dans la boutique : la choisir, ou l'acheter.</summary>
+        public void TapPlank(PlankSkin s)
+        {
+            if (Cosmetics.OwnsPlank(Profile, s.Id))
+            {
+                Cosmetics.SelectPlank(Profile, s.Id);
+                SaveProfile();
+                Session.SetPlank(s);
+                _shop.Refresh();
+                return;
+            }
+            var preview = _shop.PlankSprite(s);
+            if (Profile.coins < s.Price) { MissingCoins(s.Price, preview); return; }
+            _confirm.Ask(Loc.Format("buy_plank", s.Name(Loc.Language)), Loc.Format("price_coins", Loc.FormatScore(s.Price)) + "\n\n" + Loc.Get("cosmetic_note"), preview,
+                Loc.Get("buy"), () =>
+                {
+                    if (!Cosmetics.BuyPlank(Profile, s)) return;
+                    Stats.Event("plank_buy", ("id", s.Id), ("price", s.Price));
+                    SaveProfile();
+                    Session.SetPlank(s);
+                    _toast.Reward(Icon.Star, Palette.Secondary, Loc.Format("bought_plank", s.Name(Loc.Language)), Loc.Get("plank_equipped_detail"), 0);
+                    _shop.Refresh();
+                }, Loc.Get("cancel"), null);
+        }
+
+        /// <summary>Machine à surprises : chances affichées avant d'ouvrir, jamais de doublon.</summary>
+        public void OpenSurprise()
+        {
+            if (!SurpriseBox.Available(Profile)) { _toast.Say(Loc.Get("surprise_none"), Icon.Gift, Palette.Purple); return; }
+            if (Profile.surpriseTickets <= 0 && Profile.coins < SurpriseBox.Price) { MissingCoins(SurpriseBox.Price, Art.IconSprite(Icon.Gift)); return; }
+            _surprise.Present();
+        }
+
+        /// <summary>Bouton Ouvrir de la machine : la tête est tirée et payée, puis le carrousel la montre.</summary>
+        public void ConfirmSurprise()
+        {
+            if (_surprise.Busy) return;
+            var pool = SurpriseBox.Odds(Profile);
+            bool free = Profile.surpriseTickets > 0;
+            var won = SurpriseBox.Open(Profile, GameRng.HashSeed(Profile.playerId + "|surprise"), free);
+            if (won == null) { _surprise.Hide(); MissingCoins(SurpriseBox.Price, Art.IconSprite(Icon.Gift)); return; }
+            Stats.Event("surprise_open", ("kind", won.Kind.ToString()), ("id", won.Kind == PrizeKind.Head ? won.Head.Id : won.Kind == PrizeKind.Plank ? won.Plank.Id : won.Coins), ("free", free), ("n", Profile.surprisesOpened));
+            SaveProfile();
+            _haptics.Medium();
+            _surprise.Spin(won, pool);
+        }
+
+        /// <summary>Lot de la machine à « porter » : la tête ou la planche gagnée.</summary>
+        public void WearPrize(Prize p)
+        {
+            if (p == null) return;
+            if (p.Kind == PrizeKind.Head) SelectHead(p.Head.Id);
+            else if (p.Kind == PrizeKind.Plank) TapPlank(p.Plank);
+        }
+
+        public void OnSurpriseClosed() { if (_shop.Visible) _shop.Refresh(); if (_collection.Visible) _collection.Refresh(); }
+
+        public void BuyShield()
+        {
+            if (Profile.streakShields >= StreakShield.Max) { _toast.Say(Loc.Get("shield_full"), Icon.Calendar, Palette.Accent); return; }
+            if (Profile.coins < StreakShield.Price) { MissingCoins(StreakShield.Price, Art.IconSprite(Icon.Calendar)); return; }
+            _confirm.Ask(Loc.Get("shield_title"), Loc.Get("shield_desc") + "\n\n" + Loc.Format("price_coins", Loc.FormatScore(StreakShield.Price)), Art.IconSprite(Icon.Calendar),
+                Loc.Get("buy"), () =>
+                {
+                    if (!StreakShield.Buy(Profile)) return;
+                    Stats.Event("shield_buy", ("stock", Profile.streakShields));
+                    SaveProfile();
+                    _toast.Say(Loc.Format("shield_stock", Profile.streakShields, StreakShield.Max), Icon.Calendar, Palette.Accent);
+                    _shop.Refresh();
+                }, Loc.Get("cancel"), null);
+        }
+
+        // ------------------------------------------------------------------ Cadeau, missions
+
+        public void ClaimGift(bool doubled)
+        {
+            if (!DailyGift.Available(Profile.gift, LocalDay)) { _gift.Hide(); return; }
+            void Claim(bool twice)
+            {
+                var r = DailyGift.Claim(Tuning.economy, Profile, LocalDay, GameRng.HashSeed(Profile.playerId + "|gift"));
+                if (r == null) { _gift.Hide(); return; }
+                if (twice) Wallet.Add(Profile, r.DoublableCoins);
+                int coins = r.Coins * (twice ? 2 : 1);
+                Stats.Event("gift_claim", ("day", r.Day), ("item", r.Item.ToString()), ("doubled", twice));
+                SaveProfile();
+                _gift.Hide();
+                _home.Refresh();
+                if (DailyGift.ShieldsUsedLastClaim > 0) _toast.Reward(Icon.Calendar, Palette.Accent, Loc.Get("shield_used"), Loc.Format("shield_stock", Profile.streakShields, StreakShield.Max), 0);
+                switch (r.Item)
+                {
+                    case GiftItem.Chest:
+                        // Le coffre du jour s'ouvre devant le joueur, comme celui des parties (on le tapote).
+                        _chest.PresentLoot(r.Chest.Coins * (twice ? 2 : 1), r.Chest.Head, Loc.Get("gift_chest_title"), () => _home.Refresh());
+                        break;
+                    case GiftItem.Ticket:
+                        _toast.Reward(Icon.Gift, Palette.Purple, Loc.Get("gift_ticket_title"), null, coins);
+                        if (SurpriseBox.Available(Profile)) _surprise.Present();
+                        break;
+                    case GiftItem.Plank:
+                        if (r.Plank != null)
+                        {
+                            var plank = r.Plank;
+                            _confirm.Ask(Loc.Format("gift_plank_title", plank.Name(Loc.Language)), coins > 0 ? "+" + Loc.FormatScore(coins) + " " + Loc.Get("coins_word") : "", MetaUi.PlankPreview(Art, plank),
+                                Loc.Get("wear"), () => TapPlank(plank), Loc.Get("later"), null);
+                        }
+                        else _toast.Reward(Icon.Gift, Palette.Primary, Loc.Get("gift_title"), Loc.Format("gift_day", r.Day), coins);
+                        break;
+                    default:
+                        _toast.Reward(Icon.Gift, Palette.Primary, Loc.Get("gift_title"), Loc.Format("gift_day", r.Day), coins);
+                        break;
+                }
+            }
+            if (doubled) WatchRewarded(Placements.GiftDouble, () => Claim(true));
+            else Claim(false);
+        }
+
+        /// <summary>Ce que le cadeau de tel jour fera gagner, en quelques mots (rappel « demain »).</summary>
+        string GiftWords(int day)
+        {
+            var t = Tuning.economy;
+            switch (DailyGift.ItemOf(t, day))
+            {
+                case GiftItem.Chest: return Loc.Get("gift_notif_chest");
+                case GiftItem.Ticket: return Loc.Get("gift_notif_ticket");
+                case GiftItem.Plank: return DailyGift.NextPlank(Profile) != null ? Loc.Get("gift_notif_plank") : Loc.Format("gift_notif_coins", Loc.FormatScore(DailyGift.Amount(t, day) + DailyGift.PlankFallbackCoins));
+                default: return Loc.Format("gift_notif_coins", Loc.FormatScore(DailyGift.Amount(t, day)));
+            }
+        }
+
+        public void RerollMission(int index)
+        {
+            WatchRewarded(Placements.Reroll, () =>
+            {
+                if (Missions.Reroll(Profile, index)) Stats.Event("mission_reroll", ("index", index));
+                _missions.Refresh();
+            });
+        }
+
+        // ------------------------------------------------------------------ Boutique
+
+        public void BuyProduct(string id)
+        {
+            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("soon")); return; }
+            Stats.Event("iap_start", ("product", id));
+            _purchases.Buy(id, ok =>
+            {
+                if (!ok) { _toast.Say(Loc.Get("purchase_failed")); Stats.Event("iap_fail", ("product", id)); }
+            });
+        }
+
+        /// <summary>Le store confirme un achat (ou le rend après une réinstallation) : on donne le produit.</summary>
+        void OnPurchased(string id)
+        {
+            if (!Shop.Grant(Profile, id)) return;
+            Stats.Event("iap_done", ("product", id));
+            SaveProfile();
+            _toast.Say(Loc.Get("thanks"), Icon.Heart, Palette.Primary);
+            if (_shop.Visible) _shop.Refresh();
+            if (_settings.Visible) _settings.Refresh();
+            if (_home.Visible) _home.Refresh();
+            if (_confirm.Visible) _confirm.Hide();
+        }
+
+        public void WatchFreeCoins()
+        {
+            if (AdPolicy.FreeCoinsLeft(Tuning.ads, Profile.ads, LocalDay) <= 0) { _toast.Say(Loc.Get("free_coins_none")); return; }
+            WatchRewarded(Placements.FreeCoins, () =>
+            {
+                Profile.ads.freeCoinsToday++;
+                Wallet.Add(Profile, Tuning.ads.freeCoinsAmount);
+                _toast.Reward(Icon.Coin, Palette.Accent, Loc.Get("free_coins_title"), Loc.Format("free_coins_left", AdPolicy.FreeCoinsLeft(Tuning.ads, Profile.ads, LocalDay)), Tuning.ads.freeCoinsAmount);
+                if (_shop.Visible) _shop.Refresh();
+            });
+        }
+
+        // ------------------------------------------------------------------ Rappels
+
+        public void SetNotifications(bool on)
+        {
+            if (!on)
+            {
+                Profile.settings.notifications = false;
+                _notifications.CancelAll();
+                SaveProfile();
+                if (_settings.Visible) _settings.Refresh();
+                return;
+            }
+            _notifications.RequestPermission(granted =>
+            {
+                Profile.settings.notifications = granted;
+                Stats.Event("notif_permission", ("granted", granted));
+                SaveProfile();
+                if (_settings.Visible) _settings.Refresh();
+            });
+        }
+
+        /// <summary>
+        /// Rappels programmés en quittant l'appli : au plus un par jour, en fin d'après-midi.
+        /// Demain : cadeau et missions. Ce soir : série de défi en danger. Dans 3 jours : retour.
+        /// </summary>
+        void ScheduleNotifications()
+        {
+            if (!_notifications.IsSupported || !Profile.settings.notifications) return;
+            _notifications.CancelAll();
+            var today = DateTime.Now.Date;
+            int nextDay = DailyGift.NextDay(Profile.gift, today.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), DailyGift.Cycle(Tuning.economy));
+            _notifications.Schedule("cadeau", Loc.Get("notif_gift_title"), Loc.Format("notif_gift_body", GiftWords(nextDay)), today.AddDays(1).AddHours(18).AddMinutes(30));
+            int streak = Daily.CurrentStreak(Profile.daily, TodayKey);
+            if (streak >= 2 && !Daily.PlayedToday(Profile.daily, TodayKey))
+                _notifications.Schedule("serie", Loc.Format("notif_streak_title", streak), Loc.Get("notif_streak_body"), today.AddHours(19));
+            _notifications.Schedule("retour", Loc.Get("notif_comeback_title"), Loc.Format("notif_comeback_body", Loc.FormatScore(Profile.bestScore)), today.AddDays(3).AddHours(18).AddMinutes(30));
+        }
+
+        public void AskPseudo()
+        {
+            _prompt.Ask(Loc.Get("pseudo_title"), Profile.pseudo, InputField.ContentType.Standard, async name =>
+            {
+                if (string.IsNullOrWhiteSpace(name)) return;
+                // Pseudo visible par tout le monde : longueur, caractères et grossièretés vérifiés.
+                name = PseudoFilter.Clean(name);
+                if (name == null) { _toast.Say(Loc.Get("pseudo_refused"), 3.5f); return; }
+                Profile.pseudo = name;
+                SaveProfile();
+                await Leaderboard.Service.SetPseudoAsync(name);
+                if (_leaderboard.Visible) _leaderboard.Refresh();
+            });
+        }
+
+        // ------------------------------------------------------------------ Amis
+
+        public void ShareFriendCode()
+        {
+            var id = Leaderboard.Service.PlayerId;
+            if (string.IsNullOrEmpty(id)) { _toast.Say(Loc.Get("friend_offline")); return; }
+            Stats.Event("friend_share");
+            _share.ShareText(Loc.Format("friend_share_text", FriendCode.Format(id)));
+        }
+
+        public void AskFriendCode()
+        {
+            if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("friend_offline")); return; }
+            _prompt.Ask(Loc.Get("friend_prompt"), "", InputField.ContentType.Standard, text =>
+            {
+                var id = FriendCode.Parse(text);
+                if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
+                if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
+                SaveProfile();
+                Stats.Event("friend_add", ("friends", Profile.friends.Count));
+                _toast.Say(Loc.Get("friend_added"));
+                if (_leaderboard.Visible) _leaderboard.Refresh();
+            }, 120);
+        }
+
+        /// <summary>Droit à l'effacement : supprime le compte en ligne (pseudo, scores, amis). La progression locale reste.</summary>
+        public void AskDeleteOnlineData()
+        {
+            _confirm.Ask(Loc.Get("delete_title"), Loc.Get("delete_body"), Art.IconSprite(Icon.Close), Loc.Get("delete_ok"), async () =>
+            {
+                if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("delete_offline")); return; }
+                bool ok = await Leaderboard.Service.DeleteAccountAsync();
+                if (!ok) { _toast.Say(Loc.Get("delete_offline")); return; }
+                Profile.pseudo = "";
+                Profile.friends.Clear();
+                Profile.pendingScores.Clear();
+                SaveProfile();
+                Stats.Event("online_data_deleted");
+                _toast.Say(Loc.Get("delete_done"));
+            }, Loc.Get("cancel"), null);
+        }
+
+        public void OpenSupport() => Application.OpenURL(SupportUrl);
+
+        int _displayHz = 60;
+
+        /// <summary>
+        /// 60 images/s par défaut, comme la plupart des jeux mobiles : à 120, le téléphone chauffe et finit par
+        /// ralentir de lui-même (et la batterie fond). 120 en option, seulement si l'écran le permet.
+        /// </summary>
+        void ApplyFrameRate(bool high)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            Application.targetFrameRate = -1; // sur le web, le navigateur cadence l'affichage
+#else
+            Application.targetFrameRate = high ? _displayHz : 60;
+#endif
+        }
+
+        public bool HighFrameRateAvailable => _displayHz > 60;
+
+        /// <param name="rebuildUi">Vrai si la langue ou la taille du texte a changé (l'interface est reconstruite).</param>
+        public void ApplySettings(bool rebuildUi)
+        {
+            var s = Profile.settings;
+            _audio.Enabled = s.sound;
+            _music.Enabled = s.music;
+            _haptics.Enabled = s.vibration;
+            ApplyFrameRate(s.highFrameRate);
+            Loc.Language = Loc.Resolve(s.language, Application.systemLanguage.ToString());
+            Tuning.plank.tiltDirection = s.tiltDirectionOverride != 0 ? s.tiltDirectionOverride : _tiltFromFile;
+            Session.ApplyTuning(Tuning);
+            Session.SetReducedMotion(s.reducedMotion);
+            Session.SetHead(HeadCatalog.Get(Profile.selectedHead));
+            Session.SetPlank(PlankCatalog.Get(Profile.selectedPlank));
+            SaveProfile();
+            if (rebuildUi)
+            {
+                var wasSettings = _current == _settings;
+                BuildCanvas();
+                Show(wasSettings ? (UiScreen)_settings : _home);
+            }
+        }
+
+        public void ReloadTuning()
+        {
+            Tuning = TuningLoader.Load();
+            _tiltFromFile = Tuning.plank.tiltDirection;
+            ApplySettings(false);
+            _toast.Say(Loc.Get("reload_tuning") + " : OK");
+        }
+
+        public void BuyRemoveAds() => BuyProduct(Shop.RemoveAds);
+
+        public void RestorePurchases()
+        {
+            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("soon")); return; }
+            _purchases.Restore(ok =>
+            {
+                if (ok) _toast.Say(Loc.Get("restored"));
+                if (_settings.Visible) _settings.Refresh();
+                if (_shop.Visible) _shop.Refresh();
+            });
+        }
+
+        public void ShowStats()
+        {
+            var p = Profile;
+            string body = string.Join("\n", new[]
+            {
+                Loc.Format("stat_games", Loc.FormatScore(p.gamesPlayed)),
+                Loc.Format("stat_time", Loc.Duration(p.totalSeconds)),
+                Loc.Format("stat_merges", Loc.FormatScore(p.totalMerges)),
+                Loc.Format("stat_balloons", Loc.FormatScore(p.totalBalloons)),
+                Loc.Format("stat_days", p.daysPlayed),
+                Loc.Format("best", Loc.FormatScore(p.bestScore)),
+            });
+            _confirm.Ask(Loc.Get("stats"), body, Art.Portrait(HeadCatalog.Get(p.selectedHead)), Loc.Get("pseudo_ok"), null, null, null);
+        }
+
+        public void OpenPrivacy() => Application.OpenURL(PrivacyUrl);
+
+        // Outils de test (Réglages → Prototype, éditeur et versions de développement seulement).
+        public void DebugAddCoins()
+        {
+            Wallet.Add(Profile, 1000);
+            SaveProfile();
+            _toast.Reward(Icon.Coin, Palette.Accent, "Test", null, 1000);
+        }
+
+        /// <summary>Fait comme si on était le lendemain : cadeau, missions et pubs du jour repartent.</summary>
+        public void DebugNextDay()
+        {
+            string yesterday = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            if (Profile.gift.lastDay == LocalDay) Profile.gift.lastDay = yesterday;
+            Profile.missions.day = "";
+            Profile.ads.day = "";
+            NewDayCheck();
+            SaveProfile();
+            _toast.Say(Loc.Get("debug_newday") + " : OK");
+        }
+
+        /// <summary>iOS : fenêtre de note native d'Apple. Android : page du jeu sur Google Play.</summary>
+        void OpenStoreReview()
+        {
+            Stats.Event("rate_yes");
+#if UNITY_IOS && !UNITY_EDITOR
+            if (!UnityEngine.iOS.Device.RequestStoreReview()) Application.OpenURL("itms-apps://itunes.apple.com/app/id" + AppStoreId + "?action=write-review");
+#else
+            Application.OpenURL("market://details?id=" + Application.identifier);
+#endif
+        }
+
+        /// <summary>Identifiant numérique du jeu sur l'App Store (App Store Connect), à remplir après la création de la fiche.</summary>
+        const string AppStoreId = "0000000000";
+
+        public void Toast(string message, float seconds = 2.5f) => _toast.Say(message, seconds);
+        public void Reward(Icon icon, Color color, string title, string detail, int coins) => _toast.Reward(icon, color, title, detail, coins);
+        public void RewardAt(float y, Icon icon, Color color, string title, string detail, int coins) => _toast.RewardAt(y, icon, color, title, detail, coins);
+        public bool CoinsDoubled => _gainDoubled;
+        public bool GameOverVisible => _gameOver != null && _gameOver.Visible;
+        public bool HudVisible => _hud != null && _hud.Visible;
+
+        // ------------------------------------------------------------------ Sauvegarde, cycle de vie
+
+        void SaveProfile() => _save.SaveProfile(Profile);
+
+        void SaveRunSnapshot()
+        {
+            if (!Session.IsRunning) return;
+            var s = Session.Capture();
+            if (s != null) _save.SaveRun(s);
+        }
+
+        void Update()
+        {
+            float dt = Time.unscaledDeltaTime;
+            if (_screenSize.x != Screen.width || _screenSize.y != Screen.height)
+            {
+                _screenSize = new Vector2Int(Screen.width, Screen.height);
+                FitCanvas();
+                Session.Layout();
+            }
+
+            if (_hud.Visible) _hud.Tick(dt);
+            if (_home.Visible) _home.Tick(dt);
+            if (_shop.Visible) _shop.Tick(dt);
+            if (_missions.Visible) _missions.Tick(dt);
+            if (_collection.Visible) _collection.Tick(dt);
+            if (_leaderboard.Visible) _leaderboard.Tick(dt);
+            if (_gameOver.Visible) _gameOver.Tick(dt);
+            if (_chest.Visible) _chest.Tick(dt);
+            if (_surprise.Visible) _surprise.Tick(dt);
+            UpdateMusic(dt);
+            if (_toast.Visible) _toast.Tick(dt);
+
+            if (Session.IsRunning && !Session.Paused)
+            {
+                _autosave -= dt;
+                if (_autosave <= 0) { _autosave = AutosaveSeconds; SaveRunSnapshot(); }
+            }
+
+            // Bouton « retour » Android.
+            if (BackPressed())
+            {
+                if (_chest.Visible) _chest.Back();
+                else if (_surprise.Visible) _surprise.Back();
+                else if (_prompt.Visible) _prompt.Hide();
+                else if (_confirm.Visible) _confirm.Hide();
+                else if (_gift.Visible) _gift.Hide();
+                else if (_current == _hud && Session.IsRunning) { if (_pause.Visible) ResumeGame(); else PauseGame(); }
+                else if (_current == _collection || _current == _leaderboard || _current == _settings || _current == _missions || _current == _shop) GoHome();
+            }
+        }
+
+        void UpdateMusic(float dt)
+        {
+            var s = Session;
+            if (s.IsRunning && !s.Paused)
+                _music.Set(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, s.Danger)), 1f);
+            else if (s.Paused) _music.Set(0f, 0.25f);
+            else if (s.HasRun) _music.Set(0f, 0.35f); // défaite, fin de partie
+            else _music.Set(0f, 0.6f); // menus
+            _music.Tick(dt);
+        }
+
+        static bool BackPressed()
+        {
+#if BASCULE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            return kb != null && kb.escapeKey.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.Escape);
+#endif
+        }
+
+        /// <summary>Le joueur quitte l'application : on sauvegarde la partie pour la reprendre au même endroit.</summary>
+        void OnApplicationPause(bool paused)
+        {
+            if (!paused)
+            {
+                _music?.OnResume();
+                // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
+                NewDayCheck();
+                _notifications.CancelAll();
+                if (_home.Visible) { _home.Refresh(); HomePopups(); }
+                return;
+            }
+            if (Session.IsRunning)
+            {
+                SaveRunSnapshot();
+                if (!Session.Paused) PauseGame();
+            }
+            FinalizeRun();
+            SaveProfile();
+            ScheduleNotifications();
+            Stats.Event("app_pause", ("games", Profile.gamesPlayed));
+            SaveService.Flush();
+        }
+
+        void OnApplicationQuit()
+        {
+            SaveRunSnapshot();
+            FinalizeRun();
+            SaveProfile();
+            ScheduleNotifications();
+            SaveService.Flush();
+        }
+    }
+}

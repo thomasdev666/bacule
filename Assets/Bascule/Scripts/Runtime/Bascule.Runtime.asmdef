@@ -1,0 +1,59 @@
+{
+    "name": "Bascule.Runtime",
+    "rootNamespace": "Bascule",
+    "references": [
+        "Bascule.Core",
+        "UnityEngine.UI",
+        "Unity.InputSystem",
+        "NativeShare.Runtime",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Leaderboards",
+        "UnityEngine.Advertisements",
+        "UnityEngine.Purchasing",
+        "UnityEngine.Purchasing.Stores",
+        "Unity.Purchasing.Common",
+        "Unity.Notifications.Android",
+        "Unity.Notifications.iOS"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.yasirkula.nativeshare",
+            "expression": "0.0.1",
+            "define": "BASCULE_NATIVESHARE"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "0.0.1",
+            "define": "BASCULE_INPUTSYSTEM"
+        },
+        {
+            "name": "com.unity.services.leaderboards",
+            "expression": "0.0.1",
+            "define": "BASCULE_UGS"
+        },
+        {
+            "name": "com.unity.ads",
+            "expression": "0.0.1",
+            "define": "BASCULE_UNITYADS"
+        },
+        {
+            "name": "com.unity.purchasing",
+            "expression": "[4.0.0,5.0.0)",
+            "define": "BASCULE_IAP"
+        },
+        {
+            "name": "com.unity.mobile.notifications",
+            "expression": "0.0.1",
+            "define": "BASCULE_NOTIFICATIONS"
+        }
+    ],
+    "noEngineReferences": false
+}

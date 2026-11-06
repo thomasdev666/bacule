@@ -1,0 +1,162 @@
+#if BASCULE_UGS
+// Compilé seulement quand le paquet com.unity.services.leaderboards est installé (define BASCULE_UGS,
+// déclaré dans Bascule.Runtime.asmdef). Mise en place : docs/INTEGRATIONS.md, section « Classement ».
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Unity.Services.Authentication;
+using Unity.Services.Core;
+using Unity.Services.Leaderboards;
+using UnityEngine;
+
+namespace Bascule.Services
+{
+    public sealed class UgsLeaderboardService : ILeaderboardService
+    {
+        bool _ready;
+
+        public bool IsOnline => _ready && Application.internetReachability != NetworkReachability.NotReachable;
+
+        public async Task<bool> InitializeAsync()
+        {
+            try
+            {
+                if (UnityServices.State == ServicesInitializationState.Uninitialized)
+                    await UnityServices.InitializeAsync();
+                if (!AuthenticationService.Instance.IsSignedIn)
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                _ready = true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Bascule] Unity Gaming Services indisponible (hors ligne ?) : " + e.Message);
+                _ready = false;
+            }
+            return _ready;
+        }
+
+        public async Task<bool> SetPseudoAsync(string pseudo)
+        {
+            if (!_ready) return false;
+            try
+            {
+                // UGS ajoute un suffixe #1234 pour rendre le nom unique ; on l'enlève à l'affichage.
+                await AuthenticationService.Instance.UpdatePlayerNameAsync(Sanitize(pseudo));
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Pseudo refusé : " + e.Message); return false; }
+        }
+
+        public async Task<int> SubmitAsync(string board, int score, int head)
+        {
+            if (!IsOnline) return -1;
+            try
+            {
+                var options = new AddPlayerScoreOptions { Metadata = new Dictionary<string, string> { { "head", head.ToString() } } };
+                var entry = await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, options);
+                return entry.Rank + 1;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Envoi du score : " + e.Message); return -1; }
+        }
+
+        public async Task<LeaderboardPage> GetTopAsync(string board, int limit)
+        {
+            var page = new LeaderboardPage();
+            if (!IsOnline) return page;
+            try
+            {
+                var scores = await LeaderboardsService.Instance.GetScoresAsync(board, new GetScoresOptions { Limit = limit, IncludeMetadata = true });
+                string me = AuthenticationService.Instance.PlayerId;
+                foreach (var r in scores.Results)
+                {
+                    page.Entries.Add(new LeaderboardEntry
+                    {
+                        Rank = r.Rank + 1,
+                        Name = StripSuffix(r.PlayerName),
+                        Score = (int)r.Score,
+                        Head = ParseHead(r.Metadata),
+                        IsMe = r.PlayerId == me,
+                    });
+                }
+                try
+                {
+                    var mine = await LeaderboardsService.Instance.GetPlayerScoreAsync(board);
+                    page.Me = new LeaderboardEntry { Rank = mine.Rank + 1, Name = StripSuffix(mine.PlayerName), Score = (int)mine.Score, IsMe = true };
+                }
+                catch (Exception) { /* pas encore de score dans ce classement */ }
+                page.Online = true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Lecture du classement : " + e.Message); }
+            return page;
+        }
+
+        public string PlayerId => _ready ? AuthenticationService.Instance.PlayerId ?? "" : "";
+
+        public async Task<LeaderboardPage> GetFriendsAsync(string board, IList<string> playerIds)
+        {
+            var page = new LeaderboardPage();
+            if (!IsOnline) return page;
+            try
+            {
+                string me = AuthenticationService.Instance.PlayerId;
+                var ids = new List<string>(playerIds);
+                if (!ids.Contains(me)) ids.Add(me);
+                var scores = await LeaderboardsService.Instance.GetScoresByPlayerIdsAsync(board, ids, new GetScoresByPlayerIdsOptions { IncludeMetadata = true });
+                foreach (var r in scores.Results)
+                    page.Entries.Add(new LeaderboardEntry
+                    {
+                        Name = StripSuffix(r.PlayerName),
+                        Score = (int)r.Score,
+                        Head = ParseHead(r.Metadata),
+                        IsMe = r.PlayerId == me,
+                    });
+                // Rang entre amis (le rang mondial ne veut rien dire ici).
+                page.Entries.Sort((a, b) => b.Score.CompareTo(a.Score));
+                for (int i = 0; i < page.Entries.Count; i++) page.Entries[i].Rank = i + 1;
+                page.Online = true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Classement des amis : " + e.Message); }
+            return page;
+        }
+
+        public async Task<bool> DeleteAccountAsync()
+        {
+            if (!_ready) return false;
+            try
+            {
+                await AuthenticationService.Instance.DeleteAccountAsync();
+                _ready = false;
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Suppression du compte : " + e.Message); return false; }
+        }
+
+        static string Sanitize(string s)
+        {
+            s = (s ?? "").Trim().Replace(" ", "_");
+            if (s.Length > 20) s = s.Substring(0, 20);
+            return string.IsNullOrEmpty(s) ? "Joueur" : s;
+        }
+
+        static string StripSuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "?";
+            int i = name.LastIndexOf('#');
+            return i > 0 ? name.Substring(0, i) : name;
+        }
+
+        static int ParseHead(string metadata)
+        {
+            if (string.IsNullOrEmpty(metadata)) return 0;
+            // Métadonnées au format {"head":"12"}.
+            int i = metadata.IndexOf("\"head\"", StringComparison.Ordinal);
+            if (i < 0) return 0;
+            int start = metadata.IndexOfAny("0123456789".ToCharArray(), i);
+            if (start < 0) return 0;
+            int end = start;
+            while (end < metadata.Length && char.IsDigit(metadata[end])) end++;
+            return int.TryParse(metadata.Substring(start, end - start), out int h) ? h : 0;
+        }
+    }
+}
+#endif
