@@ -52,6 +52,7 @@ foreach (var v in WeightCatalog.Values) if (v > 1) Put(Synth.Pop(v));
 for (int c = 1; c <= 6; c++) Put(Synth.Chime(c));
 Put(Synth.Lost()); Put(Synth.Phew()); Put(Synth.Lift()); Put(Synth.Fall()); Put(Synth.Click());
 Wav.Save(Path.Combine(outDir, "bruitages.wav"), list.ToArray(), Synth.SampleRate);
+Wav.Save(Path.Combine(outDir, "rafale.wav"), Synth.Wind(), Synth.SampleRate);
 Console.WriteLine("Exporté dans " + Path.GetFullPath(outDir) + $" (pic démo {peak:0.00})");
 
 static class Wav

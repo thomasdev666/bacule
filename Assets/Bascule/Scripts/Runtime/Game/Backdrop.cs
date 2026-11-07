@@ -170,9 +170,14 @@ namespace Bascule
             }
         }
 
+        /// <summary>Vent (unités/s, signé) : les nuages filent plus vite dans son sens pendant une rafale.</summary>
+        public float Wind;
+        float _wind;
+
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
+            _wind = Mathf.Lerp(_wind, Wind, 1f - Mathf.Exp(-dt * 2.5f));
             if (_fade < 1f)
             {
                 _fade = Mathf.MoveTowards(_fade, 1f, dt / 1.8f);
@@ -186,8 +191,9 @@ namespace Bascule
                 for (int i = 0; i < layer.Clouds.Count; i++)
                 {
                     var p = layer.Clouds[i].transform.localPosition;
-                    p.x += dt * (0.12f + i * 0.06f);
+                    p.x += dt * (0.12f + i * 0.06f + _wind * (1f + i * 0.35f));
                     if (p.x > hw) p.x = -hw;
+                    else if (p.x < -hw) p.x = hw;
                     layer.Clouds[i].transform.localPosition = p;
                 }
                 if (layer.Stars != null)

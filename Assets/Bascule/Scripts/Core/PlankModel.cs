@@ -35,6 +35,9 @@ namespace Bascule.Core
 
         public void SetTuning(PlankTuning tuning) { _t = tuning; }
 
+        /// <summary>Multiplie l'inclinaison obtenue pour un même couple (1 = normal ; plus à haut score, voir Difficulty.Sensitivity).</summary>
+        public float Sensitivity { get; set; } = 1f;
+
         /// <summary>|angle| / angle max. 1 = limite de défaite.</summary>
         public float Ratio => Math.Abs(Angle) / _t.maxAngle;
 
@@ -49,10 +52,10 @@ namespace Bascule.Core
             }
         }
 
-        public float EquilibriumAngle(float torque) => _t.tiltDirection * _t.degreesPerTorque * torque;
+        public float EquilibriumAngle(float torque) => _t.tiltDirection * _t.degreesPerTorque * Sensitivity * torque;
 
         /// <summary>Couple au-delà duquel l'équilibre dépasse l'angle max.</summary>
-        public float LosingTorque => _t.maxAngle / _t.degreesPerTorque;
+        public float LosingTorque => _t.maxAngle / (_t.degreesPerTorque * Sensitivity);
 
         /// <param name="dt">Pas de temps (s).</param>
         /// <param name="torque">Somme des valeurs × position normalisée sur la planche.</param>

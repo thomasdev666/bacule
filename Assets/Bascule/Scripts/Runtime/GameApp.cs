@@ -313,6 +313,25 @@ namespace Bascule
             if (!await Leaderboard.Service.InitializeAsync()) return;
             if (!string.IsNullOrEmpty(Profile.pseudo)) await Leaderboard.Service.SetPseudoAsync(Profile.pseudo);
             Leaderboard.Flush(TodayKey);
+            // Code ami court (Cloud Save) : publié une fois, puis gardé dans le profil.
+            string code = await Leaderboard.Service.PublishFriendCodeAsync();
+            if (!string.IsNullOrEmpty(code) && code != Profile.friendCode)
+            {
+                Profile.friendCode = code;
+                SaveProfile();
+                if (_leaderboard != null && _leaderboard.Visible) _leaderboard.Refresh();
+            }
+        }
+
+        /// <summary>Code à donner à un ami : le court s'il est publié (« 4K7-Q2M »), sinon le long.</summary>
+        public string MyFriendCode
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(Profile.friendCode)) return FriendCode.FormatShort(Profile.friendCode);
+                var id = Leaderboard.Service.PlayerId;
+                return string.IsNullOrEmpty(id) ? "" : FriendCode.Format(id);
+            }
         }
 
         void BuildCanvas()
@@ -1164,20 +1183,18 @@ namespace Bascule
         }
 
         /// <summary>
-        /// Signalement : le joueur est masqué tout de suite chez celui qui signale, et un e-mail prérempli
-        /// (pseudo + identifiants) part vers l'éditeur. Pour supprimer le pseudo : tableau de bord Unity Cloud →
+        /// Signalement : un e-mail prérempli (pseudo + identifiants) part vers l'éditeur. Le joueur reste visible ;
+        /// pour ne plus le voir, « Bloquer ». Pour supprimer le pseudo : tableau de bord Unity Cloud →
         /// Leaderboards → chercher l'identifiant du joueur.
         /// </summary>
         public void ReportPlayer(string playerId, string name)
         {
-            Moderation.Block(Profile, playerId, Leaderboard.Service.PlayerId);
-            SaveProfile();
+            // Signaler n'efface plus le joueur (1.2) : seul « Bloquer » le masque. L'e-mail part vers l'éditeur.
             Stats.Event("player_report");
             string subject = Uri.EscapeDataString(Loc.Get("mod_mail_subject"));
             string body = Uri.EscapeDataString(Loc.Format("mod_mail_body", name, playerId, Leaderboard.Service.PlayerId ?? ""));
             Application.OpenURL("mailto:" + ContactEmail + "?subject=" + subject + "&body=" + body);
             _toast.Say(Loc.Get("mod_reported"), 3.5f);
-            if (_leaderboard.Visible) _leaderboard.Refresh();
         }
 
         public void UnblockAll()
@@ -1192,18 +1209,22 @@ namespace Bascule
 
         public void ShareFriendCode()
         {
-            var id = Leaderboard.Service.PlayerId;
-            if (string.IsNullOrEmpty(id)) { _toast.Say(Loc.Get("friend_offline")); return; }
-            Stats.Event("friend_share");
-            _share.ShareText(Loc.Format("friend_share_text", FriendCode.Format(id)));
+            string code = MyFriendCode;
+            if (string.IsNullOrEmpty(code)) { _toast.Say(Loc.Get("friend_offline")); return; }
+            Stats.Event("friend_share", ("short", string.IsNullOrEmpty(Profile.friendCode) ? 0 : 1));
+            _share.ShareText(Loc.Format("friend_share_text", code));
         }
 
         public void AskFriendCode()
         {
             if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("friend_offline")); return; }
-            _prompt.Ask(Loc.Get("friend_prompt"), "", InputField.ContentType.Standard, text =>
+            _prompt.Ask(Loc.Get("friend_prompt"), "", InputField.ContentType.Standard, async text =>
             {
-                var id = FriendCode.Parse(text);
+                // Code court (« 4K7-Q2M ») : le serveur retrouve le joueur. Sinon, ancien code long collé tel quel.
+                string id = null;
+                var shortCode = FriendCode.ParseShort(text);
+                if (shortCode != null) id = await Leaderboard.Service.FindPlayerByCodeAsync(shortCode);
+                if (id == null) id = FriendCode.Parse(text);
                 if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
                 if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
                 SaveProfile();

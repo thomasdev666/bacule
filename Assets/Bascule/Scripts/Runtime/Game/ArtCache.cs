@@ -303,7 +303,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 12;
+        public const int ArtVersion = 13;
 
         static string _cacheDir;
 

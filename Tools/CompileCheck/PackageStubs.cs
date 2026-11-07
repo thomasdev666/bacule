@@ -208,4 +208,37 @@ namespace Unity.Services.LevelPlay
         public bool IsAdReady() => false;
     }
 }
+namespace Unity.Services.CloudSave.Models
+{
+    public class FieldFilter
+    {
+        public enum OpOptions { EQ = 1, NE = 2, LT = 3, LE = 4, GT = 5, GE = 6 }
+        public FieldFilter(string key, object value, OpOptions op, bool asc) { }
+    }
+    public class Query
+    {
+        public Query(List<FieldFilter> fields, HashSet<string> returnKeys = default, int offset = default, int limit = default) { }
+    }
+    public class EntityData { public string Id { get; } }
+}
+
+namespace Unity.Services.CloudSave.Models.Data.Player
+{
+    public abstract class WriteAccessClassOptions { }
+    public class PublicWriteAccessClassOptions : WriteAccessClassOptions { }
+    public class SaveOptions { public SaveOptions() { } public SaveOptions(WriteAccessClassOptions accessClassOptions) { } }
+    public class QueryOptions { }
+}
+
+namespace Unity.Services.CloudSave
+{
+    public interface IPlayerDataService
+    {
+        System.Threading.Tasks.Task<Dictionary<string, string>> SaveAsync(IDictionary<string, object> data, Models.Data.Player.SaveOptions options);
+        System.Threading.Tasks.Task<List<Models.EntityData>> QueryAsync(Models.Query query, Models.Data.Player.QueryOptions options);
+    }
+    public interface IDataService { IPlayerDataService Player { get; } }
+    public interface ICloudSaveService { IDataService Data { get; } }
+    public static class CloudSaveService { public static ICloudSaveService Instance => null; }
+}
 #endif

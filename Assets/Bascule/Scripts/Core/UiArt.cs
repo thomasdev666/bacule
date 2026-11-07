@@ -5,7 +5,7 @@ namespace Bascule.Core
     public enum Icon
     {
         Pause, Play, Home, Trophy, Gear, Face, Share, Replay, Film, Flame, Star, Lock, Check, Back, Crown, Sound, SoundOff, Vibrate, Calendar, Close, Swords, Heart,
-        Coin, Gift, Bag, Target, Hand, Bell, Plus,
+        Coin, Gift, Bag, Target, Hand, Bell, Plus, Flag,
     }
 
     /// <summary>
@@ -230,6 +230,11 @@ namespace Bascule.Core
                 case Core.Icon.Bell:
                     s = Shape.Union(Shape.Smooth(Shape.Intersect(Shape.Circle(c, c + 2 * u, 26 * u), Shape.HalfPlane(0, -1, -(c - 4 * u))), Shape.Box(c, c - 12 * u, 30 * u, 8 * u, 4 * u), 6 * u),
                         Shape.Circle(c, c - 26 * u, 8 * u), Shape.Circle(c, c + 30 * u, 5 * u)); break;
+                case Core.Icon.Flag:
+                    // Petit drapeau de signalement : mât à gauche, fanion qui ondule.
+                    s = Shape.Union(Shape.Capsule(c - 24 * u, c - 36 * u, c - 24 * u, c + 34 * u, 5 * u),
+                        Shape.Poly(c - 22 * u, c + 34 * u, c + 4 * u, c + 26 * u, c + 32 * u, c + 32 * u, c + 30 * u, c - 2 * u,
+                            c + 4 * u, c - 6 * u, c - 22 * u, c + 2 * u).Grow(2 * u)); break;
                 case Core.Icon.Plus:
                     s = Shape.Union(Shape.Capsule(c - 28 * u, c, c + 28 * u, c, 9 * u), Shape.Capsule(c, c - 28 * u, c, c + 28 * u, 9 * u)); break;
                 default:

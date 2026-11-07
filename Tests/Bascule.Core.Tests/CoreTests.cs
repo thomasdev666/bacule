@@ -350,10 +350,123 @@ namespace Bascule.Core.Tests
         [Test]
         public void PlankShrinksWithScoreDownToMinimum()
         {
-            var t = new PlankTuning();
+            var t = new PlankTuning { shrinkUntilScore = 0 };
             Assert.AreEqual(t.startLength, Difficulty.PlankLength(0, t));
             Assert.That(Difficulty.PlankLength(4000, t), Is.LessThan(t.startLength));
             Assert.AreEqual(t.minLength, Difficulty.PlankLength(1_000_000, t));
+        }
+
+        [Test]
+        public void PlankStopsShrinkingAtHighScoreSinceShrinkingMadeItEasier()
+        {
+            // Le bras de levier est fixe : une planche plus courte donnait moins de couple, donc moins de danger.
+            var t = new PlankTuning();
+            Assert.That(Difficulty.PlankLength(2000, t), Is.LessThan(Difficulty.PlankLength(1000, t)));
+            Assert.AreEqual(Difficulty.PlankLength(t.shrinkUntilScore, t), Difficulty.PlankLength(12000, t));
+        }
+
+        [Test]
+        public void PlankGetsMoreSensitiveAtHighScore()
+        {
+            var t = new PlankTuning();
+            Assert.AreEqual(1f, Difficulty.Sensitivity(0, t));
+            Assert.AreEqual(1f, Difficulty.Sensitivity(t.sensitivityFromScore, t));
+            Assert.That(Difficulty.Sensitivity(8000, t), Is.GreaterThan(1.1f));
+            Assert.AreEqual(t.sensitivityMax, Difficulty.Sensitivity(1_000_000, t), 1e-5);
+            var m = new PlankModel(t) { Sensitivity = 1.2f };
+            Assert.AreEqual(t.maxAngle / (t.degreesPerTorque * 1.2f), m.LosingTorque, 1e-4);
+        }
+    }
+
+    public class WindTests
+    {
+        /// <summary>Fait tourner le vent ; avec <paramref name="stop"/>, s'arrête dès qu'une phase commence.</summary>
+        static WindPhase Run(Gusts g, float seconds, int score, float danger = 0f, float ratio = 0f, bool blocked = false, bool stop = false)
+        {
+            var started = WindPhase.None;
+            for (float t = 0; t < seconds; t += 0.02f)
+            {
+                var p = g.Update(0.02f, score, danger, ratio, blocked);
+                if (p != WindPhase.None && started == WindPhase.None) { started = p; if (stop) break; }
+            }
+            return started;
+        }
+
+        [Test]
+        public void NoWindBeforeStartScore()
+        {
+            var g = new Gusts(new WindTuning(), 1);
+            Assert.AreEqual(WindPhase.None, Run(g, 300f, 4999));
+            Assert.AreEqual(0, g.Count);
+        }
+
+        [Test]
+        public void MilestoneTriggersAGustWithWarningThenBlow()
+        {
+            var t = new WindTuning();
+            var g = new Gusts(t, 1);
+            Run(g, 30f, 4000);
+            Assert.AreEqual(WindPhase.None, g.Phase);
+            // Palier 5 000 franchi : la rafale attend l'écart minimal, puis s'annonce.
+            Assert.AreEqual(WindPhase.Warning, Run(g, t.minGap + 1f, 5000, stop: true));
+            Assert.AreEqual(1, g.Count);
+            Assert.AreEqual(0f, g.Envelope, "pas de poussée pendant l'annonce");
+            Run(g, t.warningSeconds + t.rampSeconds + 0.1f, 5000);
+            Assert.AreEqual(WindPhase.Blowing, g.Phase);
+            Assert.That(g.Envelope, Is.GreaterThan(0.6f));
+            Run(g, t.blowSeconds, 5000);
+            Assert.AreEqual(WindPhase.None, g.Phase);
+        }
+
+        [Test]
+        public void GustsAreRareNeverCloserThanMinGap()
+        {
+            var t = new WindTuning();
+            var g = new Gusts(t, 7);
+            g.Reset(6000);
+            // 10 minutes à score figé (stagnation : rafales plus fréquentes, mais jamais plus que minGap).
+            Run(g, 600f, 6000);
+            float slowest = t.minGap + t.warningSeconds + t.blowSeconds;
+            Assert.That(g.Count, Is.LessThanOrEqualTo((int)(600f / slowest) + 1));
+            Assert.That(g.Count, Is.GreaterThanOrEqualTo(600 / (int)(t.gapMax + t.warningSeconds + t.blowSeconds)));
+        }
+
+        [Test]
+        public void NoGustWhenPlankAlreadyInDangerOrBlocked()
+        {
+            var t = new WindTuning();
+            var g = new Gusts(t, 3);
+            g.Reset(4900);
+            Assert.AreEqual(WindPhase.None, Run(g, 200f, 5100, danger: 0.8f));
+            Assert.AreEqual(WindPhase.None, Run(g, 200f, 5100, blocked: true));
+            Assert.AreEqual(WindPhase.Warning, Run(g, 2f, 5100));
+        }
+
+        [Test]
+        public void WindAloneNeverPushesPastTheFairLimit()
+        {
+            var t = new WindTuning { strengthStart = 0.6f, strengthMax = 0.6f };
+            for (uint seed = 1; seed < 40; seed++)
+            {
+                var g = new Gusts(t, seed);
+                g.Reset(4900);
+                // La planche penche déjà de 45 % : si le vent pousse du même côté, il est bridé.
+                Run(g, 60f, 5100, danger: 0.45f, ratio: 0.45f, stop: true);
+                Assert.AreEqual(1, g.Count);
+                float peak = 0.45f * g.Direction + g.Strength;
+                Assert.That(peak, Is.LessThanOrEqualTo(t.maxPeakRatio + 1e-4), "seed " + seed);
+            }
+        }
+
+        [Test]
+        public void ResetSkipsMilestonesAlreadyPassed()
+        {
+            var g = new Gusts(new WindTuning(), 5);
+            g.Reset(9000);
+            Assert.AreEqual(10000, g.MilestoneScore(2));
+            Assert.AreEqual(12500, g.MilestoneScore(3));
+            // Reprise à 9 000 : pas de rafale « en retard » pour 5 000 et 8 000.
+            Assert.AreEqual(WindPhase.None, Run(g, 20f, 9000));
         }
     }
 
@@ -1271,6 +1384,41 @@ namespace Bascule.Core.Tests
             Assert.True(FriendCode.Add(p, "ami1ami1ami1ami1", "moi"));
             Assert.False(FriendCode.Add(p, "ami1ami1ami1ami1", "moi"), "déjà ajouté");
             Assert.False(FriendCode.Add(p, "moi", "moi"), "soi-même");
+        }
+
+        [Test]
+        public void ShortFriendCodeIsStableReadableAndParsable()
+        {
+            string id = "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7c";
+            string code = FriendCode.Short(id);
+            Assert.AreEqual(FriendCode.ShortLength, code.Length);
+            Assert.AreEqual(code, FriendCode.Short(id), "toujours le même code pour un joueur");
+            foreach (char c in code) Assert.That(FriendCode.ShortAlphabet.IndexOf(c), Is.GreaterThanOrEqualTo(0));
+            Assert.That(FriendCode.ShortAlphabet, Does.Not.Contain("0").And.Not.Contain("O").And.Not.Contain("1").And.Not.Contain("I").And.Not.Contain("L"));
+            string shown = FriendCode.FormatShort(code);
+            Assert.AreEqual(7, shown.Length);
+            Assert.AreEqual(code, FriendCode.ParseShort(shown));
+            Assert.AreEqual(code, FriendCode.ParseShort(shown.ToLowerInvariant().Replace("-", " ")));
+            Assert.AreEqual(code, FriendCode.ParseShort("Ajoute-moi sur Bascule ! Mon code ami : " + shown));
+            Assert.IsNull(FriendCode.ParseShort("bonjour"));
+            Assert.IsNull(FriendCode.ParseShort("ABC-10O"), "caractères ambigus refusés");
+            // Les codes se répartissent bien (peu de collisions sur des identifiants proches).
+            var seen = new HashSet<string>();
+            for (int i = 0; i < 5000; i++) seen.Add(FriendCode.Short("player" + i));
+            Assert.That(seen.Count, Is.GreaterThan(4990));
+        }
+
+        [Test]
+        public void SuggestedShopHeadRotatesAmongAffordableOnes()
+        {
+            var none = new List<int>();
+            var affordable = HeadCatalog.AffordableShopHeads(none, 100000);
+            Assert.That(affordable.Count, Is.GreaterThan(1));
+            var seen = new HashSet<int>();
+            for (int g = 0; g < affordable.Count; g++) seen.Add(HeadCatalog.SuggestedShopHead(none, 100000, g).Id);
+            Assert.AreEqual(affordable.Count, seen.Count, "chaque tête payable finit par être proposée");
+            // Rien de payable : la moins chère.
+            Assert.AreEqual(HeadCatalog.NextShopHead(none).Id, HeadCatalog.SuggestedShopHead(none, 0, 5).Id);
         }
 
         [Test]

@@ -149,6 +149,7 @@ icon_Coin
 icon_Crown
 icon_Face
 icon_Film
+icon_Flag
 icon_Flame
 icon_Gear
 icon_Gift

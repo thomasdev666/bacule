@@ -2,6 +2,19 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
+## V1.2 (1.2, build 3) – rafales de vent, fin de partie plus tendue, barre d'XP animée, code ami court
+- **Fin de partie plus tendue** (retour TestFlight : « vers 8 000 – 9 000, on ne peut plus perdre »).
+  - Cause trouvée : le bras de levier est fixe (`referenceHalfLength`), donc la planche qui raccourcissait avec le score donnait **moins** de couple, donc moins de danger. Elle arrête maintenant de raccourcir à 4 000 points (`shrinkUntilScore`) : avant 4 000, rien ne change.
+  - **Planche plus sensible** à partir de 4 000 points : +5 % d'inclinaison par tranche de 1 000 points, jusqu'à +35 % (`Difficulty.Sensitivity`, `PlankModel.Sensitivity`).
+  - **Rafales de vent** (`Core/Wind.cs`, `Runtime/Game/WindLayer.cs`) : à 5 000, 8 000, 10 000 puis tous les 2 500 points, et entre les paliers au plus toutes les 45 à 75 s (plus tôt si le joueur stagne : moins de 200 points en 20 s). Jamais deux rafales à moins de 25 s, jamais pendant le souffle du 128, la stabilisation d'un 64, ni quand la planche est déjà en danger. Annonce de 1,8 s (bandeau bleu « RAFALE » avec chevrons, traits d'air, souffle qui monte, petite vibration), puis 3 s de souffle (traits d'air, feuilles, nuages qui filent, légère secousse). Équité : le vent seul ne pousse jamais l'équilibre au-delà de 85 % de l'angle max ; il punit seulement le joueur qui ne réagit pas (poser de l'autre côté). Première rafale : un conseil explique quoi faire. Tout se règle dans la section `wind` de `bascule_tuning.json`.
+  - Simulation (`python3 Tools/balance_sim.py haut 40 900`, `LEGACY=1` pour la 1.1) : jusqu'à 5 000 points, mêmes résultats qu'en 1.1 ; au-delà, la partie se resserre. Les robots meurent plus tôt qu'un vrai joueur : le réglage final se juge en TestFlight.
+- **Barre d'XP animée** en fin de partie : elle se remplit niveau par niveau, s'arrête à chaque niveau gagné (« Niv. 7 +150 » qui jaillit, son, vibration, pièces ajoutées au compteur), puis repart. Plus de bandeau « Niveau X » par-dessus l'écran.
+- **Saisie sans carré noir** (pseudo, code ami, duel) : la barre de saisie native d'iOS au-dessus du clavier est masquée (`shouldHideMobileInput`) ; on écrit directement dans le champ du jeu.
+- **Signaler** : petit drapeau discret au lieu du gros bouton. Signaler ouvre l'e-mail sans masquer le joueur ; seul « Bloquer » le masque.
+- **Tête proposée en fin de partie** : si plusieurs têtes de la boutique sont payables, on en propose une différente à chaque partie (`HeadCatalog.SuggestedShopHead`).
+- **Code ami court** (« 4K7-Q2M », 6 caractères sans 0/O/1/I/L) via Cloud Save : publié en donnée publique indexée, retrouvé par requête (`FriendCode.Short`, `UgsLeaderboardService.PublishFriendCodeAsync` / `FindPlayerByCodeAsync`). Affiché sur le bouton « Mon code ». Les anciens codes longs restent acceptés. Sans le paquet Cloud Save, le code long reste utilisé.
+- Nouvelle icône `Flag` (ArtPack régénéré, `ArtVersion` 13). 144 tests.
+
 ## V1.1 (1.1) – iOS 15 minimum, iPhone uniquement, premier envoi sur l’App Store
 - **iOS 15 minimum** (au lieu de 13) : Apple refusera les apps qui ciblent iOS 13 à partir d'avril 2027 (avertissement ITMS-90068 reçu après le premier envoi).
 - **Numéro de version** passé à 1.1 (au lieu de 20.6) : le numéro affiché sur l'App Store est celui de la version. Le build 20.5 est déjà sur App Store Connect et ne peut pas être réutilisé.

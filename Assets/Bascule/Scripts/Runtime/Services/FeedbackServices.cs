@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Bascule.Services
 {
-    public enum Sfx { Thud, Pop, Lift, Fall, Chime, Phew, Lost, Click }
+    public enum Sfx { Thud, Pop, Lift, Fall, Chime, Phew, Lost, Click, Wind }
 
     /// <summary>Sons du jeu, générés au lancement par Bascule.Core.Synth (aucun fichier audio).</summary>
     public sealed class AudioService
@@ -78,6 +78,7 @@ namespace Bascule.Services
             Add("phew", Synth.Phew());
             Add("lost", Synth.Lost());
             Add("click", Synth.Click());
+            Add("wind", Synth.Wind());
         }
 
         void Add(string name, float[] data)
@@ -100,6 +101,7 @@ namespace Bascule.Services
                 case Sfx.Fall: key = "fall"; break;
                 case Sfx.Phew: key = "phew"; break;
                 case Sfx.Lost: key = "lost"; break;
+                case Sfx.Wind: key = "wind"; break;
                 default: key = "click"; break;
             }
             if (!_clips.TryGetValue(key, out var clip)) return;
@@ -108,7 +110,7 @@ namespace Bascule.Services
             if (_lastPlayed.TryGetValue(key, out float last) && now - last < 0.045f) return;
             // Combos : une cascade de fusions lance des dizaines de sons dans la même image. Au-delà de 4 nouveaux sons
             // par image, les sons secondaires sont ignorés (on ne les entendrait pas, et ils faisaient saturer).
-            bool important = sfx == Sfx.Chime || sfx == Sfx.Lift || sfx == Sfx.Fall || sfx == Sfx.Lost || sfx == Sfx.Phew;
+            bool important = sfx == Sfx.Chime || sfx == Sfx.Lift || sfx == Sfx.Fall || sfx == Sfx.Lost || sfx == Sfx.Phew || sfx == Sfx.Wind;
             if (Time.frameCount != _frame) { _frame = Time.frameCount; _startedThisFrame = 0; }
             if (_startedThisFrame >= MaxPerFrame && !important) return;
             // Fenêtre glissante : au plus N sons lancés en 0,25 s (combos en cascade). Les sons importants passent,

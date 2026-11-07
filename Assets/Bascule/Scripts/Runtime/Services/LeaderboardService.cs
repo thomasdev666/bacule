@@ -47,6 +47,13 @@ namespace Bascule.Services
         Task<LeaderboardPage> GetFriendsAsync(string board, IList<string> playerIds);
         /// <summary>Efface le compte en ligne (pseudo, scores). Droit à l'effacement (RGPD) et règle de l'App Store.</summary>
         Task<bool> DeleteAccountAsync();
+        /// <summary>
+        /// Publie le code ami court du joueur (Cloud Save, donnée publique indexée) pour qu'on puisse le retrouver.
+        /// Renvoie le code, ou null si les codes courts ne sont pas disponibles (paquet Cloud Save absent, hors ligne).
+        /// </summary>
+        Task<string> PublishFriendCodeAsync();
+        /// <summary>Retrouve un joueur par son code court ; null s'il est introuvable (ou ambigu).</summary>
+        Task<string> FindPlayerByCodeAsync(string code);
     }
 
     /// <summary>Sans backend : rien n'est envoyé, les scores attendent dans le profil (pendingScores).</summary>
@@ -60,6 +67,8 @@ namespace Bascule.Services
         public string PlayerId => "";
         public Task<LeaderboardPage> GetFriendsAsync(string board, IList<string> playerIds) => Task.FromResult(new LeaderboardPage { Online = false });
         public Task<bool> DeleteAccountAsync() => Task.FromResult(false);
+        public Task<string> PublishFriendCodeAsync() => Task.FromResult<string>(null);
+        public Task<string> FindPlayerByCodeAsync(string code) => Task.FromResult<string>(null);
     }
 
     /// <summary>

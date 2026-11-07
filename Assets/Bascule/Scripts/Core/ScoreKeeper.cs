@@ -118,10 +118,19 @@ namespace Bascule.Core
 
     public static class Difficulty
     {
-        /// <summary>La planche raccourcit petit à petit avec le score.</summary>
+        /// <summary>Sensibilité de la planche selon le score (1 = normale). Voir PlankTuning.sensitivityFromScore.</summary>
+        public static float Sensitivity(int score, PlankTuning t)
+        {
+            if (score <= t.sensitivityFromScore) return 1f;
+            float s = 1f + t.sensitivityPer1000 * ((score - t.sensitivityFromScore) / 1000f);
+            return s > t.sensitivityMax ? t.sensitivityMax : s;
+        }
+
+        /// <summary>La planche raccourcit un peu avec le score, jusqu'à shrinkUntilScore (ensuite elle ne bouge plus).</summary>
         public static float PlankLength(int score, PlankTuning t)
         {
-            float len = t.startLength - t.shrinkPer1000Points * (score / 1000f);
+            int s = t.shrinkUntilScore > 0 && score > t.shrinkUntilScore ? t.shrinkUntilScore : score;
+            float len = t.startLength - t.shrinkPer1000Points * (s / 1000f);
             return len < t.minLength ? t.minLength : len;
         }
 

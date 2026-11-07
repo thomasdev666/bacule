@@ -15,6 +15,8 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 
 **Pseudos** : filtrés dans le jeu (3 à 16 caractères, grossièretés refusées, `Core/Social.cs`). Dans le tableau de bord Unity Cloud, on peut aussi supprimer un joueur signalé.
 
+**Code ami court (Cloud Save, gratuit)** : Package Manager → **Cloud Save** (`com.unity.services.cloudsave`, 3.x). Le define `BASCULE_CLOUDSAVE` s'active tout seul. Dans le tableau de bord Unity Cloud → **Cloud Save → Queries** (Index), créer un index : entité **Player**, accès **Public**, clé **`friend_code`** (type chaîne). Sans cet index, la recherche par code court échoue (le code long reste accepté).
+
 **Modération (obligatoire pour l'App Store, règle 1.2)** : chaque ligne du classement a un bouton « Signaler ». Le joueur peut signaler le pseudo (e-mail prérempli vers `GameApp.ContactEmail`, avec l'identifiant du joueur) ou le bloquer (il disparaît de son classement et de ses amis). Lire cette boîte chaque jour : pour supprimer un pseudo, tableau de bord Unity Cloud → Leaderboards → chercher l'identifiant du joueur et supprimer son score (ou le joueur dans Player Management).
 
 **Suppression des données** : Réglages → « Supprimer mes données en ligne » efface le compte en ligne (RGPD, et règle de l'App Store pour les applis avec compte).

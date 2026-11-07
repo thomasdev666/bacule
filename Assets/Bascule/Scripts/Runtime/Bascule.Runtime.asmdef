@@ -9,6 +9,7 @@
         "Unity.Services.Core",
         "Unity.Services.Authentication",
         "Unity.Services.Leaderboards",
+        "Unity.Services.CloudSave",
         "UnityEngine.Advertisements",
         "Unity.LevelPlay",
         "Unity.Purchasing",
@@ -35,6 +36,11 @@
             "name": "com.unity.inputsystem",
             "expression": "0.0.1",
             "define": "BASCULE_INPUTSYSTEM"
+        },
+        {
+            "name": "com.unity.services.cloudsave",
+            "expression": "3.0.0",
+            "define": "BASCULE_CLOUDSAVE"
         },
         {
             "name": "com.unity.services.leaderboards",

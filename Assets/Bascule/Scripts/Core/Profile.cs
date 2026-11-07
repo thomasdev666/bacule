@@ -50,6 +50,10 @@ namespace Bascule.Core
         public bool tutorialDone;
         /// <summary>L'explication du 128 (« il s'envole : gros bonus… ») a déjà été montrée.</summary>
         public bool balloonTipShown;
+        /// <summary>Première rafale : on explique quoi faire (une seule fois).</summary>
+        public bool windTipShown;
+        /// <summary>Code ami court publié en ligne (vide tant qu'il ne l'est pas : on partage alors le code long).</summary>
+        public string friendCode = "";
         /// <summary>La demande d'autorisation des notifications a déjà été faite.</summary>
         public bool notificationsAsked;
         /// <summary>La demande de note sur le store a déjà été faite (une seule fois).</summary>

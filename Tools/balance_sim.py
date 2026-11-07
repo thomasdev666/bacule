@@ -27,6 +27,83 @@ for kv in filter(None, os.environ.get("TUNE", "").split(",")):
     sec, key = k.split(".")
     T[sec][key] = float(v)
 P, W, S, SC = T["plank"], T["weights"], T["spawn"], T["score"]
+WD = T.get("wind", {})
+# Comparaison avec la 1.1 : LEGACY=1 remet la planche qui rétrécit, sans sensibilité ni vent.
+if os.environ.get("LEGACY") == "1":
+    P["shrinkUntilScore"], P["sensitivityMax"] = 0, 1.0
+    WD = dict(WD, startScore=10**9)
+
+
+def sensitivity(score):
+    """Copie de Difficulty.Sensitivity."""
+    f = P.get("sensitivityFromScore", 4000)
+    if score <= f:
+        return 1.0
+    return min(P.get("sensitivityMax", 1.0), 1 + P.get("sensitivityPer1000", 0.0) * (score - f) / 1000)
+
+
+class Wind:
+    """Copie de Bascule.Core.Gusts (rafales de vent)."""
+
+    def __init__(self, rng):
+        self.rng = rng
+        self.phase, self.t, self.dir, self.strength, self.count = "none", 0.0, 1, 0.0, 0
+        self.ms = list(WD.get("milestones", [5000, 8000, 10000]))
+        self.mi, self.pending, self.since, self.started = 0, False, 0.0, False
+        self.gap = self.next_gap()
+        self.win_t, self.win_score, self.stagnant = 0.0, 0, False
+
+    def next_gap(self):
+        return WD.get("gapMin", 45) + (WD.get("gapMax", 75) - WD.get("gapMin", 45)) * self.rng.random()
+
+    def milestone(self, i):
+        if i < len(self.ms):
+            return self.ms[i]
+        return (self.ms[-1] if self.ms else WD.get("startScore", 5000)) + WD.get("milestoneEvery", 2500) * (i - len(self.ms) + 1)
+
+    def envelope(self):
+        if self.phase != "blow":
+            return 0.0
+        d, r, t = WD.get("blowSeconds", 3), WD.get("rampSeconds", 0.7), self.t
+        sm = lambda x: max(0, min(1, x)) ** 2 * (3 - 2 * max(0, min(1, x)))
+        e = sm(t / r) if t < r else sm((d - t) / r) if t > d - r else 1.0
+        return e * (0.86 + 0.14 * math.sin(t * 7.3) * math.sin(t * 2.1 + 0.7))
+
+    def update(self, dt, score, danger, ratio, blocked):
+        if not self.started:
+            if score < WD.get("startScore", 5000):
+                return
+            self.started, self.win_score = True, score
+        while score >= self.milestone(self.mi):
+            self.pending, self.mi = True, self.mi + 1
+        self.win_t += dt
+        if self.win_t >= WD.get("stagnationWindow", 20):
+            self.stagnant = score - self.win_score < WD.get("stagnationPoints", 200)
+            self.win_t, self.win_score = 0.0, score
+        if self.phase == "warn":
+            self.t += dt
+            if self.t >= WD.get("warningSeconds", 1.8):
+                self.phase, self.t = "blow", 0.0
+            return
+        if self.phase == "blow":
+            self.t += dt
+            if self.t >= WD.get("blowSeconds", 3):
+                self.phase, self.t, self.since = "none", 0.0, 0.0
+            return
+        self.since += dt * (WD.get("stagnationSpeedup", 1.8) if self.stagnant else 1)
+        due = self.pending or self.since >= self.gap
+        if not due or blocked or self.since < WD.get("minGap", 25) or danger > WD.get("maxDangerToStart", 0.5):
+            return
+        self.dir = -1 if self.rng.random() < 0.5 else 1
+        base = min(WD.get("strengthMax", 0.6), WD.get("strengthStart", 0.42) + WD.get("strengthStep", 0.04) * self.count)
+        toward = ratio * self.dir
+        self.strength = max(WD.get("strengthMin", 0.3), min(base, WD.get("maxPeakRatio", 0.85) - max(0, toward)))
+        self.phase, self.t, self.pending, self.since, self.gap = "warn", 0.0, False, 0.0, self.next_gap()
+        self.count += 1
+
+    def torque(self, losing):
+        return self.dir * self.strength * losing * self.envelope()
+
 
 DT = 1 / 60
 PIVOT = (0.0, -3.4)
@@ -52,6 +129,11 @@ class Plank:
         self.strain = 0.0
         self.lost = False
         self.peak = 0.0
+        self.sens = 1.0
+
+    @property
+    def losing(self):
+        return P["maxAngle"] / (P["degreesPerTorque"] * self.sens)
 
     @property
     def danger(self):
@@ -62,7 +144,7 @@ class Plank:
 
     def step(self, dt, torque, load):
         limit = P["maxAngle"] + P["overshootAngle"]
-        target = max(-limit * 1.5, min(limit * 1.5, P["tiltDirection"] * P["degreesPerTorque"] * torque))
+        target = max(-limit * 1.5, min(limit * 1.5, P["tiltDirection"] * P["degreesPerTorque"] * self.sens * torque))
         freq = P["frequency"] / math.sqrt(1 + P["loadSlowdown"] * max(0.0, load))
         w0 = 2 * math.pi * freq
         steps = max(1, math.ceil(dt / (1 / 120)))
@@ -102,6 +184,8 @@ class Game:
         self.space.gravity = (0, -9.81 * W["gravityScale"])
         self.space.iterations = 20
         self.plank = Plank()
+        self.wind = Wind(random.Random(seed * 7919 + 13))
+        self.score_trace = []  # (temps, score) pour mesurer la difficulté à haut score
         self.length = P["startLength"]
         self.body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
         self.body.position = PIVOT
@@ -278,6 +362,9 @@ class Game:
             if abs(lx) <= half + w["size"] / 2 and (w["landed"] or w["body"].position.y > PIVOT[1]):
                 tq += eff(w["v"]) * lx / P["referenceHalfLength"]
         tq += self.plank.vel / max(1e-6, P["degreesPerTorque"]) * 0.15  # anticipe le mouvement
+        if self.wind.phase != "none":
+            react = 1.0 if self.bot == "malin" else self.skill
+            tq += react * self.wind.dir * self.wind.strength * self.plank.losing
         best, best_cost = 0.0, 1e9
         for i in range(31):
             x = -half * 0.9 + i * (half * 1.8 / 30)
@@ -307,13 +394,20 @@ class Game:
                 self.current, self.next = self.next, self.draw()
                 # Temps de visée humain : un débutant hésite plus.
                 cooldown = S["dropCooldown"] + (0.6 if self.bot != "joueur" else 0.5 + 0.9 * (1 - self.skill) * self.rng.random() + 0.3)
-                target = max(P["minLength"], P["startLength"] - P["shrinkPer1000Points"] * self.score / 1000)
+                until = P.get("shrinkUntilScore", 0)
+                s_len = min(self.score, until) if until > 0 else self.score
+                target = max(P["minLength"], P["startLength"] - P["shrinkPer1000Points"] * s_len / 1000)
                 if abs(target - self.length) > 0.02:
                     self.set_length(target)
             self.time += DT
             self.merges()
             tq, load = self.torque()
-            self.plank.step(DT, tq, load)
+            self.plank.sens = sensitivity(self.score)
+            ratio = self.plank.angle / P["maxAngle"] * P["tiltDirection"]
+            self.wind.update(DT, self.score, self.plank.danger, ratio, self.time < 3)
+            self.plank.step(DT, tq + self.wind.torque(self.plank.losing), load)
+            if int(self.time / DT) % 30 == 0:
+                self.score_trace.append(self.score)
             d = self.plank.danger
             if d >= 0.85:
                 self._armed, self._peak = True, max(self._peak, d)
@@ -348,7 +442,26 @@ class Game:
         return v >= SC.get("lifeMinValue", 1)
 
 
+def high_score_report(n, max_drops):
+    """Difficulté à haut score : part des joueurs encore en vie à chaque palier, et chute par tranche."""
+    rows = []
+    for bot, skill in (("malin", 1.0), ("joueur", 0.85), ("joueur", 0.7)):
+        games = [Game(seed, bot, skill=skill).run(max_drops) for seed in range(n)]
+        alive = lambda s: sum(1 for g in games if max(g.score_trace + [g.score]) >= s) / n
+        gusts = statistics.mean(g.wind.count for g in games)
+        reached = [max(g.score_trace + [g.score]) for g in games]
+        rows.append((bot if bot == "malin" else f"joueur {skill}", statistics.median(reached), [alive(s) for s in (2000, 5000, 8000, 10000, 15000)], gusts,
+                     sum(1 for g in games if not g.over)))
+    print(f"\n{'bot':<12}{'méd. score':>11}  % encore en jeu à   2k    5k    8k   10k   15k   rafales/partie  non perdues")
+    for name, med, al, gu, alive_end in rows:
+        print(f"{name:<12}{med:>11.0f}  {'':>17}" + "".join(f"{a*100:>6.0f}" for a in al) + f"{gu:>16.1f}{alive_end:>12}")
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "haut":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 30
+        high_score_report(n, int(sys.argv[3]) if len(sys.argv) > 3 else 900)
+        return
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 20
     print(f"Réglages : {os.path.relpath(os.path.join(ROOT, 'Assets/Bascule/Resources/bascule_tuning.json'))}")
     for bot in ("hasard", "malin"):

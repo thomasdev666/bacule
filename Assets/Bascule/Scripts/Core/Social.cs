@@ -106,6 +106,61 @@ namespace Bascule.Core
     {
         public const int MaxFriends = 50;
 
+        /// <summary>Alphabet du code court : sans 0/O ni 1/I/L, qu'on confond à l'oral et à l'écrit.</summary>
+        public const string ShortAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+        public const int ShortLength = 6;
+
+        /// <summary>
+        /// Code ami court (6 caractères, ex. « 4K7Q2M ») tiré de l'identifiant du joueur. Le serveur (Cloud Save) garde
+        /// la correspondance code → joueur, pour qu'on puisse se l'échanger de vive voix.
+        /// </summary>
+        public static string Short(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId)) return "";
+            // FNV-1a 64 bits : stable d'une version à l'autre (ne pas changer, les codes sont publiés).
+            ulong h = 14695981039346656037UL;
+            foreach (char c in playerId) { h ^= c; h *= 1099511628211UL; }
+            var sb = new StringBuilder(ShortLength);
+            for (int i = 0; i < ShortLength; i++)
+            {
+                sb.Append(ShortAlphabet[(int)(h % (ulong)ShortAlphabet.Length)]);
+                h /= (ulong)ShortAlphabet.Length;
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Code court affiché : « 4K7-Q2M ».</summary>
+        public static string FormatShort(string code) =>
+            string.IsNullOrEmpty(code) || code.Length != ShortLength ? code ?? "" : code.Substring(0, 3) + "-" + code.Substring(3);
+
+        /// <summary>
+        /// Lit un code court tapé ou collé (« 4k7 q2m », « Mon code ami : 4K7-Q2M ») ; null s'il n'y en a pas.
+        /// Les minuscules sont acceptées ; un caractère hors alphabet rend le code invalide.
+        /// </summary>
+        public static string ParseShort(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            // On cherche, de la fin vers le début, un groupe de 6 caractères de l'alphabet (tirets et espaces ignorés entre deux moitiés).
+            var tokens = new System.Collections.Generic.List<string>();
+            var cur = new StringBuilder();
+            foreach (char raw in text + " ")
+            {
+                char c = char.ToUpperInvariant(raw);
+                if (char.IsLetterOrDigit(c) && c < 128) cur.Append(c);
+                else { if (cur.Length > 0) tokens.Add(cur.ToString()); cur.Clear(); }
+            }
+            for (int i = tokens.Count - 1; i >= 0; i--)
+            {
+                string t = tokens[i];
+                if (t.Length == 3 && i > 0 && tokens[i - 1].Length == 3) t = tokens[i - 1] + t;
+                if (t.Length != ShortLength) continue;
+                bool ok = true;
+                foreach (char c in t) if (ShortAlphabet.IndexOf(c) < 0) { ok = false; break; }
+                if (ok) return t;
+            }
+            return null;
+        }
+
         public static string Format(string playerId)
         {
             if (string.IsNullOrEmpty(playerId)) return "";

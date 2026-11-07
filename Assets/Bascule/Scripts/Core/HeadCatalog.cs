@@ -114,6 +114,27 @@ namespace Bascule.Core
         }
 
         /// <summary>Tête de la boutique la moins chère pas encore achetée (objectif affiché en fin de partie).</summary>
+        /// <summary>Têtes de la boutique pas encore à soi et déjà payables avec <paramref name="coins"/>, de la moins chère à la plus chère.</summary>
+        public static List<HeadDef> AffordableShopHeads(ICollection<int> unlocked, int coins)
+        {
+            var list = new List<HeadDef>();
+            foreach (var h in All)
+                if (h.Unlock == UnlockKind.Shop && !unlocked.Contains(h.Id) && h.UnlockValue <= coins) list.Add(h);
+            list.Sort((a, b) => a.UnlockValue != b.UnlockValue ? a.UnlockValue.CompareTo(b.UnlockValue) : a.Id.CompareTo(b.Id));
+            return list;
+        }
+
+        /// <summary>
+        /// Tête de la boutique à proposer en fin de partie : si plusieurs sont payables, on en change à chaque partie
+        /// (le joueur n'aime peut-être pas la moins chère). Sinon, la prochaine à portée.
+        /// </summary>
+        public static HeadDef SuggestedShopHead(ICollection<int> unlocked, int coins, int rotation)
+        {
+            var affordable = AffordableShopHeads(unlocked, coins);
+            if (affordable.Count > 0) return affordable[((rotation % affordable.Count) + affordable.Count) % affordable.Count];
+            return NextShopHead(unlocked);
+        }
+
         public static HeadDef NextShopHead(ICollection<int> unlocked)
         {
             HeadDef best = null;

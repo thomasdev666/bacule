@@ -153,6 +153,20 @@ namespace Bascule
         public event Action NewRecord;
         /// <summary>Le score vient d'atteindre l'objectif de la partie.</summary>
         public event Action GoalReachedEvent;
+        /// <summary>Une rafale s'annonce (direction : +1 vers la droite).</summary>
+        public event Action<int> WindWarned;
+        /// <summary>La rafale commence à souffler.</summary>
+        public event Action<int> WindBlowing;
+
+        // Vent (à haut score, voir Core/Wind.cs)
+        Gusts _wind;
+        WindLayer _windFx;
+        public WindPhase WindPhase => _wind?.Phase ?? WindPhase.None;
+        public int WindDirection => _wind?.Direction ?? 1;
+        public float WindEnvelope => _wind?.Envelope ?? 0f;
+        public float WindWarning => _wind?.WarningProgress ?? 0f;
+        /// <summary>Nombre de rafales de la partie (première rafale : le HUD explique quoi faire).</summary>
+        public int WindCount => _wind?.Count ?? 0;
 
         // ------------------------------------------------------------------ Mise en place
 
@@ -173,6 +187,10 @@ namespace Bascule
             fxGo.transform.SetParent(transform, false);
             _fx = fxGo.AddComponent<Effects>();
             _fx.Init(art, font, cam);
+            var windGo = new GameObject("Vent");
+            windGo.transform.SetParent(transform, false);
+            _windFx = windGo.AddComponent<WindLayer>();
+            _windFx.Init(art, cam);
 
             _weightsRoot = new GameObject("Poids").transform;
             _weightsRoot.SetParent(transform, false);
@@ -354,6 +372,7 @@ namespace Bascule
             _goalAnnounced = false; GoalDone = false;
             _nextMilestone = 1000;
             _plank = new PlankModel(_t.plank);
+            _wind = new Gusts(_t.wind, seed ^ 0x5A17C3u);
             _seq = new SpawnSequence(seed, _t.spawn);
             _score = new ScoreKeeper(_t.score);
             NewNearMiss();
@@ -408,6 +427,10 @@ namespace Bascule
             _nextMilestone = s.score / 1000 * 1000 + 1000;
             _plank = new PlankModel(_t.plank);
             _plank.Restore(s.plankAngle, s.plankVelocity, s.strainTime);
+            _plank.Sensitivity = Difficulty.Sensitivity(s.score, _t.plank);
+            // Reprise (ou seconde chance) : pas de rafale « en retard » pour les paliers déjà passés, et un temps de répit.
+            _wind = new Gusts(_t.wind, s.seed ^ 0x5A17C3u ^ (uint)s.score);
+            _wind.Reset(s.score);
             _seq = new SpawnSequence(s.seed, _t.spawn);
             _seq.Restore(s.rngState, s.dropIndex, s.current, s.next);
             _score = new ScoreKeeper(_t.score);
@@ -477,7 +500,7 @@ namespace Bascule
                 w.rotation += s.plankAngle;
             }
             s.plankAngle = 0; s.plankVelocity = 0; s.strainTime = 0;
-            float limit = new PlankModel(_t.plank).LosingTorque * 0.3f;
+            float limit = new PlankModel(_t.plank) { Sensitivity = Difficulty.Sensitivity(s.score, _t.plank) }.LosingTorque * 0.3f;
             float half = _t.plank.referenceHalfLength;
             float Torque() { float tq = 0; foreach (var w in s.weights) if (w.landed) tq += WeightCatalog.TorqueWeight(w.value, _t.plank) * (w.x - _mascot.PivotWorld.x) / half; return tq; }
             float torque = Torque();
@@ -641,8 +664,20 @@ namespace Bascule
             _dragging = false;
         }
 
+        /// <summary>Le vent à l'écran : traits d'air, feuilles, nuages qui filent, légère secousse pendant le souffle.</summary>
+        void UpdateWindFx()
+        {
+            bool playing = Current == State.Aiming || Current == State.Cooldown;
+            float warn = playing && WindPhase == WindPhase.Warning ? 0.35f + 0.65f * WindWarning : 0f;
+            float blow = playing ? WindEnvelope : 0f;
+            _windFx.Set(warn, blow, WindDirection, _fx.ReducedMotion);
+            _backdrop.Wind = WindDirection * (warn * 0.6f + blow * 2.4f);
+            if (blow > 0.2f && !Paused) _fx.Shake(0.05f * blow);
+        }
+
         void ClearWorld()
         {
+            _windFx?.Clear();
             _mascot.transform.position = new Vector3(0, WorldLayout.GroundY(_cam), 0);
             foreach (var w in _weights) if (w != null) Destroy(w.gameObject);
             _weights.Clear();
@@ -689,6 +724,7 @@ namespace Bascule
             if (Current == State.Intro) UpdateIntro(dt);
             if (Current == State.Arrival) UpdateArrival(dt);
             _mascot.Tick(dt, _plank.Angle, calm ? 0f : _plank.Danger, load, _t.mascot);
+            UpdateWindFx();
             if (Paused) return;
             UpdateSlowMotion();
             UpdateSweat(dt);
@@ -838,7 +874,8 @@ namespace Bascule
             LimitSpeeds();
             ProcessMerges();
             ComputeTorque(dt, out _torque, out _load);
-            _plank.Step(dt, _torque, _load);
+            _plank.Sensitivity = Difficulty.Sensitivity(Score, _t.plank);
+            _plank.Step(dt, _torque + StepWind(dt), _load);
             _nearMiss.Update(_plank.Danger, _plank.Lost);
             if (!_plank.Lost)
             {
@@ -849,6 +886,28 @@ namespace Bascule
             PlacePlank(false);
             CheckLostWeights();
             if (_plank.Lost) BeginLose();
+        }
+
+        /// <summary>Fait avancer le vent ; renvoie le couple qu'il ajoute à la planche.</summary>
+        float StepWind(float dt)
+        {
+            if (_wind == null) return 0f;
+            // Pas de rafale pendant le souffle du 128, la stabilisation d'un 64, ni dans les toutes premières secondes.
+            bool blocked = _plank.Calm > 0f || _plank.Steady > 0f || _runTime < 3f;
+            float signedRatio = _plank.Angle / Mathf.Max(1f, _t.plank.maxAngle) * _t.plank.tiltDirection;
+            var started = _wind.Update(dt, Score, _plank.Danger, signedRatio, blocked);
+            if (started == WindPhase.Warning)
+            {
+                _audio.Play(Sfx.Wind, 1, 0.9f);
+                _haptics.Light();
+                WindWarned?.Invoke(_wind.Direction);
+            }
+            else if (started == WindPhase.Blowing)
+            {
+                _haptics.Medium();
+                WindBlowing?.Invoke(_wind.Direction);
+            }
+            return _wind.Torque(_plank.LosingTorque);
         }
 
         void ComputeTorque(float dt, out float torque, out float load)

@@ -131,6 +131,37 @@ namespace Bascule.Core
             });
         }
 
+        /// <summary>
+        /// Rafale : un souffle (bruit filtré) qui enfle doucement pendant l'annonce (1,8 s), siffle un peu au plus fort
+        /// du souffle (3 s) puis retombe. Calé sur les durées par défaut de WindTuning.
+        /// </summary>
+        public static float[] Wind()
+        {
+            const float warn = 1.8f, blow = 3f, dur = warn + blow + 0.4f;
+            var rng = new GameRng(29);
+            float lp1 = 0f, lp2 = 0f, bp = 0f;
+            return Render(dur, (t, i) =>
+            {
+                // Enveloppe : murmure pendant l'annonce, souffle franc, retombée.
+                float env;
+                if (t < warn) env = 0.18f + 0.22f * (t / warn);
+                else if (t < warn + 0.6f) env = 0.4f + 0.6f * ((t - warn) / 0.6f);
+                else if (t < warn + blow - 0.7f) env = 1f;
+                else env = Math.Max(0f, 1f - (t - (warn + blow - 0.7f)) / 1.1f);
+                // Rafales dans la rafale : l'air respire.
+                env *= 0.82f + 0.18f * (float)Math.Sin(t * 5.1f) * (float)Math.Sin(t * 1.7f + 0.4f);
+                float nz = rng.NextFloat() * 2f - 1f;
+                // Bruit filtré deux fois (sourd, pas de souffle « TV ») ; la coupure s'ouvre avec la force du vent.
+                float cut = 0.035f + 0.07f * env;
+                lp1 += (nz - lp1) * cut;
+                lp2 += (lp1 - lp2) * cut;
+                // Sifflement léger au plus fort (filtre passe-bande autour de ~700 Hz qui glisse).
+                bp += (lp1 - lp2 - bp) * 0.3f;
+                float whistle = (float)Math.Sin(2 * Math.PI * (620 + 140 * Math.Sin(t * 1.3)) * t) * 0.04f * Math.Max(0f, env - 0.6f);
+                return ((lp2 * 1.6f + bp * 0.5f) * env * 0.55f + whistle) * 1.6f;
+            });
+        }
+
         /// <summary>Bouton : petit « tic » de bois.</summary>
         public static float[] Click() =>
             Render(0.05f, (t, i) => (float)(Math.Sin(2 * Math.PI * 1568 * t) * 0.3 + Math.Sin(2 * Math.PI * 784 * t) * 0.2) * (float)Math.Exp(-t * 110f));

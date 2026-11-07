@@ -17,6 +17,7 @@ namespace Bascule.Core
         public MascotTuning mascot = new MascotTuning();
         public EconomyTuning economy = new EconomyTuning();
         public AdTuning ads = new AdTuning();
+        public WindTuning wind = new WindTuning();
 
         /// <summary>Corrige les valeurs absurdes (fichier mal édité) pour que le jeu reste jouable.</summary>
         public void Sanitize()
@@ -28,6 +29,22 @@ namespace Bascule.Core
             if (mascot == null) mascot = new MascotTuning();
             if (economy == null) economy = new EconomyTuning();
             if (ads == null) ads = new AdTuning();
+            if (wind == null) wind = new WindTuning();
+            wind.warningSeconds = Clamp(wind.warningSeconds, 0.5f, 5f);
+            wind.blowSeconds = Clamp(wind.blowSeconds, 0.5f, 8f);
+            wind.rampSeconds = Clamp(wind.rampSeconds, 0.05f, 3f);
+            wind.minGap = Clamp(wind.minGap, 5f, 600f);
+            wind.gapMin = Clamp(wind.gapMin, wind.minGap, 600f);
+            wind.gapMax = Clamp(wind.gapMax, wind.gapMin, 900f);
+            wind.stagnationWindow = Clamp(wind.stagnationWindow, 2f, 120f);
+            wind.stagnationSpeedup = Clamp(wind.stagnationSpeedup, 1f, 5f);
+            wind.strengthMin = Clamp(wind.strengthMin, 0f, 1f);
+            wind.strengthStart = Clamp(wind.strengthStart, wind.strengthMin, 1f);
+            wind.strengthMax = Clamp(wind.strengthMax, wind.strengthStart, 1f);
+            wind.maxPeakRatio = Clamp(wind.maxPeakRatio, 0.2f, 1.2f);
+            wind.maxDangerToStart = Clamp(wind.maxDangerToStart, 0f, 1f);
+            plank.sensitivityPer1000 = Clamp(plank.sensitivityPer1000, 0f, 1f);
+            plank.sensitivityMax = Clamp(plank.sensitivityMax, 1f, 3f);
             if (economy.dailyGift == null || economy.dailyGift.Length == 0) economy.dailyGift = new EconomyTuning().dailyGift;
             if (economy.dailyGiftItems == null || economy.dailyGiftItems.Length == 0) economy.dailyGiftItems = new EconomyTuning().dailyGiftItems;
             economy.scorePerCoin = Math.Max(1, economy.scorePerCoin);
@@ -75,6 +92,39 @@ namespace Bascule.Core
         static float Clamp(float v, float min, float max) => v < min ? min : (v > max ? max : v);
     }
 
+    /// <summary>Rafales de vent à haut score (voir Core/Wind.cs).</summary>
+    [Serializable]
+    public class WindTuning
+    {
+        /// <summary>Score à partir duquel le vent peut souffler.</summary>
+        public int startScore = 5000;
+        /// <summary>Paliers qui déclenchent une rafale ; ensuite, un palier tous les milestoneEvery points.</summary>
+        public int[] milestones = { 5000, 8000, 10000 };
+        public int milestoneEvery = 2500;
+        /// <summary>Jamais deux rafales à moins de minGap secondes.</summary>
+        public float minGap = 25f;
+        /// <summary>Entre deux paliers : une rafale au hasard toutes les gapMin à gapMax secondes.</summary>
+        public float gapMin = 45f;
+        public float gapMax = 75f;
+        /// <summary>Stagnation : moins de stagnationPoints gagnés en stagnationWindow secondes, la prochaine rafale arrive stagnationSpeedup fois plus vite.</summary>
+        public float stagnationWindow = 20f;
+        public int stagnationPoints = 200;
+        public float stagnationSpeedup = 1.8f;
+        /// <summary>Annonce (s), souffle (s) et montée/retombée du souffle (s).</summary>
+        public float warningSeconds = 1.8f;
+        public float blowSeconds = 3f;
+        public float rampSeconds = 0.7f;
+        /// <summary>Force (part du couple de défaite) : première rafale, gain par rafale, maximum, minimum.</summary>
+        public float strengthStart = 0.42f;
+        public float strengthStep = 0.04f;
+        public float strengthMax = 0.6f;
+        public float strengthMin = 0.3f;
+        /// <summary>Le vent seul n'emmène jamais l'équilibre au-delà de cette part de l'angle max.</summary>
+        public float maxPeakRatio = 0.85f;
+        /// <summary>Pas de nouvelle rafale si la planche est déjà au-delà de ce danger.</summary>
+        public float maxDangerToStart = 0.5f;
+    }
+
     [Serializable]
     public class PlankTuning
     {
@@ -107,6 +157,18 @@ namespace Bascule.Core
         public float minLength = 4.2f;
         /// <summary>Raccourcissement de la planche (unités monde) par tranche de 1000 points.</summary>
         public float shrinkPer1000Points = 0.14f;
+        /// <summary>
+        /// Le raccourcissement s'arrête à ce score (1.2). Le bras de levier est fixe (referenceHalfLength) : une planche
+        /// plus courte donne moins de couple, donc à haut score elle rendait le jeu PLUS facile. Avant ce score, rien ne change.
+        /// </summary>
+        public int shrinkUntilScore = 4000;
+        /// <summary>
+        /// Sensibilité à haut score : à partir de sensitivityFromScore, la planche penche un peu plus pour le même couple
+        /// (+sensitivityPer1000 par tranche de 1000 points, jusqu'à sensitivityMax). La tension monte avec le score.
+        /// </summary>
+        public int sensitivityFromScore = 4000;
+        public float sensitivityPer1000 = 0.05f;
+        public float sensitivityMax = 1.35f;
         public float thickness = 0.3f;
         /// <summary>Demi-longueur qui sert d'unité de bras de levier. Fixe : une planche plus courte donne moins de levier mais moins de place.</summary>
         public float referenceHalfLength = 3.3f;

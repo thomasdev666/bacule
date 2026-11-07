@@ -78,7 +78,7 @@ namespace Bascule.Core
             ["mod_note"] = new[] { "Ce pseudo est choquant ou insultant ? Signale-le : on le vérifie sous 24 h. Tu peux aussi bloquer ce joueur.", "Is this name offensive? Report it: we check within 24 hours. You can also block this player." },
             ["mod_report"] = new[] { "Signaler le pseudo", "Report name" },
             ["mod_block"] = new[] { "Bloquer ce joueur", "Block player" },
-            ["mod_reported"] = new[] { "Merci ! Signalement envoyé, ce joueur est masqué", "Thanks! Report sent, player hidden" },
+            ["mod_reported"] = new[] { "Merci ! Envoie l'e-mail : on vérifie sous 24 h", "Thanks! Send the e-mail: we check within 24 hours" },
             ["mod_blocked"] = new[] { "Joueur bloqué : tu ne le verras plus", "Player blocked: you won't see them again" },
             ["mod_unblock_all"] = new[] { "Débloquer les joueurs", "Unblock players" },
             ["mod_unblocked"] = new[] { "Tous les joueurs sont débloqués", "All players unblocked" },
@@ -87,6 +87,8 @@ namespace Bascule.Core
             ["pseudo_rules"] = new[] { "Visible par tous : pas d'insulte, ni d'info perso. Un pseudo signalé peut être supprimé.", "Visible to everyone: nothing rude, no personal info. Reported names may be removed." },
             ["diag_testsuite"] = new[] { "Test des pubs : ferme puis relance l'app", "Ad test: close and reopen the app" },
             ["diag_simulated"] = new[] { "Pubs simulées (régie non branchée)", "Simulated ads (no network)" },
+            ["wind_banner"] = new[] { "RAFALE", "GUST" },
+            ["tip_wind"] = new[] { "Le vent va pousser la planche !\nPose ton poids de l'autre côté", "The wind will push the plank!\nDrop your weight on the other side" },
             ["store_unavailable"] = new[] { "Boutique indisponible : vérifie ta connexion", "Store unavailable: check your connection" },
 
             // Carte de score
@@ -183,7 +185,8 @@ namespace Bascule.Core
             ["friends_empty"] = new[] { "Ajoute tes amis avec leur code ami pour comparer vos records.", "Add friends with their friend code to compare your best scores." },
             ["friend_code_btn"] = new[] { "Mon code ami", "My friend code" },
             ["friend_add"] = new[] { "Ajouter un ami", "Add a friend" },
-            ["friend_prompt"] = new[] { "Colle le code ami (ou le message reçu)", "Paste the friend code (or the message you got)" },
+            ["friend_prompt"] = new[] { "Tape le code ami (ex. 4K7-Q2M) ou colle le message reçu", "Type the friend code (e.g. 4K7-Q2M) or paste the message" },
+            ["friend_code_short"] = new[] { "Mon code : {0}", "My code: {0}" },
             ["friend_added"] = new[] { "Ami ajouté !", "Friend added!" },
             ["friend_invalid"] = new[] { "Code ami introuvable", "Friend code not found" },
             ["friend_already"] = new[] { "Déjà dans tes amis", "Already your friend" },

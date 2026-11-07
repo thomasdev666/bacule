@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Leaderboards;
+using Bascule.Core;
 using UnityEngine;
 
 namespace Bascule.Services
@@ -131,6 +132,50 @@ namespace Bascule.Services
                 return true;
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Suppression du compte : " + e.Message); return false; }
+        }
+
+        /// <summary>Clé Cloud Save (données publiques du joueur) qui porte le code ami court. Indexée dans le tableau de bord.</summary>
+        public const string FriendCodeKey = "friend_code";
+
+        public async Task<string> PublishFriendCodeAsync()
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return null;
+            try
+            {
+                string code = FriendCode.Short(AuthenticationService.Instance.PlayerId);
+                await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.SaveAsync(
+                    new Dictionary<string, object> { { FriendCodeKey, code } },
+                    new Unity.Services.CloudSave.Models.Data.Player.SaveOptions(new Unity.Services.CloudSave.Models.Data.Player.PublicWriteAccessClassOptions()));
+                return code;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Code ami court : " + e.Message); return null; }
+#else
+            await Task.CompletedTask;
+            return null;
+#endif
+        }
+
+        public async Task<string> FindPlayerByCodeAsync(string code)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(code)) return null;
+            try
+            {
+                var filters = new List<Unity.Services.CloudSave.Models.FieldFilter>
+                {
+                    new Unity.Services.CloudSave.Models.FieldFilter(FriendCodeKey, code, Unity.Services.CloudSave.Models.FieldFilter.OpOptions.EQ, true),
+                };
+                var query = new Unity.Services.CloudSave.Models.Query(filters, new HashSet<string> { FriendCodeKey }, 0, 2);
+                var found = await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.QueryAsync(query, new Unity.Services.CloudSave.Models.Data.Player.QueryOptions());
+                // Deux joueurs avec le même code (très rare) : on refuse plutôt que d'ajouter le mauvais.
+                return found != null && found.Count == 1 ? found[0].Id : null;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Recherche du code ami : " + e.Message); return null; }
+#else
+            await Task.CompletedTask;
+            return null;
+#endif
         }
 
         static string Sanitize(string s)

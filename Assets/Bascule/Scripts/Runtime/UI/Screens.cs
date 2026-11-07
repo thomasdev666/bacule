@@ -284,6 +284,13 @@ namespace Bascule.UI
         float _punch, _hintTimer, _bubbleX, _flashA, _glow;
         Image _flash;
         RectTransform _hudBottom;
+        // Bandeau de rafale : pastille bleue « RAFALE » et chevrons qui filent dans le sens du vent.
+        RectTransform _wind;
+        CanvasGroup _windGroup;
+        Image[] _windChevrons;
+        Text _windText;
+        WindPhase _shownWind;
+        float _windAlpha, _windPop;
         readonly Vector3[] _corners = new Vector3[4];
 
         /// <summary>Éclair de couleur plein écran (appelé par la partie sur un gros combo ou un 128).</summary>
@@ -383,8 +390,79 @@ namespace Bascule.UI
             _mark = Ui.Title(Safe, "", 40, new Color(1, 1, 1, 0.8f), "Filigrane");
             Ui.Place(_mark.rectTransform, 0.5f, 0, 0, 34, 1000, 56, 0.5f, 0);
             _mark.horizontalOverflow = HorizontalWrapMode.Overflow;
+            BuildWindBanner();
             _hand = Ui.Icon(Safe, Art.IconSprite(Icon.Hand), "Main");
             Ui.Place(_hand.rectTransform, 0.5f, 0.5f, 0, 120, 150, 150);
+        }
+
+        void BuildWindBanner()
+        {
+            _wind = Ui.Rect("Rafale", Safe);
+            // En bas, sur l'herbe sous les pieds de Basile : ne cache ni le poids tenu, ni la pile, ni la planche.
+            Ui.Place(_wind, 0.5f, 0, 0, 120, 640, 124);
+            _windGroup = _wind.gameObject.AddComponent<CanvasGroup>();
+            _windGroup.blocksRaycasts = false; _windGroup.interactable = false;
+            var pill = Ui.Image(_wind, Art.Pill, ArtCache.Hex("#2F7BEA"), "Fond", true);
+            Ui.Stretch(pill.rectTransform);
+            CapsuleSlice.Attach(pill);
+            var rim = Ui.Image(pill.transform, Art.Pill, new Color(1f, 1f, 1f, 0.22f), "Reflet", true);
+            Ui.Stretch(rim.rectTransform, 14, 62, 14, 10);
+            CapsuleSlice.Attach(rim);
+            _windText = Ui.Title(_wind, Loc.Get("wind_banner"), 64);
+            Ui.Place(_windText.rectTransform, 0.5f, 0.5f, 0, 2, 360, 110);
+            _windChevrons = new Image[6];
+            for (int i = 0; i < _windChevrons.Length; i++)
+            {
+                var c = Ui.Icon(_wind, Art.IconSprite(Icon.Back), "Chevron");
+                // Trois chevrons de chaque côté du mot ; ils filent dans le sens du vent.
+                float x = (i < 3 ? -1 : 1) * (215 + (i % 3) * 44);
+                Ui.Place(c.rectTransform, 0.5f, 0.5f, x, 0, 64, 64);
+                c.raycastTarget = false;
+                _windChevrons[i] = c;
+            }
+            Ui.Isolate(_wind.gameObject);
+            _wind.gameObject.SetActive(false);
+        }
+
+        void UpdateWind(GameSession s, float dt)
+        {
+            var phase = s.WindPhase;
+            if (phase != _shownWind)
+            {
+                if (phase == WindPhase.Warning)
+                {
+                    _windPop = 1f;
+                    var p = App.Profile;
+                    if (!p.windTipShown) { p.windTipShown = true; Say("tip_wind", 4.2f, 2); }
+                }
+                if (phase == WindPhase.Blowing) _windPop = 0.6f;
+                _shownWind = phase;
+            }
+            bool on = phase != WindPhase.None;
+            _windAlpha = Mathf.MoveTowards(_windAlpha, on ? 1f : 0f, dt * (on ? 6f : 2.5f));
+            bool visible = _windAlpha > 0.01f;
+            if (_wind.gameObject.activeSelf != visible) _wind.gameObject.SetActive(visible);
+            if (!visible) return;
+            _windGroup.alpha = _windAlpha;
+            int dir = s.WindDirection;
+            float now = Time.unscaledTime;
+            // Annonce : la pastille bat comme un cœur ; souffle : elle reste, les chevrons accélèrent.
+            float beat = phase == WindPhase.Warning ? 1f + 0.06f * Mathf.Sin(now * 12f) : 1f;
+            _windPop = Mathf.MoveTowards(_windPop, 0f, dt * 3f);
+            float pop = 1f + 0.35f * _windPop * _windPop;
+            _wind.localScale = Vector3.one * beat * pop;
+            float speed = phase == WindPhase.Blowing ? 3.2f : 1.6f;
+            for (int i = 0; i < _windChevrons.Length; i++)
+            {
+                var c = _windChevrons[i];
+                // L'icône « retour » pointe à gauche : retournée quand le vent souffle vers la droite.
+                c.rectTransform.localEulerAngles = new Vector3(0, 0, dir > 0 ? 180f : 0f);
+                int k = i % 3;
+                int order = dir > 0 ? k : 2 - k;
+                float wave = Mathf.Repeat(now * speed - order * 0.28f, 1f);
+                var col = Color.white; col.a = 0.25f + 0.75f * Mathf.Sin(wave * Mathf.PI);
+                c.color = col;
+            }
         }
 
         GameObject HintRoot => _hint.transform.parent.gameObject;
@@ -453,6 +531,9 @@ namespace Bascule.UI
             _mode.text = s.Mode == GameMode.Daily ? Loc.Get("daily") : s.Mode == GameMode.Duel ? Loc.Get("duel") : "";
             _shownGoal = -2;
             UpdateGoal(s);
+            _shownWind = WindPhase.None;
+            _windAlpha = 0f;
+            _wind.gameObject.SetActive(false);
         }
 
         void UpdateGoal(GameSession s)
@@ -471,6 +552,7 @@ namespace Bascule.UI
         public override void Tick(float dt)
         {
             var s = App.Session;
+            UpdateWind(s, dt);
             // Canvas en superposition : les coins sont directement en pixels d'écran.
             _hudBottom.GetWorldCorners(_corners);
             WorldLayout.HudBottomScreenY = _corners[0].y;
@@ -613,8 +695,18 @@ namespace Bascule.UI
         GameObject _nextTrack;
         Button _nextBuy;
         EconomyGain _gain;
-        float _xpAnim;
         Pulse _sharePulse;
+        // Barre d'XP animée niveau par niveau (1.2) : elle se remplit, s'arrête à chaque niveau gagné, montre sa
+        // récompense (les pièces rejoignent le compteur), puis repart. Plus de bandeau « Niveau X » par-dessus l'écran.
+        float _xpV, _xpTo, _xpWait, _levelPunch, _coinsPunch;
+        int _levelCoinsShown;
+        bool _chestOpened;
+        Image _xpFillImage;
+        RectTransform _coinsRt;
+        RectTransform _levelPop;
+        Text _levelPopText;
+        CanvasGroup _levelPopGroup;
+        float _levelPopT = -1f;
         readonly Image[] _chestPips = new Image[Chest.GamesPerChest];
         RectTransform _chestIcon, _chestBtnIcon;
         Button _chestBtn;
@@ -656,9 +748,25 @@ namespace Bascule.UI
             _level.alignment = TextAnchor.MiddleLeft;
             _xpFill = MetaUi.Bar(card.transform, Art, Palette.Play, "XP");
             Ui.Place((RectTransform)_xpFill.parent, 0, 1, 230, -418, 470, 38, 0, 0.5f);
+            _xpFillImage = _xpFill.GetComponent<Image>();
             _xp = Ui.Label(card.transform, "", 44, Palette.Muted, TextAnchor.MiddleLeft);
             Ui.Place(_xp.rectTransform, 0, 1, 714, -418, 220, 60, 0, 0.5f);
             _xp.horizontalOverflow = HorizontalWrapMode.Overflow;
+            // Récompense d'un niveau : « Niv. 7  +150 » (pièce dorée) qui jaillit du bout de la barre et monte en s'effaçant.
+            _levelPop = Ui.Rect("RecompenseNiveau", card.transform);
+            Ui.Place(_levelPop, 0, 1, 465, -418, 420, 76);
+            _levelPopGroup = _levelPop.gameObject.AddComponent<CanvasGroup>();
+            _levelPopGroup.blocksRaycasts = false; _levelPopGroup.interactable = false;
+            var popBg = Ui.Image(_levelPop, Art.Pill, Palette.Accent, "Fond", true);
+            Ui.Stretch(popBg.rectTransform);
+            CapsuleSlice.Attach(popBg);
+            var popCoin = Ui.Icon(_levelPop, Art.IconSprite(Icon.Coin), "Piece");
+            Ui.Place(popCoin.rectTransform, 1, 0.5f, -50, 0, 56, 56);
+            _levelPopText = Ui.Title(_levelPop, "...", 44);
+            Ui.Place(_levelPopText.rectTransform, 0.5f, 0.5f, -24, 2, 330, 70);
+            _levelPopText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Ui.Isolate(_levelPop.gameObject);
+            _levelPop.gameObject.SetActive(false);
 
             // Coffre : se remplit d'une case par partie, s'ouvre toutes les 3 parties. Quand il est gagné, toute la
             // ligne devient un bouton doré « Ouvrir le coffre ! » (le coffre s'ouvre devant le joueur).
@@ -710,6 +818,7 @@ namespace Bascule.UI
             // Pièces gagnées, et x2 en vidéo (au choix).
             _coins = MetaUi.CoinPill(Safe, Art, out var coinsRt, 56);
             Ui.Place(coinsRt, 0.5f, 1, -220, -1155, 340, 116);
+            _coinsRt = coinsRt;
             _double = Ui.Button(Safe, Loc.Get("coins_double"), Palette.Purple, App.DoubleRunCoins, Icon.Film, 54, "Doubler");
             Ui.Place((RectTransform)_double.transform, 0.5f, 1, 220, -1155, 330, 124);
             _double.gameObject.AddComponent<Pulse>().Amount = 0.04f;
@@ -731,7 +840,17 @@ namespace Bascule.UI
         {
             Show();
             _gain = gain;
-            _xpAnim = -0.6f; // petite attente avant que la barre se remplisse
+            _xpV = gain.XpFractionBefore;
+            _xpTo = gain.LevelsGained + gain.XpFractionAfter;
+            _xpWait = 0.7f; // petite attente : la carte apparaît, puis la barre se remplit
+            _levelCoinsShown = 0;
+            _chestOpened = false;
+            _levelPunch = _coinsPunch = 0f;
+            _levelPopT = -1f;
+            _levelPop.gameObject.SetActive(false);
+            _level.text = Loc.Format("level", gain.LevelBefore);
+            _level.color = Palette.Secondary;
+            MetaUi.SetFill(_xpFill, _xpV);
             var brag = App.BragOf(r, rewards);
             _subtitle.text = Loc.Format("game_over", App.Tuning.mascot.mascotName);
             _title.text = Loc.Format("title_label", Brag.Title(brag));
@@ -747,8 +866,8 @@ namespace Bascule.UI
                 : gap.HasValue ? Loc.Format("close_to_best", Loc.FormatScore(gap.Value))
                 : (r.BestChain >= 2 ? Loc.Format("best_combo", r.BestChain) : "");
             _xp.text = Loc.Format("xp_gain", gain.Xp);
-            // Les pièces du coffre s'ajoutent quand on l'ouvre.
-            _coins.text = "+" + Loc.FormatScore(gain.Total - (gain.Chest?.Coins ?? 0));
+            // Les pièces du coffre s'ajoutent quand on l'ouvre ; celles des niveaux, quand la barre passe chaque niveau.
+            RefreshCoins();
             _double.gameObject.SetActive(gain.Coins >= 10);
             // Le bouton Partager s'anime aux moments dont on a envie de parler : record, sauvetage fou, record frôlé.
             bool worthSharing = rewards.NewBest || r.BestSave >= 0.95f || gap.HasValue;
@@ -797,8 +916,8 @@ namespace Bascule.UI
                 if (gain.GoalReached) { parts.Add(Loc.Get("goal_reached")); coins += gain.GoalCoins; }
                 if (gain.MissionsDone.Count > 0) { parts.Add(gain.MissionsDone.Count > 1 ? Loc.Format("missions_done_n", gain.MissionsDone.Count) : Loc.Get("mission_title")); foreach (var m in gain.MissionsDone) coins += m.reward; }
                 if (gain.MissionsBonus) { parts.Add(Loc.Get("missions_bonus_done")); coins += gain.BonusCoins; }
-                if (gain.LevelsGained > 0) { parts.Add(Loc.Format("level_title", gain.LevelAfter)); coins += gain.LevelCoins; }
-                if (parts.Count == 1) App.RewardAt(-940f, gain.LevelsGained > 0 ? Icon.Star : gain.GoalReached ? Icon.Target : Icon.Gift, Palette.Success, parts[0], null, coins);
+                // Les niveaux ne sont plus annoncés ici : la barre d'XP les montre un par un, avec leurs pièces.
+                if (parts.Count == 1) App.RewardAt(-940f, gain.GoalReached ? Icon.Target : Icon.Gift, Palette.Success, parts[0], null, coins);
                 else if (parts.Count > 1) App.RewardAt(-940f, Icon.Gift, Palette.Success, Loc.Get("run_rewards"), string.Join(" · ", parts), coins);
             }
         }
@@ -819,8 +938,89 @@ namespace Bascule.UI
         public void OnChestOpened()
         {
             if (_gain == null) return;
+            _chestOpened = true;
             SetChestRow(true, true);
-            _coins.text = "+" + Loc.FormatScore(_gain.Total + (App.CoinsDoubled ? _gain.Coins : 0));
+            RefreshCoins();
+        }
+
+        /// <summary>
+        /// Pièces gagnées affichées : la partie, les missions et l'objectif tout de suite ; les niveaux au moment où la barre
+        /// les passe ; le coffre quand on l'ouvre ; le double quand la vidéo est vue.
+        /// </summary>
+        void RefreshCoins()
+        {
+            if (_gain == null) return;
+            int total = _gain.Total - _gain.LevelCoins + _levelCoinsShown
+                - (_chestOpened ? 0 : (_gain.Chest?.Coins ?? 0))
+                + (App.CoinsDoubled ? _gain.Coins : 0);
+            _coins.text = "+" + Loc.FormatScore(Mathf.Max(0, total));
+        }
+
+        /// <summary>La barre vient de passer un niveau : récompense visible, son, vibration, pièces au compteur.</summary>
+        void OnLevelReached(int level)
+        {
+            var eco = App.Tuning.economy;
+            int coins = Levels.LevelCoins(eco, level);
+            _levelCoinsShown = Mathf.Min(_gain.LevelCoins, _levelCoinsShown + coins);
+            RefreshCoins();
+            _level.text = Loc.Format("level", level);
+            _level.color = Palette.Accent;
+            _levelPunch = 1f;
+            _coinsPunch = 1f;
+            _levelPopText.text = Loc.Format("level", level) + "  +" + Loc.FormatScore(coins);
+            _levelPopT = 0f;
+            _levelPop.gameObject.SetActive(true);
+            _xpFillImage.color = Palette.Accent;
+            App.PlaySfx(Sfx.Chime, Mathf.Clamp(2 + level - _gain.LevelBefore, 1, 8));
+            App.HapticMedium();
+        }
+
+        void TickXp(float dt)
+        {
+            if (_xpWait > 0f) { _xpWait -= dt; return; }
+            if (_xpV < _xpTo - 1e-4f)
+            {
+                // Prochain arrêt : le niveau suivant s'il est atteint pendant cette partie, sinon la fin de la barre.
+                float next = Mathf.Floor(_xpV + 1e-4f) + 1f;
+                bool toLevel = next <= _xpTo + 1e-4f;
+                float stop = toLevel ? next : _xpTo;
+                // Un niveau entier se remplit en ~0,8 s (plus vite s'il y en a beaucoup), et ralentit à l'approche de l'arrêt.
+                float speed = (App.Profile.settings.reducedMotion ? 2.5f : 1.25f) * (_gain.LevelsGained > 3 ? 1.6f : 1f);
+                float left = stop - _xpV;
+                _xpV = Mathf.MoveTowards(_xpV, stop, dt * speed * Mathf.Lerp(0.35f, 1f, Mathf.Clamp01(left * 4f)));
+                if (toLevel && _xpV >= stop - 1e-4f)
+                {
+                    _xpV = stop;
+                    MetaUi.SetFill(_xpFill, 1f);
+                    OnLevelReached(_gain.LevelBefore + (int)Mathf.Round(stop));
+                    _xpWait = 0.55f; // le temps de voir la récompense
+                    return;
+                }
+            }
+            int whole = Mathf.Min(_gain.LevelsGained, Mathf.FloorToInt(_xpV + 1e-4f));
+            float frac = _xpV - whole;
+            MetaUi.SetFill(_xpFill, frac);
+            if (_levelPunch <= 0f) _level.text = Loc.Format("level", _gain.LevelBefore + whole);
+        }
+
+        void TickXpFx(float dt)
+        {
+            _levelPunch = Mathf.MoveTowards(_levelPunch, 0f, dt * 2.2f);
+            _coinsPunch = Mathf.MoveTowards(_coinsPunch, 0f, dt * 2.5f);
+            _level.rectTransform.localScale = Vector3.one * (1f + 0.35f * _levelPunch * _levelPunch);
+            if (_levelPunch <= 0f && _level.color != Palette.Secondary) _level.color = Palette.Secondary;
+            _coinsRt.localScale = Vector3.one * (1f + 0.15f * Mathf.Sin(_coinsPunch * Mathf.PI));
+            _xpFillImage.color = Color.Lerp(Palette.Play, Palette.Accent, _levelPunch);
+            if (_levelPopT >= 0f)
+            {
+                _levelPopT += dt;
+                float t = _levelPopT / 1.3f;
+                float pop = t < 0.15f ? Mathf.Lerp(0.4f, 1.15f, t / 0.15f) : Mathf.Lerp(1.15f, 1f, Mathf.Clamp01((t - 0.15f) * 6f));
+                _levelPop.localScale = Vector3.one * pop;
+                _levelPop.anchoredPosition = new Vector2(465f, -418f + 70f + 50f * Mathf.Clamp01(t));
+                _levelPopGroup.alpha = t < 0.7f ? 1f : Mathf.Clamp01(1f - (t - 0.7f) / 0.3f);
+                if (t >= 1f) { _levelPopT = -1f; _levelPop.gameObject.SetActive(false); }
+            }
         }
 
         /// <summary>Choisit l'objectif le plus proche : la prochaine tête de score, de niveau ou de la boutique.</summary>
@@ -843,7 +1043,7 @@ namespace Bascule.UI
                 bestT = t; goal = next;
                 text = Loc.Format("next_head_left", Loc.FormatScore(Mathf.Max(0, next.UnlockValue - best)));
             }
-            var shop = HeadCatalog.NextShopHead(p.unlockedHeads);
+            var shop = HeadCatalog.SuggestedShopHead(p.unlockedHeads, coins, p.gamesPlayed);
             if (shop != null)
             {
                 float t = Mathf.Clamp01(coins / (float)shop.UnlockValue);
@@ -871,14 +1071,8 @@ namespace Bascule.UI
         public override void Tick(float dt)
         {
             if (_gain == null) return;
-            _xpAnim += dt * 0.8f;
-            float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_xpAnim));
-            float from = _gain.XpFractionBefore, to = _gain.LevelsGained + _gain.XpFractionAfter;
-            float v = Mathf.Lerp(from, to, k);
-            int lvl = _gain.LevelBefore + Mathf.Min(_gain.LevelsGained, Mathf.FloorToInt(v));
-            float frac = lvl == _gain.LevelAfter ? v - _gain.LevelsGained : v - Mathf.Floor(v);
-            _level.text = Loc.Format("level", lvl);
-            MetaUi.SetFill(_xpFill, frac);
+            TickXp(dt);
+            TickXpFx(dt);
             if (_chestBtn != null && _chestBtn.gameObject.activeSelf && !App.Profile.settings.reducedMotion)
             {
                 float now = Time.unscaledTime, shake = Mathf.Repeat(now, 1.3f) < 0.45f ? 1f : 0f;
@@ -899,7 +1093,7 @@ namespace Bascule.UI
         {
             _double.interactable = false;
             _double.gameObject.SetActive(false);
-            if (_gain != null) _coins.text = "+" + Loc.FormatScore(_gain.Total + _gain.Coins - (App.ChestWaiting ? _gain.Chest.Coins : 0));
+            RefreshCoins();
         }
 
         public void HideRevive() => _revive.gameObject.SetActive(false);
@@ -1156,6 +1350,7 @@ namespace Bascule.UI
         Text _status;
         Button _pseudo;
         GameObject _friendButtons;
+        Button _myCode;
         readonly Dictionary<string, Button> _tabs = new Dictionary<string, Button>();
         readonly List<(Image image, int head)> _pending = new List<(Image, int)>();
         int _request;
@@ -1188,6 +1383,7 @@ namespace Bascule.UI
             _friendButtons = fb.gameObject;
             Ui.Place(fb, 0.5f, 0, 0, 265, 1000, 140);
             var share = Ui.Button(fb, Loc.Get("friend_code_btn"), Palette.Purple, App.ShareFriendCode, Icon.Share, 44, "MonCode");
+            _myCode = share;
             Ui.Place((RectTransform)share.transform, 0.5f, 0.5f, -250, 0, 480, 130);
             var add = Ui.Button(fb, Loc.Get("friend_add"), Palette.Play, App.AskFriendCode, Icon.Plus, 44, "Ajouter");
             Ui.Place((RectTransform)add.transform, 0.5f, 0.5f, 250, 0, 480, 130);
@@ -1222,6 +1418,11 @@ namespace Bascule.UI
             if (pl != null) pl.text = string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("pseudo_title") : App.Profile.pseudo;
             bool friends = _board == Friends;
             _friendButtons.SetActive(friends);
+            // Le code court s'affiche sur le bouton : on peut le lire à voix haute à un ami.
+            var codeLabel = Ui.ButtonLabel(_myCode);
+            if (codeLabel != null)
+                codeLabel.text = string.IsNullOrEmpty(App.Profile.friendCode) ? Loc.Get("friend_code_btn")
+                    : Loc.Format("friend_code_short", FriendCode.FormatShort(App.Profile.friendCode));
             Ui.Stretch(_area, 36, 430, 36, friends ? 345 : 200);
             Ui.Clear(_list);
             _pending.Clear();
@@ -1290,15 +1491,23 @@ namespace Bascule.UI
             if (icon.sprite == null) { icon.sprite = Art.SoftDisc; icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((icon, head)); }
             Ui.Place(icon.rectTransform, 0, 0.5f, 140, 0, 130, 130, 0, 0.5f);
             var n = Ui.Label(row.transform, string.IsNullOrEmpty(name) ? "-" : name, 48, Palette.Ink, TextAnchor.MiddleLeft);
-            Ui.Place(n.rectTransform, 0, 0.5f, 290, 0, report ? 280 : 400, 100, 0, 0.5f);
+            Ui.Place(n.rectTransform, 0, 0.5f, 290, 0, report ? 340 : 400, 100, 0, 0.5f);
             var s = Ui.Label(row.transform, Loc.FormatScore(score), 54, Palette.Ink, TextAnchor.MiddleRight);
-            Ui.Place(s.rectTransform, 1, 0.5f, -36, 0, report ? 200 : 280, 100, 1, 0.5f);
+            Ui.Place(s.rectTransform, 1, 0.5f, -36, 0, 240, 100, 1, 0.5f);
             if (report)
             {
-                // Pseudo choquant : le signaler ou bloquer le joueur (obligatoire sur l'App Store, règle 1.2).
+                // Pseudo choquant : petit drapeau discret pour le signaler ou bloquer le joueur (App Store, règle 1.2).
+                // Le dessin est petit, la zone touchable reste grande (88 × 100).
                 string id = playerId, who = name;
-                var flag = Ui.Button(row.transform, Loc.Get("lb_report_btn"), Palette.Muted, () => App.ShowPlayerMenu(id, who), null, 44, "Signaler");
-                Ui.Place((RectTransform)flag.transform, 1, 0.5f, -250, 0, 190, 132, 1, 0.5f);
+                var hit = Ui.Rect("Signaler", row.transform);
+                Ui.Place(hit, 1, 0.5f, -284, 0, 88, 100, 1, 0.5f);
+                var hitImg = hit.gameObject.AddComponent<Image>();
+                hitImg.color = new Color(0, 0, 0, 0);
+                hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerMenu(id, who));
+                var flag = Ui.Icon(hit, Art.IconSprite(Icon.Flag), "Drapeau");
+                Ui.Place(flag.rectTransform, 0.5f, 0.5f, 0, 0, 54, 54);
+                flag.color = new Color(1f, 1f, 1f, 0.55f);
+                flag.raycastTarget = false;
             }
         }
     }
@@ -1520,6 +1729,8 @@ namespace Bascule.UI
             _input.placeholder = placeholder;
             _input.characterLimit = 16;
             _input.lineType = InputField.LineType.SingleLine;
+            // iPhone : pas de barre de saisie noire au-dessus du clavier ; on écrit directement dans le champ du jeu.
+            _input.shouldHideMobileInput = true;
             // Curseur bien visible et sélection colorée (sinon on ne voit pas où l'on écrit).
             _input.customCaretColor = true;
             _input.caretColor = Palette.Ink;
