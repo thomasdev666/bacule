@@ -1,4 +1,4 @@
-// Copies minimales des API publiques des paquets Unity Ads 4.x, LevelPlay 8.x, Unity IAP 4.x, Mobile Notifications 2.x et Unity Gaming Services (Leaderboards 2.x),
+// Copies minimales des API publiques des paquets Unity Ads 4.x, LevelPlay 8.x, Unity IAP 5.x (API « Legacy »), Mobile Notifications 2.x et Unity Gaming Services (Leaderboards 2.x),
 // uniquement pour vérifier hors Unity que le code qui les utilise compile :
 //   dotnet build Tools/CompileCheck -p:ExtraDefines="BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;UNITY_ANDROID"
 // Ne fait pas partie du jeu.
@@ -35,13 +35,14 @@ namespace UnityEngine.Advertisements
 
 namespace UnityEngine.Purchasing.Extension
 {
-    public class PurchaseFailureDescription { public string productId; public UnityEngine.Purchasing.PurchaseFailureReason reason; public string message; }
     public interface IPurchasingModule { }
 }
 
 namespace UnityEngine.Purchasing
 {
     public enum ProductType { Consumable, NonConsumable, Subscription }
+    // IAP 5 : déplacé de UnityEngine.Purchasing.Extension vers UnityEngine.Purchasing.
+    public class PurchaseFailureDescription { public string productId; public PurchaseFailureReason reason; public string message; }
     public enum InitializationFailureReason { PurchasingUnavailable, NoProductsAvailable, AppNotKnown }
     public enum PurchaseFailureReason { PurchasingUnavailable, ExistingPurchasePending, ProductUnavailable, SignatureInvalid, UserCancelled, PaymentDeclined, DuplicateTransaction, Unknown }
     public enum PurchaseProcessingResult { Complete, Pending }
@@ -62,7 +63,7 @@ namespace UnityEngine.Purchasing
         PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs purchaseEvent);
         void OnPurchaseFailed(Product product, PurchaseFailureReason failureReason);
     }
-    public interface IDetailedStoreListener : IStoreListener { void OnPurchaseFailed(Product product, Extension.PurchaseFailureDescription failureDescription); }
+    public interface IDetailedStoreListener : IStoreListener { void OnPurchaseFailed(Product product, PurchaseFailureDescription failureDescription); }
     public class StandardPurchasingModule : Extension.IPurchasingModule { public static StandardPurchasingModule Instance() => null; }
     public class ConfigurationBuilder
     {

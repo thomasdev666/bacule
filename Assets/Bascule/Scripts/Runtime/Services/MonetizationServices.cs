@@ -330,7 +330,7 @@ namespace Bascule.Services
 
 #if BASCULE_IAP
     /// <summary>
-    /// Unity IAP (paquet com.unity.purchasing, version 4.x). Produits à créer avec les mêmes identifiants
+    /// Unity IAP (paquet com.unity.purchasing, version 5.x, API « Legacy » héritée de la 4.x, toujours fournie mais déconseillée : avertissements normaux). Produits à créer avec les mêmes identifiants
     /// dans Google Play Console et App Store Connect (voir docs/INTEGRATIONS.md).
     /// La vérification des reçus côté serveur est conseillée avant un gros lancement.
     /// </summary>
@@ -408,7 +408,7 @@ namespace Bascule.Services
         }
 
         public void OnPurchaseFailed(UnityEngine.Purchasing.Product product, UnityEngine.Purchasing.PurchaseFailureReason reason) => Done(product.definition.id, false);
-        public void OnPurchaseFailed(UnityEngine.Purchasing.Product product, UnityEngine.Purchasing.Extension.PurchaseFailureDescription description) => Done(product.definition.id, false);
+        public void OnPurchaseFailed(UnityEngine.Purchasing.Product product, UnityEngine.Purchasing.PurchaseFailureDescription description) => Done(product.definition.id, false);
 
         void Done(string id, bool ok)
         {

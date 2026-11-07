@@ -56,7 +56,7 @@ Sans régie branchée, `SimulatedAdService` affiche une fausse pub pour tester t
 
 > Autre régie possible (Unity LevelPlay, AdMob) : écrire une classe qui implémente `IAdService` (`CanShowRewarded`, `CanShowInterstitial`, `ShowRewarded`, `ShowInterstitial`) et la créer à la place dans `GameApp.Awake`. AdMob : `TagForChildDirectedTreatment` ou `TagForUnderAgeOfConsent`, et `MaxAdContentRating = G`.
 
-## 4. Achats in-app : Unity IAP (version 4.x)
+## 4. Achats in-app : Unity IAP (version 5.x)
 
 Catalogue (`Core/Economy.cs → Shop.Products`) : uniquement du confort ou du cosmétique. Les pièces n'achètent que des têtes.
 
@@ -69,7 +69,7 @@ Catalogue (`Core/Economy.cs → Shop.Products`) : uniquement du confort ou du co
 | `bascule.coins.large` | consommable | 6,99 € | 6 000 pièces (+40 %) |
 | `bascule.legends` | non consommable | 4,99 € | 5 têtes exclusives |
 
-1. Package Manager → **In-App Purchasing**, **version 4.x** (le define `BASCULE_IAP` est prévu pour 4.x ; la 5.x a changé son API : demander à Claude Code d'adapter `UnityIapService` si besoin).
+1. Package Manager → **In-App Purchasing**, **version 5.x** (la 4.x n'est plus prise en charge depuis juin 2026). Le code utilise l'API « Legacy » que la 5.x fournit encore (avertissements « obsolete » normaux) ; l'assembly s'appelle `Unity.Purchasing`. Le define `BASCULE_IAP` s'active pour [5.0.0, 6.0.0).
 2. Créer ces 6 produits avec **exactement ces identifiants** dans Google Play Console (Monétiser → Produits) et App Store Connect (Achats intégrés).
 3. Les prix affichés viennent du store, dans la devise du joueur. Les prix du tableau ne servent que tant que le store n'a pas répondu.
 4. iOS : le bouton **Restaurer mes achats** (boutique et réglages) est obligatoire pour la validation Apple ; il est déjà là.
