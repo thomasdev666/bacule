@@ -52,7 +52,7 @@
         },
         {
             "name": "com.unity.purchasing",
-            "expression": "[4.0.0,6.0.0)",
+            "expression": "[4.0.0,5.0.0)",
             "define": "BASCULE_IAP"
         },
         {
