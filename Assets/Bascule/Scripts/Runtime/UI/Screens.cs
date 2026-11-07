@@ -738,11 +738,14 @@ namespace Bascule.UI
             var lbl = Ui.Label(card.transform, Loc.Get("score_label"), 46, Palette.Muted);
             Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -58, 600, 56);
             _score = Ui.Title(card.transform, "0", 170, Palette.Accent);
-            Ui.Place(_score.rectTransform, 0.5f, 1, 0, -170, 900, 190);
+            // Contour plus fin que celui d'un titre de cette taille (10 px, ombre de 19 px) : il empiétait sur « Record ».
+            foreach (var sh in _score.GetComponents<Shadow>()) UnityEngine.Object.DestroyImmediate(sh);
+            Ui.Outlined(_score, 6f);
+            Ui.Place(_score.rectTransform, 0.5f, 1, 0, -166, 900, 184);
             _score.horizontalOverflow = HorizontalWrapMode.Overflow;
             _score.gameObject.AddComponent<CountUp>().enabled = false;
             _best = Ui.Title(card.transform, "", 50, Palette.Primary);
-            Ui.Place(_best.rectTransform, 0.5f, 1, 0, -286, 900, 64);
+            Ui.Place(_best.rectTransform, 0.5f, 1, 0, -290, 900, 60);
             _details = Ui.Label(card.transform, "", 44, Palette.Ink);
             Ui.Place(_details.rectTransform, 0.5f, 1, 0, -346, 860, 60);
 
