@@ -1,4 +1,4 @@
-// Copies minimales des API publiques des paquets Unity Ads 4.x, Unity IAP 4.x, Mobile Notifications 2.x et Unity Gaming Services (Leaderboards 2.x),
+// Copies minimales des API publiques des paquets Unity Ads 4.x, LevelPlay 8.x, Unity IAP 4.x, Mobile Notifications 2.x et Unity Gaming Services (Leaderboards 2.x),
 // uniquement pour vérifier hors Unity que le code qui les utilise compile :
 //   dotnet build Tools/CompileCheck -p:ExtraDefines="BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;UNITY_ANDROID"
 // Ne fait pas partie du jeu.
@@ -163,5 +163,48 @@ namespace Unity.Services.Leaderboards
         Task<LeaderboardScores> GetScoresByPlayerIdsAsync(string leaderboardId, System.Collections.Generic.List<string> playerIds, GetScoresByPlayerIdsOptions options = null);
     }
     public static class LeaderboardsService { public static ILeaderboardsService Instance => null; }
+}
+namespace Unity.Services.LevelPlay
+{
+    public class LevelPlayConfiguration { }
+    public class LevelPlayInitError { }
+    public class LevelPlayAdInfo { }
+    public class LevelPlayAdError { }
+    public class LevelPlayAdDisplayInfoError { }
+    public class LevelPlayReward { }
+    public enum LevelPlayAdFormat { REWARDED, INTERSTITIAL, BANNER }
+    public class LevelPlay
+    {
+        public static event Action<LevelPlayConfiguration> OnInitSuccess { add { } remove { } }
+        public static event Action<LevelPlayInitError> OnInitFailed { add { } remove { } }
+        public static void Init(string appKey, string userId = null, LevelPlayAdFormat[] adFormats = null) { }
+        public static void SetConsent(bool consent) { }
+        public static void SetMetaData(string key, string value) { }
+    }
+    public class LevelPlayRewardedAd
+    {
+        public LevelPlayRewardedAd(string adUnitId) { }
+        public event Action<LevelPlayAdInfo> OnAdLoaded { add { } remove { } }
+        public event Action<LevelPlayAdError> OnAdLoadFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdDisplayed { add { } remove { } }
+        public event Action<LevelPlayAdDisplayInfoError> OnAdDisplayFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo, LevelPlayReward> OnAdRewarded { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdClosed { add { } remove { } }
+        public void LoadAd() { }
+        public void ShowAd(string placementName = null) { }
+        public bool IsAdReady() => false;
+    }
+    public class LevelPlayInterstitialAd
+    {
+        public LevelPlayInterstitialAd(string adUnitId) { }
+        public event Action<LevelPlayAdInfo> OnAdLoaded { add { } remove { } }
+        public event Action<LevelPlayAdError> OnAdLoadFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdDisplayed { add { } remove { } }
+        public event Action<LevelPlayAdDisplayInfoError> OnAdDisplayFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdClosed { add { } remove { } }
+        public void LoadAd() { }
+        public void ShowAd(string placementName = null) { }
+        public bool IsAdReady() => false;
+    }
 }
 #endif

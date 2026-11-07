@@ -28,7 +28,17 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 
 Sans NativeShare, le bouton copie le texte dans le presse-papiers et enregistre l'image dans `Application.persistentDataPath/bascule_score.png`.
 
-## 3. Publicités : Unity Ads (gratuit)
+## 3. Publicités : Unity LevelPlay (gratuit)
+
+> **Depuis le 31 janvier 2026**, le paquet Advertisement Legacy (`com.unity.ads`) ne permet plus de gagner de l'argent : Unity demande de passer par **LevelPlay** (paquet **Ads Mediation**, `com.unity.services.levelplay`). Le jeu le prend en priorité : define `BASCULE_LEVELPLAY`, classe `LevelPlayAdService`. Retirer Advertisement Legacy du projet.
+>
+> 1. Package Manager → Unity Registry → **Ads Mediation** (LevelPlay). Retirer **Advertisement Legacy**.
+> 2. Tableau de bord LevelPlay : ajouter l'app iOS (`fr.orpheex.bascule`), noter la **clé d'app** (App Key), créer un bloc **Rewarded** et un bloc **Interstitial**, noter leurs identifiants, activer le réseau Unity Ads.
+> 3. Remplir `GameApp.AdIds.LevelPlayAppKey`, `LevelPlayRewarded`, `LevelPlayInterstitial`.
+> 4. Pubs non personnalisées : `SetConsent(false)` et `do_not_sell = true`, déclarés avant `LevelPlay.Init`.
+>
+> La suite de cette section (Unity Ads direct) reste comme solution de secours.
+
 
 Le jeu affiche deux sortes de pubs, toujours **non personnalisées** et **jamais pendant une partie** :
 

@@ -39,8 +39,11 @@ namespace Bascule
         {
 #if UNITY_IOS
             public const string Game = "800428080", Rewarded = "BP_Rewarded_iOS", Interstitial = "BP_Interstitial_iOS";
+            /// <summary>LevelPlay (tableau de bord Unity → Monetization) : clé de l'app iOS et identifiants des blocs.</summary>
+            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
+            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR";
 #endif
             /// <summary>
             /// Pubs de test dans les builds de développement seulement : la version envoyée à Apple (build normal)
@@ -189,7 +192,9 @@ namespace Bascule
             Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
             Session.WeightLost += v => _hud.OnWeightLost(v);
 
-#if BASCULE_UNITYADS && !UNITY_EDITOR
+#if BASCULE_LEVELPLAY && !UNITY_EDITOR
+            _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial);
+#elif BASCULE_UNITYADS && !UNITY_EDITOR
             _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode);
 #else
             _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));

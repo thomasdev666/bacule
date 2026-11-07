@@ -10,6 +10,7 @@
         "Unity.Services.Authentication",
         "Unity.Services.Leaderboards",
         "UnityEngine.Advertisements",
+        "Unity.LevelPlay",
         "UnityEngine.Purchasing",
         "UnityEngine.Purchasing.Stores",
         "Unity.Purchasing.Common",
@@ -38,6 +39,11 @@
             "name": "com.unity.services.leaderboards",
             "expression": "0.0.1",
             "define": "BASCULE_UGS"
+        },
+        {
+            "name": "com.unity.services.levelplay",
+            "expression": "0.0.1",
+            "define": "BASCULE_LEVELPLAY"
         },
         {
             "name": "com.unity.ads",

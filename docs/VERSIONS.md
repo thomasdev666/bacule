@@ -11,6 +11,8 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - les pubs de test ne s'affichent plus que dans les builds de développement (`AdIds.TestMode = Debug.isDebugBuild`) : la version de l'App Store montre les vraies pubs ;
   - Unity IAP démarre les services Unity avant de s'initialiser (demandé par la version 4.x) ;
   - si la boutique ne répond pas, le message est « Boutique indisponible : vérifie ta connexion » (au lieu de « Bientôt disponible »).
+- **Pubs via LevelPlay** : Unity a arrêté la monétisation par le paquet Advertisement Legacy (31 janvier 2026). Nouveau `LevelPlayAdService` (paquet Ads Mediation, define `BASCULE_LEVELPLAY`), prioritaire sur l'ancien service. Pubs non personnalisées (`SetConsent(false)`, `do_not_sell`). Rappels du SDK repassés sur le fil principal ; la récompense attend 0,4 s après la fermeture (certaines régies l'envoient après).
+- **Erreurs `FitText` détruit** (Console, au lancement) : un texte prévenait encore son ajusteur déjà détruit. Garde ajoutée et désinscription à la destruction.
 - **Classement en ligne conforme à l'App Store** (règle 1.2, contenu créé par les joueurs) :
   - bouton **Signaler** sur chaque joueur du classement : fenêtre « Signaler le pseudo » / « Bloquer ce joueur » (`PlayerMenuScreen`) ;
   - un signalement masque le joueur tout de suite et ouvre un e-mail prérempli (pseudo + identifiants) vers `GameApp.ContactEmail` ;

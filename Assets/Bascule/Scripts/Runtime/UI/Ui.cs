@@ -322,7 +322,11 @@ namespace Bascule.UI
             foreach (var f in root.GetComponentsInChildren<FitText>(true)) f.Fit();
         }
 
-        void Dirty() { if (!_self) enabled = true; }
+        // Le texte prévient encore quand son objet est détruit (écran de chargement, lignes de liste vidées) :
+        // ce composant peut déjà être détruit à ce moment-là, on ne touche alors à rien.
+        void Dirty() { if (this != null && !_self) enabled = true; }
+
+        void OnDestroy() { if (_t != null) _t.UnregisterDirtyVerticesCallback(Dirty); }
 
         /// <summary>Prend en compte un « Best Fit » ou une taille réglés par le code après la création.</summary>
         void Absorb()

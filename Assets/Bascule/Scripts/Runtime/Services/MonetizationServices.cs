@@ -167,6 +167,129 @@ namespace Bascule.Services
     }
 #endif
 
+#if BASCULE_LEVELPLAY
+    /// <summary>
+    /// Unity LevelPlay (paquet com.unity.services.levelplay, « Ads Mediation ») : la régie de Unity depuis 2026
+    /// (le paquet Advertisement Legacy ne sert plus à gagner de l'argent). Pubs non personnalisées : pas de
+    /// consentement au ciblage (RGPD) et « ne pas vendre » (CCPA), déclarés avant le démarrage.
+    /// Clé d'app et identifiants des blocs à remplir dans GameApp (AdIds), depuis le tableau de bord Unity.
+    /// Les rappels du SDK sont repassés sur le fil principal avant de toucher au jeu.
+    /// </summary>
+    public sealed class LevelPlayAdService : IAdService
+    {
+        readonly string _rewardedId, _interstitialId;
+        global::Unity.Services.LevelPlay.LevelPlayRewardedAd _rewarded;
+        global::Unity.Services.LevelPlay.LevelPlayInterstitialAd _interstitial;
+        Action<bool> _rewardedDone;
+        Action _interstitialDone;
+        bool _earned, _ready;
+        int _rewardedRetries, _interstitialRetries;
+        readonly Queue<Action> _main = new Queue<Action>();
+
+        public LevelPlayAdService(string appKey, string rewardedId, string interstitialId)
+        {
+            _rewardedId = rewardedId;
+            _interstitialId = interstitialId;
+            if (GameApp.Instance != null) GameApp.Instance.StartCoroutine(Pump());
+            // Avant le démarrage : aucune donnée utilisée pour cibler le joueur.
+            global::Unity.Services.LevelPlay.LevelPlay.SetConsent(false);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("do_not_sell", "true");
+            global::Unity.Services.LevelPlay.LevelPlay.OnInitSuccess += config => Post(OnReady);
+            global::Unity.Services.LevelPlay.LevelPlay.OnInitFailed += error => Post(() => Debug.LogWarning("[Bascule] LevelPlay : démarrage impossible (" + error + ")"));
+            global::Unity.Services.LevelPlay.LevelPlay.Init(appKey);
+        }
+
+        void Post(Action a) { lock (_main) _main.Enqueue(a); }
+
+        IEnumerator Pump()
+        {
+            while (true)
+            {
+                while (true)
+                {
+                    Action a;
+                    lock (_main) { if (_main.Count == 0) break; a = _main.Dequeue(); }
+                    try { a(); } catch (Exception e) { Debug.LogException(e); }
+                }
+                yield return null;
+            }
+        }
+
+        void OnReady()
+        {
+            _ready = true;
+            _rewarded = new global::Unity.Services.LevelPlay.LevelPlayRewardedAd(_rewardedId);
+            _rewarded.OnAdLoaded += info => Post(() => _rewardedRetries = 0);
+            _rewarded.OnAdLoadFailed += error => Post(() => RetryLater(true));
+            _rewarded.OnAdRewarded += (info, reward) => Post(() => _earned = true);
+            _rewarded.OnAdDisplayFailed += error => Post(() => FinishRewarded(false));
+            _rewarded.OnAdClosed += info => Post(() => GameApp.Instance.StartCoroutine(CloseRewarded()));
+            _rewarded.LoadAd();
+
+            _interstitial = new global::Unity.Services.LevelPlay.LevelPlayInterstitialAd(_interstitialId);
+            _interstitial.OnAdLoaded += info => Post(() => _interstitialRetries = 0);
+            _interstitial.OnAdLoadFailed += error => Post(() => RetryLater(false));
+            _interstitial.OnAdDisplayFailed += error => Post(FinishInterstitial);
+            _interstitial.OnAdClosed += info => Post(FinishInterstitial);
+            _interstitial.LoadAd();
+        }
+
+        public bool IsSimulated => false;
+        public bool CanShowRewarded => _ready && _rewarded != null && _rewarded.IsAdReady();
+        public bool CanShowInterstitial => _ready && _interstitial != null && _interstitial.IsAdReady();
+
+        public void ShowRewarded(string placement, Action<bool> onDone)
+        {
+            if (!CanShowRewarded) { onDone?.Invoke(false); if (_rewarded != null) _rewarded.LoadAd(); return; }
+            _earned = false;
+            _rewardedDone = onDone;
+            _rewarded.ShowAd();
+        }
+
+        public void ShowInterstitial(Action onDone)
+        {
+            if (!CanShowInterstitial) { onDone?.Invoke(); if (_interstitial != null) _interstitial.LoadAd(); return; }
+            _interstitialDone = onDone;
+            _interstitial.ShowAd();
+        }
+
+        // Selon la régie, « récompense » arrive juste avant ou juste après « fermée » : on attend un instant.
+        IEnumerator CloseRewarded()
+        {
+            yield return new WaitForSecondsRealtime(0.4f);
+            FinishRewarded(_earned);
+        }
+
+        void FinishRewarded(bool earned)
+        {
+            var cb = _rewardedDone; _rewardedDone = null;
+            cb?.Invoke(earned);
+            _earned = false;
+            _rewarded?.LoadAd();
+        }
+
+        void FinishInterstitial()
+        {
+            var cb = _interstitialDone; _interstitialDone = null;
+            cb?.Invoke();
+            _interstitial?.LoadAd();
+        }
+
+        void RetryLater(bool rewarded)
+        {
+            int n = rewarded ? ++_rewardedRetries : ++_interstitialRetries;
+            if (n > 3 || GameApp.Instance == null) return;
+            GameApp.Instance.StartCoroutine(Reload(rewarded, 10f * n));
+        }
+
+        IEnumerator Reload(bool rewarded, float delay)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            if (rewarded) _rewarded?.LoadAd(); else _interstitial?.LoadAd();
+        }
+    }
+#endif
+
     // =====================================================================================================
     // Achats
     // =====================================================================================================
