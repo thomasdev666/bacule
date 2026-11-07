@@ -28,6 +28,8 @@ namespace Bascule
         public const string PrivacyUrl = "https://orpheex.fr/bascule/confidentialite";
         /// <summary>Page d'aide et de contact (demandée par les stores).</summary>
         public const string SupportUrl = "https://orpheex.fr/bascule";
+        /// <summary>Adresse qui reçoit les signalements de pseudos (à lire chaque jour : Apple demande une réponse rapide).</summary>
+        public const string ContactEmail = "A_REMPLIR@orpheex.fr";
         /// <summary>Version des conditions (aucun écran au lancement ; la politique de confidentialité est dans les réglages).</summary>
         const int ConsentVersion = 2;
         const float AutosaveSeconds = 10f;
@@ -92,6 +94,7 @@ namespace Bascule
         LeaderboardScreen _leaderboard;
         SettingsScreen _settings;
         PromptScreen _prompt;
+        PlayerMenuScreen _playerMenu;
         GiftScreen _gift;
         MissionsScreen _missions;
         ShopScreen _shop;
@@ -350,6 +353,7 @@ namespace Bascule
             _settings = Make<SettingsScreen>(t, Palette.Shade);
             _pause = Make<PauseScreen>(t, Palette.Shade);
             _prompt = Make<PromptScreen>(t, Palette.Shade);
+            _playerMenu = Make<PlayerMenuScreen>(t, Palette.Shade);
             _missions = Make<MissionsScreen>(t, Palette.Shade);
             _shop = Make<ShopScreen>(t, Palette.Shade);
             _gift = Make<GiftScreen>(t, Palette.Shade);
@@ -1097,7 +1101,49 @@ namespace Bascule
                 SaveProfile();
                 await Leaderboard.Service.SetPseudoAsync(name);
                 if (_leaderboard.Visible) _leaderboard.Refresh();
-            });
+            }, 16, Loc.Get("pseudo_rules"));
+        }
+
+        // ------------------------------------------------------------------ Modération du classement
+
+        public void ShowPlayerMenu(string playerId, string name)
+        {
+            if (string.IsNullOrEmpty(playerId)) return;
+            _playerMenu.Open(playerId, name);
+        }
+
+        public void BlockPlayer(string playerId)
+        {
+            Moderation.Block(Profile, playerId, Leaderboard.Service.PlayerId);
+            SaveProfile();
+            Stats.Event("player_block");
+            _toast.Say(Loc.Get("mod_blocked"), 3f);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
+        /// <summary>
+        /// Signalement : le joueur est masqué tout de suite chez celui qui signale, et un e-mail prérempli
+        /// (pseudo + identifiants) part vers l'éditeur. Pour supprimer le pseudo : tableau de bord Unity Cloud →
+        /// Leaderboards → chercher l'identifiant du joueur.
+        /// </summary>
+        public void ReportPlayer(string playerId, string name)
+        {
+            Moderation.Block(Profile, playerId, Leaderboard.Service.PlayerId);
+            SaveProfile();
+            Stats.Event("player_report");
+            string subject = Uri.EscapeDataString(Loc.Get("mod_mail_subject"));
+            string body = Uri.EscapeDataString(Loc.Format("mod_mail_body", name, playerId, Leaderboard.Service.PlayerId ?? ""));
+            Application.OpenURL("mailto:" + ContactEmail + "?subject=" + subject + "&body=" + body);
+            _toast.Say(Loc.Get("mod_reported"), 3.5f);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
+        public void UnblockAll()
+        {
+            Moderation.UnblockAll(Profile);
+            SaveProfile();
+            _toast.Say(Loc.Get("mod_unblocked"));
+            if (_settings.Visible) _settings.Refresh();
         }
 
         // ------------------------------------------------------------------ Amis
@@ -1308,6 +1354,7 @@ namespace Bascule
                 if (_chest.Visible) _chest.Back();
                 else if (_surprise.Visible) _surprise.Back();
                 else if (_prompt.Visible) _prompt.Hide();
+                else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
                 else if (_current == _hud && Session.IsRunning) { if (_pause.Visible) ResumeGame(); else PauseGame(); }

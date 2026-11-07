@@ -147,4 +147,31 @@ namespace Bascule.Core
             return true;
         }
     }
+
+    /// <summary>
+    /// Modération du classement (règle 1.2 de l'App Store : contenu créé par les joueurs) :
+    /// chaque joueur peut bloquer ou signaler un pseudo. Un joueur bloqué disparaît de son classement
+    /// et de sa liste d'amis. Les signalements partent par e-mail vers l'éditeur (voir GameApp.ReportPlayer).
+    /// </summary>
+    public static class Moderation
+    {
+        public const int MaxBlocked = 500;
+
+        public static bool IsBlocked(Profile p, string playerId)
+            => !string.IsNullOrEmpty(playerId) && p.blocked != null && p.blocked.Contains(playerId);
+
+        /// <summary>Bloque un joueur ; renvoie false si c'est soi-même, un identifiant vide, ou s'il l'est déjà.</summary>
+        public static bool Block(Profile p, string playerId, string myId)
+        {
+            if (string.IsNullOrEmpty(playerId) || playerId == myId) return false;
+            if (p.blocked == null) p.blocked = new System.Collections.Generic.List<string>();
+            if (p.friends != null) p.friends.Remove(playerId);
+            if (p.blocked.Contains(playerId)) return false;
+            if (p.blocked.Count >= MaxBlocked) p.blocked.RemoveAt(0);
+            p.blocked.Add(playerId);
+            return true;
+        }
+
+        public static void UnblockAll(Profile p) => p.blocked?.Clear();
+    }
 }

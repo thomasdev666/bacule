@@ -11,6 +11,12 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - les pubs de test ne s'affichent plus que dans les builds de développement (`AdIds.TestMode = Debug.isDebugBuild`) : la version de l'App Store montre les vraies pubs ;
   - Unity IAP démarre les services Unity avant de s'initialiser (demandé par la version 4.x) ;
   - si la boutique ne répond pas, le message est « Boutique indisponible : vérifie ta connexion » (au lieu de « Bientôt disponible »).
+- **Classement en ligne conforme à l'App Store** (règle 1.2, contenu créé par les joueurs) :
+  - bouton **Signaler** sur chaque joueur du classement : fenêtre « Signaler le pseudo » / « Bloquer ce joueur » (`PlayerMenuScreen`) ;
+  - un signalement masque le joueur tout de suite et ouvre un e-mail prérempli (pseudo + identifiants) vers `GameApp.ContactEmail` ;
+  - un joueur bloqué disparaît du classement et de la liste d'amis (`Core/Social.cs → Moderation`, liste `Profile.blocked`) ; Réglages → « Débloquer les joueurs » ;
+  - les règles du pseudo s'affichent dans la fenêtre où on le choisit ;
+  - nouveau test (134 tests).
 
 ## V20.5 (20.5) – le lot tombe pile dans le cadre
 - **Recalage à l'écran** (`SurpriseScreen.AlignWinner`) : sur la fin du défilement, le jeu mesure où sont vraiment le cadre doré et la case gagnée, et aligne leurs centres. Le lot finit exactement en face du sélecteur, quelle que soit la taille de l'écran. Si le calcul est déjà juste, rien ne bouge.

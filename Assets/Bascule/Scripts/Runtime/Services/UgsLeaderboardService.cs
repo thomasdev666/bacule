@@ -72,6 +72,7 @@ namespace Bascule.Services
                     page.Entries.Add(new LeaderboardEntry
                     {
                         Rank = r.Rank + 1,
+                        PlayerId = r.PlayerId,
                         Name = StripSuffix(r.PlayerName),
                         Score = (int)r.Score,
                         Head = ParseHead(r.Metadata),
@@ -105,6 +106,7 @@ namespace Bascule.Services
                 foreach (var r in scores.Results)
                     page.Entries.Add(new LeaderboardEntry
                     {
+                        PlayerId = r.PlayerId,
                         Name = StripSuffix(r.PlayerName),
                         Score = (int)r.Score,
                         Head = ParseHead(r.Metadata),

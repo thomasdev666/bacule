@@ -1272,6 +1272,21 @@ namespace Bascule.Core.Tests
             Assert.False(FriendCode.Add(p, "ami1ami1ami1ami1", "moi"), "déjà ajouté");
             Assert.False(FriendCode.Add(p, "moi", "moi"), "soi-même");
         }
+
+        [Test]
+        public void BlockingHidesPlayerAndRemovesFriend()
+        {
+            var p = new Profile(); p.Sanitize();
+            FriendCode.Add(p, "ami1ami1ami1ami1", "moi");
+            Assert.True(Moderation.Block(p, "ami1ami1ami1ami1", "moi"));
+            Assert.True(Moderation.IsBlocked(p, "ami1ami1ami1ami1"));
+            Assert.False(p.friends.Contains("ami1ami1ami1ami1"), "un joueur bloqué n'est plus un ami");
+            Assert.False(Moderation.Block(p, "ami1ami1ami1ami1", "moi"), "déjà bloqué");
+            Assert.False(Moderation.Block(p, "moi", "moi"), "soi-même");
+            Assert.False(Moderation.IsBlocked(p, null));
+            Moderation.UnblockAll(p);
+            Assert.False(Moderation.IsBlocked(p, "ami1ami1ami1ami1"));
+        }
     }
 }
 

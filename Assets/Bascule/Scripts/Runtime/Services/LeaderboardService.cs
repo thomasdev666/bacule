@@ -9,6 +9,8 @@ namespace Bascule.Services
     public sealed class LeaderboardEntry
     {
         public int Rank;
+        /// <summary>Identifiant du joueur (pour le bloquer ou le signaler). Vide hors ligne.</summary>
+        public string PlayerId;
         public string Name;
         public int Score;
         public int Head;

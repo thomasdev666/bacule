@@ -15,6 +15,8 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 
 **Pseudos** : filtrés dans le jeu (3 à 16 caractères, grossièretés refusées, `Core/Social.cs`). Dans le tableau de bord Unity Cloud, on peut aussi supprimer un joueur signalé.
 
+**Modération (obligatoire pour l'App Store, règle 1.2)** : chaque ligne du classement a un bouton « Signaler ». Le joueur peut signaler le pseudo (e-mail prérempli vers `GameApp.ContactEmail`, avec l'identifiant du joueur) ou le bloquer (il disparaît de son classement et de ses amis). Lire cette boîte chaque jour : pour supprimer un pseudo, tableau de bord Unity Cloud → Leaderboards → chercher l'identifiant du joueur et supprimer son score (ou le joueur dans Player Management).
+
 **Suppression des données** : Réglages → « Supprimer mes données en ligne » efface le compte en ligne (RGPD, et règle de l'App Store pour les applis avec compte).
 
 > Ce code est vérifié hors Unity contre une copie des interfaces de Unity Gaming Services (`Tools/CompileCheck/PackageStubs.cs`). Si Unity signale une erreur après l'installation, elle viendra d'un nom d'API qui a changé entre deux versions du SDK : c'est rapide à corriger.

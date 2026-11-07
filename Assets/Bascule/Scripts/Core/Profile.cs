@@ -56,6 +56,8 @@ namespace Bascule.Core
         public bool ratingAsked;
         /// <summary>Amis ajoutés par code (identifiants de joueur en ligne).</summary>
         public List<string> friends = new List<string>();
+        /// <summary>Joueurs bloqués ou signalés : leurs pseudos ne s'affichent plus dans le classement.</summary>
+        public List<string> blocked = new List<string>();
         /// <summary>Parties jouées depuis le dernier coffre, et coffres ouverts.</summary>
         public int chestGames;
         public int chestsOpened;
@@ -87,6 +89,7 @@ namespace Bascule.Core
             if (string.IsNullOrEmpty(playerId)) playerId = Guid.NewGuid().ToString("N");
             settings.textScale = settings.textScale < 1f ? 1f : (settings.textScale > 1.6f ? 1.6f : settings.textScale);
             if (friends == null) friends = new List<string>();
+            if (blocked == null) blocked = new List<string>();
             if (missions == null) missions = new MissionState();
             if (missions.list == null) missions.list = new List<Mission>();
             if (gift == null) gift = new GiftState();

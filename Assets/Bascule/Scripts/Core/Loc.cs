@@ -74,6 +74,17 @@ namespace Bascule.Core
             ["ad_playing"] = new[] { "Publicité…", "Ad playing…" },
             ["ad_simulated"] = new[] { "(publicité simulée — régie à brancher)", "(simulated ad — network not wired yet)" },
             ["ad_unavailable"] = new[] { "Pas de publicité disponible", "No ad available" },
+            ["lb_report_btn"] = new[] { "Signaler", "Report" },
+            ["mod_note"] = new[] { "Ce pseudo est choquant ou insultant ? Signale-le : on le vérifie sous 24 h. Tu peux aussi bloquer ce joueur.", "Is this name offensive? Report it: we check within 24 hours. You can also block this player." },
+            ["mod_report"] = new[] { "Signaler le pseudo", "Report name" },
+            ["mod_block"] = new[] { "Bloquer ce joueur", "Block player" },
+            ["mod_reported"] = new[] { "Merci ! Signalement envoyé, ce joueur est masqué", "Thanks! Report sent, player hidden" },
+            ["mod_blocked"] = new[] { "Joueur bloqué : tu ne le verras plus", "Player blocked: you won't see them again" },
+            ["mod_unblock_all"] = new[] { "Débloquer les joueurs", "Unblock players" },
+            ["mod_unblocked"] = new[] { "Tous les joueurs sont débloqués", "All players unblocked" },
+            ["mod_mail_subject"] = new[] { "Bascule : signalement d'un pseudo", "Bascule: name report" },
+            ["mod_mail_body"] = new[] { "Pseudo signalé : {0}\nIdentifiant du joueur : {1}\nMon identifiant : {2}\n\nPourquoi (facultatif) : ", "Reported name: {0}\nPlayer ID: {1}\nMy ID: {2}\n\nWhy (optional): " },
+            ["pseudo_rules"] = new[] { "Visible par tous : pas d'insulte, ni d'info perso. Un pseudo signalé peut être supprimé.", "Visible to everyone: nothing rude, no personal info. Reported names may be removed." },
             ["store_unavailable"] = new[] { "Boutique indisponible : vérifie ta connexion", "Store unavailable: check your connection" },
 
             // Carte de score

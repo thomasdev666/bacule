@@ -1255,12 +1255,18 @@ namespace Bascule.UI
             else page = await service.GetTopAsync(_board, 50);
             if (request != _request || !Visible) return;
             _status.text = page.Entries.Count == 0 ? Loc.Get(friends ? "friends_empty" : "lb_empty") : "";
-            foreach (var e in page.Entries) Row(e.Rank, e.Name, e.Score, e.Head, e.IsMe);
+            foreach (var e in page.Entries)
+            {
+                // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas).
+                if (!e.IsMe && Moderation.IsBlocked(App.Profile, e.PlayerId)) continue;
+                Row(e.Rank, e.Name, e.Score, e.Head, e.IsMe, e.PlayerId);
+            }
             if (!friends && page.Me != null && !page.Entries.Exists(e => e.IsMe)) Row(page.Me.Rank, page.Me.Name, page.Me.Score, App.Profile.selectedHead, true);
         }
 
-        void Row(int rank, string name, int score, int head, bool me)
+        void Row(int rank, string name, int score, int head, bool me, string playerId = null)
         {
+            bool report = !me && !string.IsNullOrEmpty(playerId);
             var row = Ui.Card(_list, "Ligne");
             row.color = me ? ArtCache.Hex("#FFE9A8") : Color.white;
             Ui.Size(row, 150);
@@ -1284,9 +1290,16 @@ namespace Bascule.UI
             if (icon.sprite == null) { icon.sprite = Art.SoftDisc; icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((icon, head)); }
             Ui.Place(icon.rectTransform, 0, 0.5f, 140, 0, 130, 130, 0, 0.5f);
             var n = Ui.Label(row.transform, string.IsNullOrEmpty(name) ? "-" : name, 48, Palette.Ink, TextAnchor.MiddleLeft);
-            Ui.Place(n.rectTransform, 0, 0.5f, 290, 0, 400, 100, 0, 0.5f);
+            Ui.Place(n.rectTransform, 0, 0.5f, 290, 0, report ? 280 : 400, 100, 0, 0.5f);
             var s = Ui.Label(row.transform, Loc.FormatScore(score), 54, Palette.Ink, TextAnchor.MiddleRight);
-            Ui.Place(s.rectTransform, 1, 0.5f, -36, 0, 280, 100, 1, 0.5f);
+            Ui.Place(s.rectTransform, 1, 0.5f, -36, 0, report ? 200 : 280, 100, 1, 0.5f);
+            if (report)
+            {
+                // Pseudo choquant : le signaler ou bloquer le joueur (obligatoire sur l'App Store, règle 1.2).
+                string id = playerId, who = name;
+                var flag = Ui.Button(row.transform, Loc.Get("lb_report_btn"), Palette.Muted, () => App.ShowPlayerMenu(id, who), null, 44, "Signaler");
+                Ui.Place((RectTransform)flag.transform, 1, 0.5f, -250, 0, 190, 132, 1, 0.5f);
+            }
         }
     }
 
@@ -1348,10 +1361,12 @@ namespace Bascule.UI
             LinkRow(account, r++, Icon.Replay, Palette.Dark, Loc.Get("restore"), App.RestorePurchases);
 
             bool online = App.Leaderboard.Service.IsOnline;
-            var help = Section(Loc.Get("sec_help"), online ? 3 : 2);
+            bool blocked = App.Profile.blocked.Count > 0;
+            var help = Section(Loc.Get("sec_help"), (online ? 3 : 2) + (blocked ? 1 : 0));
             LinkRow(help, 0, Icon.Bell, Palette.Secondary, Loc.Get("support"), App.OpenSupport);
             LinkRow(help, 1, Icon.Lock, Palette.Dark, Loc.Get("privacy"), App.OpenPrivacy);
-            if (online) LinkRow(help, 2, Icon.Close, Palette.Primary, Loc.Get("delete_data"), App.AskDeleteOnlineData, true);
+            if (blocked) LinkRow(help, 2, Icon.Face, Palette.Secondary, Loc.Get("mod_unblock_all"), App.UnblockAll);
+            if (online) LinkRow(help, blocked ? 3 : 2, Icon.Close, Palette.Primary, Loc.Get("delete_data"), App.AskDeleteOnlineData, true);
 
             // Outils de test : jamais dans la version publiée.
             if (Application.isEditor || Debug.isDebugBuild)
@@ -1474,17 +1489,22 @@ namespace Bascule.UI
     /// <summary>Demande un texte (pseudo, code de duel).</summary>
     public sealed class PromptScreen : UiScreen
     {
-        Text _title;
+        Text _title, _note;
+        Image _card;
         InputField _input;
         Action<string> _ok;
 
         protected override void Build()
         {
             var card = Ui.Card(Safe, "Fenetre");
+            _card = card;
             Ui.Place(card.rectTransform, 0.5f, 0.66f, 0, 0, 940, 720);
             card.gameObject.AddComponent<PopIn>();
             _title = Ui.Label(card.transform, "", 56, Palette.Ink);
             Ui.Place(_title.rectTransform, 0.5f, 1, 0, -110, 860, 140);
+            // Règles (pseudo) : sous le titre ; la fenêtre s'agrandit seulement quand il y en a.
+            _note = Ui.Label(card.transform, "", 44, Palette.Muted);
+            Ui.Place(_note.rectTransform, 0.5f, 1, 0, -255, 860, 170);
 
             var field = Ui.Image(card.transform, Art.Pill, Color.white, "Champ", true);
             field.raycastTarget = true;
@@ -1511,15 +1531,52 @@ namespace Bascule.UI
             Ui.Place((RectTransform)skip.transform, 0.5f, 0, -205, 120, 390, 150);
         }
 
-        public void Ask(string title, string initial, InputField.ContentType type, Action<string> ok, int maxLength = 16)
+        public void Ask(string title, string initial, InputField.ContentType type, Action<string> ok, int maxLength = 16, string note = null)
         {
             Show();
             _title.text = title;
+            bool hasNote = !string.IsNullOrEmpty(note);
+            _note.gameObject.SetActive(hasNote);
+            _note.text = note ?? "";
+            _card.rectTransform.sizeDelta = new Vector2(940, hasNote ? 940 : 720);
             _input.characterLimit = maxLength;
             _input.contentType = type;
             _input.text = initial ?? "";
             _ok = ok;
             _input.ActivateInputField();
+        }
+    }
+
+    /// <summary>Signaler un pseudo ou bloquer un joueur du classement (règle 1.2 de l'App Store).</summary>
+    public sealed class PlayerMenuScreen : UiScreen
+    {
+        Text _title;
+        string _id, _name;
+
+        protected override void Build()
+        {
+            var card = Ui.Card(Safe, "Fenetre");
+            Ui.Place(card.rectTransform, 0.5f, 0.55f, 0, 0, 940, 960);
+            card.gameObject.AddComponent<PopIn>();
+            _title = Ui.Title(card.transform, "", 64, Palette.Ink);
+            Ui.Plain(_title);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -100, 860, 120);
+            var note = Ui.Label(card.transform, Loc.Get("mod_note"), 44, Palette.Muted);
+            Ui.Place(note.rectTransform, 0.5f, 1, 0, -280, 860, 220);
+            var report = Ui.Button(card.transform, Loc.Get("mod_report"), Palette.Primary, () => { Hide(); App.ReportPlayer(_id, _name); }, null, 52, "Signaler");
+            Ui.Place((RectTransform)report.transform, 0.5f, 0, 0, 470, 780, 140);
+            var block = Ui.Button(card.transform, Loc.Get("mod_block"), Palette.Dark, () => { Hide(); App.BlockPlayer(_id); }, null, 52, "Bloquer");
+            Ui.Place((RectTransform)block.transform, 0.5f, 0, 0, 300, 780, 140);
+            var cancel = Ui.Button(card.transform, Loc.Get("cancel"), Palette.Muted, Hide, Icon.Close, 50, "Annuler");
+            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 130, 780, 140);
+        }
+
+        public void Open(string playerId, string name)
+        {
+            Show();
+            _id = playerId;
+            _name = string.IsNullOrEmpty(name) ? "-" : name;
+            _title.text = _name;
         }
     }
 
