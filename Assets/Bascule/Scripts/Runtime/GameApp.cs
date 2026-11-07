@@ -38,7 +38,7 @@ namespace Bascule
         static class AdIds
         {
 #if UNITY_IOS
-            public const string Game = "800428080", Rewarded = "Rewarded_iOS", Interstitial = "Interstitial_iOS";
+            public const string Game = "800428080", Rewarded = "BP_Rewarded_iOS", Interstitial = "BP_Interstitial_iOS";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
 #endif
