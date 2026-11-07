@@ -786,7 +786,7 @@ namespace Bascule
             {
                 _gainDoubled = true;
                 Wallet.Add(Profile, _pendingGain.Coins);
-                _toast.Reward(Icon.Coin, Palette.Accent, Loc.Get("coins_doubled"), null, _pendingGain.Coins);
+                // Pas de bandeau : la carte de fin montre le gain elle-même.
                 _gameOver.OnDoubled();
             });
         }

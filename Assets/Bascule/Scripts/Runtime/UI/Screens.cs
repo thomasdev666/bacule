@@ -707,6 +707,10 @@ namespace Bascule.UI
         Text _levelPopText;
         CanvasGroup _levelPopGroup;
         float _levelPopT = -1f;
+        // Récompenses de la partie (objectif, missions, bonus) : montrées dans la carte après la barre d'XP,
+        // une par une, comme les niveaux. Jamais de bandeau par-dessus l'écran de fin.
+        readonly List<KeyValuePair<string, int>> _runRewards = new List<KeyValuePair<string, int>>();
+        int _runRewardIndex, _runRewardCoinsShown, _runRewardCoins;
         readonly Image[] _chestPips = new Image[Chest.GamesPerChest];
         RectTransform _chestIcon, _chestBtnIcon;
         Button _chestBtn;
@@ -754,7 +758,7 @@ namespace Bascule.UI
             _xp.horizontalOverflow = HorizontalWrapMode.Overflow;
             // Récompense d'un niveau : « Niv. 7  +150 » (pièce dorée) qui jaillit du bout de la barre et monte en s'effaçant.
             _levelPop = Ui.Rect("RecompenseNiveau", card.transform);
-            Ui.Place(_levelPop, 0, 1, 465, -418, 420, 76);
+            Ui.Place(_levelPop, 0, 1, 470, -418, 660, 80);
             _levelPopGroup = _levelPop.gameObject.AddComponent<CanvasGroup>();
             _levelPopGroup.blocksRaycasts = false; _levelPopGroup.interactable = false;
             var popBg = Ui.Image(_levelPop, Art.Pill, Palette.Accent, "Fond", true);
@@ -763,8 +767,7 @@ namespace Bascule.UI
             var popCoin = Ui.Icon(_levelPop, Art.IconSprite(Icon.Coin), "Piece");
             Ui.Place(popCoin.rectTransform, 1, 0.5f, -50, 0, 56, 56);
             _levelPopText = Ui.Title(_levelPop, "...", 44);
-            Ui.Place(_levelPopText.rectTransform, 0.5f, 0.5f, -24, 2, 330, 70);
-            _levelPopText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Ui.Place(_levelPopText.rectTransform, 0.5f, 0.5f, -30, 2, 560, 70);
             Ui.Isolate(_levelPop.gameObject);
             _levelPop.gameObject.SetActive(false);
 
@@ -907,19 +910,24 @@ namespace Bascule.UI
             SetChestRow(gain.Chest != null, false);
             _chestPop = gain.Chest != null ? 1.2f : 0f;
 
-            // Récompenses de la partie : avec un coffre, elles sont listées dans l'écran du coffre. Sans coffre,
-            // un seul message les regroupe toutes, posé sur le bas du bilan (jamais sur le titre, jamais une file).
+            // Récompenses de la partie : avec un coffre, elles sont listées dans l'écran du coffre. Sans coffre, elles
+            // jaillissent une par une dans la carte, après la barre d'XP (aucun bandeau par-dessus l'écran).
+            _runRewards.Clear();
+            _runRewardIndex = 0;
+            _runRewardCoinsShown = 0;
             if (gain.Chest == null)
             {
-                var parts = new List<string>();
-                int coins = 0;
-                if (gain.GoalReached) { parts.Add(Loc.Get("goal_reached")); coins += gain.GoalCoins; }
-                if (gain.MissionsDone.Count > 0) { parts.Add(gain.MissionsDone.Count > 1 ? Loc.Format("missions_done_n", gain.MissionsDone.Count) : Loc.Get("mission_title")); foreach (var m in gain.MissionsDone) coins += m.reward; }
-                if (gain.MissionsBonus) { parts.Add(Loc.Get("missions_bonus_done")); coins += gain.BonusCoins; }
-                // Les niveaux ne sont plus annoncés ici : la barre d'XP les montre un par un, avec leurs pièces.
-                if (parts.Count == 1) App.RewardAt(-940f, gain.GoalReached ? Icon.Target : Icon.Gift, Palette.Success, parts[0], null, coins);
-                else if (parts.Count > 1) App.RewardAt(-940f, Icon.Gift, Palette.Success, Loc.Get("run_rewards"), string.Join(" · ", parts), coins);
+                if (gain.GoalReached) _runRewards.Add(new KeyValuePair<string, int>(Loc.Get("goal_reached"), gain.GoalCoins));
+                if (gain.MissionsDone.Count > 0)
+                {
+                    int mc = 0; foreach (var m in gain.MissionsDone) mc += m.reward;
+                    _runRewards.Add(new KeyValuePair<string, int>(gain.MissionsDone.Count > 1 ? Loc.Format("missions_done_n", gain.MissionsDone.Count) : Loc.Get("mission_title"), mc));
+                }
+                if (gain.MissionsBonus) _runRewards.Add(new KeyValuePair<string, int>(Loc.Get("missions_bonus_done"), gain.BonusCoins));
             }
+            _runRewardCoins = 0;
+            foreach (var rw in _runRewards) _runRewardCoins += rw.Value;
+            RefreshCoins();
         }
 
         void SetChestRow(bool waiting, bool opened)
@@ -950,7 +958,7 @@ namespace Bascule.UI
         void RefreshCoins()
         {
             if (_gain == null) return;
-            int total = _gain.Total - _gain.LevelCoins + _levelCoinsShown
+            int total = _gain.Total - _gain.LevelCoins + _levelCoinsShown - (_runRewardCoins - _runRewardCoinsShown)
                 - (_chestOpened ? 0 : (_gain.Chest?.Coins ?? 0))
                 + (App.CoinsDoubled ? _gain.Coins : 0);
             _coins.text = "+" + Loc.FormatScore(Mathf.Max(0, total));
@@ -967,17 +975,35 @@ namespace Bascule.UI
             _level.color = Palette.Accent;
             _levelPunch = 1f;
             _coinsPunch = 1f;
-            _levelPopText.text = Loc.Format("level", level) + "  +" + Loc.FormatScore(coins);
-            _levelPopT = 0f;
-            _levelPop.gameObject.SetActive(true);
+            ShowPop(Loc.Format("level", level) + "  +" + Loc.FormatScore(coins));
             _xpFillImage.color = Palette.Accent;
             App.PlaySfx(Sfx.Chime, Mathf.Clamp(2 + level - _gain.LevelBefore, 1, 8));
             App.HapticMedium();
         }
 
+        /// <summary>Pastille dorée qui jaillit du bout de la barre et monte en s'effaçant (niveau, objectif, missions).</summary>
+        void ShowPop(string text)
+        {
+            _levelPopText.text = text;
+            _levelPopT = 0f;
+            _levelPop.gameObject.SetActive(true);
+        }
+
         void TickXp(float dt)
         {
             if (_xpWait > 0f) { _xpWait -= dt; return; }
+            // Barre finie : les autres récompenses de la partie, une par une.
+            if (_xpV >= _xpTo - 1e-4f && _runRewardIndex < _runRewards.Count)
+            {
+                var r = _runRewards[_runRewardIndex++];
+                _runRewardCoinsShown += r.Value;
+                RefreshCoins();
+                ShowPop(r.Value > 0 ? r.Key + "  +" + Loc.FormatScore(r.Value) : r.Key);
+                _coinsPunch = 1f;
+                App.PlaySfx(Sfx.Chime, 4 + _runRewardIndex);
+                _xpWait = 1.1f;
+                return;
+            }
             if (_xpV < _xpTo - 1e-4f)
             {
                 // Prochain arrêt : le niveau suivant s'il est atteint pendant cette partie, sinon la fin de la barre.
@@ -1017,7 +1043,7 @@ namespace Bascule.UI
                 float t = _levelPopT / 1.3f;
                 float pop = t < 0.15f ? Mathf.Lerp(0.4f, 1.15f, t / 0.15f) : Mathf.Lerp(1.15f, 1f, Mathf.Clamp01((t - 0.15f) * 6f));
                 _levelPop.localScale = Vector3.one * pop;
-                _levelPop.anchoredPosition = new Vector2(465f, -418f + 70f + 50f * Mathf.Clamp01(t));
+                _levelPop.anchoredPosition = new Vector2(470f, -418f + 70f + 50f * Mathf.Clamp01(t));
                 _levelPopGroup.alpha = t < 0.7f ? 1f : Mathf.Clamp01(1f - (t - 0.7f) / 0.3f);
                 if (t >= 1f) { _levelPopT = -1f; _levelPop.gameObject.SetActive(false); }
             }
@@ -1094,6 +1120,12 @@ namespace Bascule.UI
             _double.interactable = false;
             _double.gameObject.SetActive(false);
             RefreshCoins();
+            if (_gain != null)
+            {
+                ShowPop(Loc.Get("coins_doubled") + "  +" + Loc.FormatScore(_gain.Coins));
+                _coinsPunch = 1f;
+                App.PlaySfx(Sfx.Chime, 6);
+            }
         }
 
         public void HideRevive() => _revive.gameObject.SetActive(false);
