@@ -168,9 +168,9 @@ namespace Unity.Services.Leaderboards
 namespace Unity.Services.LevelPlay
 {
     public class LevelPlayConfiguration { }
-    public class LevelPlayInitError { }
+    public class LevelPlayInitError { public int ErrorCode { get; } public string ErrorMessage { get; } }
     public class LevelPlayAdInfo { }
-    public class LevelPlayAdError { }
+    public class LevelPlayAdError { public int ErrorCode { get; } public string ErrorMessage { get; } }
     public class LevelPlayReward { }
     public enum LevelPlayAdFormat { REWARDED, INTERSTITIAL, BANNER }
     public class LevelPlay
@@ -180,6 +180,7 @@ namespace Unity.Services.LevelPlay
         public static void Init(string appKey, string userId = null, LevelPlayAdFormat[] adFormats = null) { }
         public static void SetConsent(bool consent) { }
         public static void SetMetaData(string key, string value) { }
+        public static void LaunchTestSuite() { }
     }
     public class LevelPlayRewardedAd
     {

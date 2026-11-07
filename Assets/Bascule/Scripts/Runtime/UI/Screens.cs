@@ -1385,6 +1385,8 @@ namespace Bascule.UI
             }
 
             var foot = Ui.Label(_col, Loc.Format("version", Application.version) + "  ·  " + Loc.Get("publisher"), 40, ArtCache.Hex("#BFE0FF"));
+            foot.raycastTarget = true;
+            foot.gameObject.AddComponent<Button>().onClick.AddListener(App.OnVersionTapped);
             Ui.Size(foot, 90);
         }
 

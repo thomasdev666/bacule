@@ -13,6 +13,8 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - si la boutique ne répond pas, le message est « Boutique indisponible : vérifie ta connexion » (au lieu de « Bientôt disponible »).
 - **Pubs via LevelPlay** : Unity a arrêté la monétisation par le paquet Advertisement Legacy (31 janvier 2026). Nouveau `LevelPlayAdService` (paquet Ads Mediation, define `BASCULE_LEVELPLAY`), prioritaire sur l'ancien service. Pubs non personnalisées (`SetConsent(false)`, `do_not_sell`). Rappels du SDK repassés sur le fil principal ; la récompense attend 0,4 s après la fermeture (certaines régies l'envoient après).
 - **Erreurs `FitText` détruit** (Console, au lancement) : un texte prévenait encore son ajusteur déjà détruit. Garde ajoutée et désinscription à la destruction.
+- **Diagnostic des pubs (caché)** : dans Réglages, toucher 7 fois la ligne de version affiche l'état de LevelPlay (démarrage, pub récompensée et pub entre parties : prête ou code d'erreur). 7 fois de plus : le Test Suite LevelPlay s'ouvre au prochain lancement (état de chaque réseau). Les pubs qui ne chargent pas sont réessayées sans limite (toutes les 10 à 60 s).
+- **Numéro de build iOS séparé** (`BasculeSetup.BuildNumber`, « 2 ») : à augmenter à chaque envoi à Apple.
 - **Classement en ligne conforme à l'App Store** (règle 1.2, contenu créé par les joueurs) :
   - bouton **Signaler** sur chaque joueur du classement : fenêtre « Signaler le pseudo » / « Bloquer ce joueur » (`PlayerMenuScreen`) ;
   - un signalement masque le joueur tout de suite et ouvre un e-mail prérempli (pseudo + identifiants) vers `GameApp.ContactEmail` ;

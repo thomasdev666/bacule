@@ -85,6 +85,8 @@ namespace Bascule.Core
             ["mod_mail_subject"] = new[] { "Bascule : signalement d'un pseudo", "Bascule: name report" },
             ["mod_mail_body"] = new[] { "Pseudo signalé : {0}\nIdentifiant du joueur : {1}\nMon identifiant : {2}\n\nPourquoi (facultatif) : ", "Reported name: {0}\nPlayer ID: {1}\nMy ID: {2}\n\nWhy (optional): " },
             ["pseudo_rules"] = new[] { "Visible par tous : pas d'insulte, ni d'info perso. Un pseudo signalé peut être supprimé.", "Visible to everyone: nothing rude, no personal info. Reported names may be removed." },
+            ["diag_testsuite"] = new[] { "Test des pubs : ferme puis relance l'app", "Ad test: close and reopen the app" },
+            ["diag_simulated"] = new[] { "Pubs simulées (régie non branchée)", "Simulated ads (no network)" },
             ["store_unavailable"] = new[] { "Boutique indisponible : vérifie ta connexion", "Store unavailable: check your connection" },
 
             // Carte de score

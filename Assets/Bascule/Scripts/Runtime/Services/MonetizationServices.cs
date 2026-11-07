@@ -186,6 +186,15 @@ namespace Bascule.Services
         int _rewardedRetries, _interstitialRetries;
         readonly Queue<Action> _main = new Queue<Action>();
 
+        /// <summary>Clé PlayerPrefs : ouvrir le Test Suite LevelPlay au prochain lancement (diagnostic caché, Réglages).</summary>
+        public const string TestSuitePref = "bascule_lp_testsuite";
+        string _init = "…", _rewardedState = "…", _interstitialState = "…";
+        bool _testSuite;
+
+        /// <summary>État lisible de la régie (Réglages : toucher 7 fois la ligne de version).</summary>
+        public string Diagnostic => "LevelPlay " + _init + " | Récompensée : " + (_rewarded != null && _rewarded.IsAdReady() ? "prête" : _rewardedState)
+            + " | Entre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState);
+
         public LevelPlayAdService(string appKey, string rewardedId, string interstitialId)
         {
             _rewardedId = rewardedId;
@@ -194,10 +203,23 @@ namespace Bascule.Services
             // Avant le démarrage : aucune donnée utilisée pour cibler le joueur.
             global::Unity.Services.LevelPlay.LevelPlay.SetConsent(false);
             global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("do_not_sell", "true");
+            _testSuite = PlayerPrefs.GetInt(TestSuitePref, 0) == 1;
+            if (_testSuite)
+            {
+                PlayerPrefs.SetInt(TestSuitePref, 0);
+                PlayerPrefs.Save();
+                global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("is_test_suite", "enable");
+            }
             global::Unity.Services.LevelPlay.LevelPlay.OnInitSuccess += config => Post(OnReady);
-            global::Unity.Services.LevelPlay.LevelPlay.OnInitFailed += error => Post(() => Debug.LogWarning("[Bascule] LevelPlay : démarrage impossible (" + error + ")"));
+            global::Unity.Services.LevelPlay.LevelPlay.OnInitFailed += error => Post(() =>
+            {
+                _init = "échec " + (error != null ? error.ErrorCode + " " + error.ErrorMessage : "");
+                Debug.LogWarning("[Bascule] LevelPlay : démarrage impossible (" + _init + ")");
+            });
             global::Unity.Services.LevelPlay.LevelPlay.Init(appKey);
         }
+
+        static string Err(global::Unity.Services.LevelPlay.LevelPlayAdError e) => e == null ? "erreur" : "erreur " + e.ErrorCode + " " + e.ErrorMessage;
 
         void Post(Action a) { lock (_main) _main.Enqueue(a); }
 
@@ -218,17 +240,19 @@ namespace Bascule.Services
         void OnReady()
         {
             _ready = true;
+            _init = "OK";
+            if (_testSuite) global::Unity.Services.LevelPlay.LevelPlay.LaunchTestSuite();
             _rewarded = new global::Unity.Services.LevelPlay.LevelPlayRewardedAd(_rewardedId);
-            _rewarded.OnAdLoaded += info => Post(() => _rewardedRetries = 0);
-            _rewarded.OnAdLoadFailed += error => Post(() => RetryLater(true));
+            _rewarded.OnAdLoaded += info => Post(() => { _rewardedRetries = 0; _rewardedState = "prête"; });
+            _rewarded.OnAdLoadFailed += error => Post(() => { _rewardedState = Err(error); RetryLater(true); });
             _rewarded.OnAdRewarded += (info, reward) => Post(() => _earned = true);
             _rewarded.OnAdDisplayFailed += (info, error) => Post(() => FinishRewarded(false));
             _rewarded.OnAdClosed += info => Post(() => GameApp.Instance.StartCoroutine(CloseRewarded()));
             _rewarded.LoadAd();
 
             _interstitial = new global::Unity.Services.LevelPlay.LevelPlayInterstitialAd(_interstitialId);
-            _interstitial.OnAdLoaded += info => Post(() => _interstitialRetries = 0);
-            _interstitial.OnAdLoadFailed += error => Post(() => RetryLater(false));
+            _interstitial.OnAdLoaded += info => Post(() => { _interstitialRetries = 0; _interstitialState = "prête"; });
+            _interstitial.OnAdLoadFailed += error => Post(() => { _interstitialState = Err(error); RetryLater(false); });
             _interstitial.OnAdDisplayFailed += (info, error) => Post(FinishInterstitial);
             _interstitial.OnAdClosed += info => Post(FinishInterstitial);
             _interstitial.LoadAd();
@@ -278,8 +302,8 @@ namespace Bascule.Services
         void RetryLater(bool rewarded)
         {
             int n = rewarded ? ++_rewardedRetries : ++_interstitialRetries;
-            if (n > 3 || GameApp.Instance == null) return;
-            GameApp.Instance.StartCoroutine(Reload(rewarded, 10f * n));
+            if (GameApp.Instance == null) return;
+            GameApp.Instance.StartCoroutine(Reload(rewarded, Mathf.Min(60f, 10f * n)));
         }
 
         IEnumerator Reload(bool rewarded, float delay)

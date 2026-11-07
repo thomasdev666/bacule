@@ -1109,6 +1109,43 @@ namespace Bascule
             }, 16, Loc.Get("pseudo_rules"));
         }
 
+        // ------------------------------------------------------------------ Diagnostic des pubs (caché)
+
+        int _versionTaps;
+        float _versionTapTime;
+
+        /// <summary>
+        /// Réglages : toucher 7 fois la ligne de version affiche l'état de la régie (codes d'erreur LevelPlay) ;
+        /// 7 fois de plus demande le Test Suite LevelPlay au prochain lancement. Rien ne change pour le joueur.
+        /// </summary>
+        public void OnVersionTapped()
+        {
+            if (Time.unscaledTime - _versionTapTime > 1.5f) _versionTaps = 0;
+            _versionTapTime = Time.unscaledTime;
+            _versionTaps++;
+            if (_versionTaps == 7) _toast.Say(AdDiagnostic, 9f);
+            if (_versionTaps == 14)
+            {
+#if BASCULE_LEVELPLAY && !UNITY_EDITOR
+                PlayerPrefs.SetInt(LevelPlayAdService.TestSuitePref, 1);
+                PlayerPrefs.Save();
+#endif
+                _toast.Say(Loc.Get("diag_testsuite"), 5f);
+                _versionTaps = 0;
+            }
+        }
+
+        string AdDiagnostic
+        {
+            get
+            {
+#if BASCULE_LEVELPLAY && !UNITY_EDITOR
+                if (_ads is LevelPlayAdService lp) return lp.Diagnostic;
+#endif
+                return _ads.IsSimulated ? Loc.Get("diag_simulated") : "Unity Ads";
+            }
+        }
+
         // ------------------------------------------------------------------ Modération du classement
 
         public void ShowPlayerMenu(string playerId, string name)
