@@ -40,7 +40,7 @@ namespace Bascule
 #if UNITY_IOS
             public const string Game = "800428080", Rewarded = "BP_Rewarded_iOS", Interstitial = "BP_Interstitial_iOS";
             /// <summary>LevelPlay (tableau de bord Unity → Monetization) : clé de l'app iOS et identifiants des blocs.</summary>
-            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR";
+            public const string LevelPlayAppKey = "2959b19e5", LevelPlayRewarded = "xvinq3655r2dltpx", LevelPlayInterstitial = "7lj35rsgj2famh1w";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
             public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR";
