@@ -29,7 +29,7 @@ namespace Bascule
         /// <summary>Page d'aide et de contact (demandée par les stores).</summary>
         public const string SupportUrl = "https://orpheex.fr/bascule";
         /// <summary>Adresse qui reçoit les signalements de pseudos (à lire chaque jour : Apple demande une réponse rapide).</summary>
-        public const string ContactEmail = "A_REMPLIR@orpheex.fr";
+        public const string ContactEmail = "contact@orpheex.fr";
         /// <summary>Version des conditions (aucun écran au lancement ; la politique de confidentialité est dans les réglages).</summary>
         const int ConsentVersion = 2;
         const float AutosaveSeconds = 10f;
