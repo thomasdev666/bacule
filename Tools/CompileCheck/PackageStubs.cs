@@ -170,7 +170,6 @@ namespace Unity.Services.LevelPlay
     public class LevelPlayInitError { }
     public class LevelPlayAdInfo { }
     public class LevelPlayAdError { }
-    public class LevelPlayAdDisplayInfoError { }
     public class LevelPlayReward { }
     public enum LevelPlayAdFormat { REWARDED, INTERSTITIAL, BANNER }
     public class LevelPlay
@@ -187,7 +186,7 @@ namespace Unity.Services.LevelPlay
         public event Action<LevelPlayAdInfo> OnAdLoaded { add { } remove { } }
         public event Action<LevelPlayAdError> OnAdLoadFailed { add { } remove { } }
         public event Action<LevelPlayAdInfo> OnAdDisplayed { add { } remove { } }
-        public event Action<LevelPlayAdDisplayInfoError> OnAdDisplayFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo, LevelPlayAdError> OnAdDisplayFailed { add { } remove { } }
         public event Action<LevelPlayAdInfo, LevelPlayReward> OnAdRewarded { add { } remove { } }
         public event Action<LevelPlayAdInfo> OnAdClosed { add { } remove { } }
         public void LoadAd() { }
@@ -200,7 +199,7 @@ namespace Unity.Services.LevelPlay
         public event Action<LevelPlayAdInfo> OnAdLoaded { add { } remove { } }
         public event Action<LevelPlayAdError> OnAdLoadFailed { add { } remove { } }
         public event Action<LevelPlayAdInfo> OnAdDisplayed { add { } remove { } }
-        public event Action<LevelPlayAdDisplayInfoError> OnAdDisplayFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo, LevelPlayAdError> OnAdDisplayFailed { add { } remove { } }
         public event Action<LevelPlayAdInfo> OnAdClosed { add { } remove { } }
         public void LoadAd() { }
         public void ShowAd(string placementName = null) { }

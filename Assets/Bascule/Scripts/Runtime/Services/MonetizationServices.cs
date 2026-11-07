@@ -222,14 +222,14 @@ namespace Bascule.Services
             _rewarded.OnAdLoaded += info => Post(() => _rewardedRetries = 0);
             _rewarded.OnAdLoadFailed += error => Post(() => RetryLater(true));
             _rewarded.OnAdRewarded += (info, reward) => Post(() => _earned = true);
-            _rewarded.OnAdDisplayFailed += error => Post(() => FinishRewarded(false));
+            _rewarded.OnAdDisplayFailed += (info, error) => Post(() => FinishRewarded(false));
             _rewarded.OnAdClosed += info => Post(() => GameApp.Instance.StartCoroutine(CloseRewarded()));
             _rewarded.LoadAd();
 
             _interstitial = new global::Unity.Services.LevelPlay.LevelPlayInterstitialAd(_interstitialId);
             _interstitial.OnAdLoaded += info => Post(() => _interstitialRetries = 0);
             _interstitial.OnAdLoadFailed += error => Post(() => RetryLater(false));
-            _interstitial.OnAdDisplayFailed += error => Post(FinishInterstitial);
+            _interstitial.OnAdDisplayFailed += (info, error) => Post(FinishInterstitial);
             _interstitial.OnAdClosed += info => Post(FinishInterstitial);
             _interstitial.LoadAd();
         }
