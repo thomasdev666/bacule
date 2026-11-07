@@ -2,6 +2,16 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
+## V1.1 (1.1) – iOS 15 minimum, iPhone uniquement, premier envoi sur l’App Store
+- **iOS 15 minimum** (au lieu de 13) : Apple refusera les apps qui ciblent iOS 13 à partir d'avril 2027 (avertissement ITMS-90068 reçu après le premier envoi).
+- **Numéro de version** passé à 1.1 (au lieu de 20.6) : le numéro affiché sur l'App Store est celui de la version. Le build 20.5 est déjà sur App Store Connect et ne peut pas être réutilisé.
+- **iPhone uniquement** (plus de version iPad) : Apple n'exige plus de captures d'écran iPad.
+- **Poids tenu bien visible sur iPhone** : il se plaçait à une hauteur fixe, sans tenir compte de l'encoche ni de l'écran plus étroit. Sur iPhone, il restait caché derrière la ligne « Objectif ». Le HUD donne maintenant à chaque image le bas réel de l'interface du haut (`WorldLayout.HudBottomScreenY`), et le poids se place juste dessous (`WorldLayout.SpawnY`). Il descend d'environ 1 unité sur iPhone, un peu moins sur iPad.
+- **Vraies pubs et vrais achats prêts** :
+  - les pubs de test ne s'affichent plus que dans les builds de développement (`AdIds.TestMode = Debug.isDebugBuild`) : la version de l'App Store montre les vraies pubs ;
+  - Unity IAP démarre les services Unity avant de s'initialiser (demandé par la version 4.x) ;
+  - si la boutique ne répond pas, le message est « Boutique indisponible : vérifie ta connexion » (au lieu de « Bientôt disponible »).
+
 ## V20.5 (20.5) – le lot tombe pile dans le cadre
 - **Recalage à l'écran** (`SurpriseScreen.AlignWinner`) : sur la fin du défilement, le jeu mesure où sont vraiment le cadre doré et la case gagnée, et aligne leurs centres. Le lot finit exactement en face du sélecteur, quelle que soit la taille de l'écran. Si le calcul est déjà juste, rien ne bouge.
 - **Cadre doré plus large** (324 px au lieu de 280) : une bordure d'or bien visible tout autour de la case gagnée, même quand elle grossit. On voit nettement que le lot est dedans.

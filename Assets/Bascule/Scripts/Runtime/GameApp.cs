@@ -40,8 +40,12 @@ namespace Bascule
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
 #endif
-            /// <summary>Pubs de test tant que le jeu n'est pas publié.</summary>
-            public const bool TestMode = true;
+            /// <summary>
+            /// Pubs de test dans les builds de développement seulement : la version envoyée à Apple (build normal)
+            /// affiche les vraies pubs. Pour voir des pubs de test sur ton iPhone avec la vraie version, ajoute-le
+            /// comme « appareil de test » dans le tableau de bord Unity Ads (ne jamais cliquer sur ses propres pubs).
+            /// </summary>
+            public static readonly bool TestMode = Debug.isDebugBuild;
         }
 
         public Tuning Tuning { get; private set; }
@@ -1010,7 +1014,7 @@ namespace Bascule
 
         public void BuyProduct(string id)
         {
-            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("soon")); return; }
+            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("store_unavailable")); return; }
             Stats.Event("iap_start", ("product", id));
             _purchases.Buy(id, ok =>
             {
@@ -1192,7 +1196,7 @@ namespace Bascule
 
         public void RestorePurchases()
         {
-            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("soon")); return; }
+            if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("store_unavailable")); return; }
             _purchases.Restore(ok =>
             {
                 if (ok) _toast.Say(Loc.Get("restored"));

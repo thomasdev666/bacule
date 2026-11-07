@@ -218,8 +218,18 @@ namespace Bascule.Services
         readonly Dictionary<string, Action<bool>> _pending = new Dictionary<string, Action<bool>>();
         public event Action<string> Purchased;
 
-        public UnityIapService()
+        public UnityIapService() { Init(); }
+
+        async void Init()
         {
+            // Unity IAP 4.x veut que les services Unity soient démarrés avant lui (sinon avertissement, et certains
+            // magasins refusent de s'initialiser). Sans réseau, on continue quand même : l'App Store répondra plus tard.
+            try
+            {
+                if (Unity.Services.Core.UnityServices.State == Unity.Services.Core.ServicesInitializationState.Uninitialized)
+                    await Unity.Services.Core.UnityServices.InitializeAsync();
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Services Unity non démarrés : " + e.Message); }
             var builder = UnityEngine.Purchasing.ConfigurationBuilder.Instance(UnityEngine.Purchasing.StandardPurchasingModule.Instance());
             foreach (var p in Shop.Products)
                 builder.AddProduct(p.Id, p.Kind == ProductKind.Consumable ? UnityEngine.Purchasing.ProductType.Consumable : UnityEngine.Purchasing.ProductType.NonConsumable);

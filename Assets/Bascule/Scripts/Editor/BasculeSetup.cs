@@ -20,8 +20,8 @@ namespace Bascule.EditorTools
         public const string BundleId = "fr.orpheex.bascule";
         public const string Company = "Orphex";
         /// <summary>Version du jeu : la même que celle du zip (Bascule_V9.zip → 9.0).</summary>
-        public const string Version = "20.5";
-        const int VersionCode = 36;
+        public const string Version = "1.1";
+        const int VersionCode = 37;
 
         static BasculeSetup()
         {
@@ -44,6 +44,10 @@ namespace Bascule.EditorTools
             PlayerSettings.productName = "Bascule";
             PlayerSettings.bundleVersion = Version;
             PlayerSettings.iOS.buildNumber = Version;
+            // iOS 15 minimum : Apple refusera les apps qui ciblent iOS 13 à partir d'avril 2027 (ITMS-90068).
+            PlayerSettings.iOS.targetOSVersionString = "15.0";
+            // Bascule est un jeu d'iPhone, en portrait : pas de version iPad (moins de captures à fournir à Apple).
+            PlayerSettings.iOS.targetDevice = iOSTargetDevice.iPhoneOnly;
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(PlayerSettings.Android.bundleVersionCode, VersionCode);
             // Textures et rendu : qualité maximale (pas de réduction de résolution des textures sur téléphone).
             QualitySettings.globalTextureMipmapLimit = 0;

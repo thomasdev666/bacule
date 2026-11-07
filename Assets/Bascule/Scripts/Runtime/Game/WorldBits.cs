@@ -76,7 +76,32 @@ namespace Bascule
 
         public static float HalfWidth(Camera cam) => cam.orthographicSize * cam.aspect;
         public static float GroundY(Camera cam) => -cam.orthographicSize + 2.1f;
-        public static float SpawnY(Camera cam) => cam.orthographicSize - 5.1f; // sous le score, la jauge et le « Suivant »
+        /// <summary>
+        /// Bas de l'interface du haut (score, niveau, jauge, objectif), en pixels d'écran depuis le bas.
+        /// Donné à chaque image par le HUD ; négatif tant qu'il n'est pas connu.
+        /// </summary>
+        public static float HudBottomScreenY = -1f;
+
+        /// <summary>Espace entre le bas de l'interface et le centre du poids tenu (demi-poids, balancement, marge).</summary>
+        const float HudClearance = 0.9f;
+
+        /// <summary>
+        /// Hauteur du poids tenu, juste sous l'interface du haut. Sur iPhone, l'encoche et l'écran plus étroit
+        /// font descendre l'interface : une hauteur fixe cachait le poids derrière le texte « Objectif ».
+        /// </summary>
+        public static float SpawnY(Camera cam)
+        {
+            float size = cam.orthographicSize;
+            float y = size - 5.1f;
+            if (HudBottomScreenY > 0f && cam.pixelHeight > 0)
+            {
+                float ppu = cam.pixelHeight / (2f * size);
+                float fromTop = (cam.pixelRect.yMax - HudBottomScreenY) / ppu;
+                y = Mathf.Min(y, size - fromTop - HudClearance);
+            }
+            // Garde-fou : jamais trop près de la planche.
+            return Mathf.Max(y, size - 7f);
+        }
     }
 
     /// <summary>Aide pour les sprites « 9-slice » : étire sans déformer les bouts arrondis.</summary>

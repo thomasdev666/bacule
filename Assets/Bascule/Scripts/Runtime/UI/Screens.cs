@@ -283,6 +283,8 @@ namespace Bascule.UI
         int _shownScore = -1, _shownNext = -1;
         float _punch, _hintTimer, _bubbleX, _flashA, _glow;
         Image _flash;
+        RectTransform _hudBottom;
+        readonly Vector3[] _corners = new Vector3[4];
 
         /// <summary>Éclair de couleur plein écran (appelé par la partie sur un gros combo ou un 128).</summary>
         public void Flash(float strength, Color color)
@@ -374,6 +376,9 @@ namespace Bascule.UI
             _goal = Ui.Title(Safe, "...", 40, ArtCache.Hex("#BFE0FF"), "Objectif");
             Ui.Place(_goal.rectTransform, 0.5f, 1, 0, -470, 700, 56);
             _goal.horizontalOverflow = HorizontalWrapMode.Overflow;
+            // Repère invisible au bas de l'interface du haut (bas de la ligne « Objectif ») : le poids tenu se place dessous.
+            _hudBottom = Ui.Rect("BasInterface", Safe);
+            Ui.Place(_hudBottom, 0.5f, 1, 0, -498, 10, 2, 0.5f, 0.5f);
             // Mode vidéo : le nom du jeu et le code défi restent lisibles sur les écrans filmés (TikTok, Reels, Shorts).
             _mark = Ui.Title(Safe, "", 40, new Color(1, 1, 1, 0.8f), "Filigrane");
             Ui.Place(_mark.rectTransform, 0.5f, 0, 0, 34, 1000, 56, 0.5f, 0);
@@ -466,6 +471,9 @@ namespace Bascule.UI
         public override void Tick(float dt)
         {
             var s = App.Session;
+            // Canvas en superposition : les coins sont directement en pixels d'écran.
+            _hudBottom.GetWorldCorners(_corners);
+            WorldLayout.HudBottomScreenY = _corners[0].y;
             if (s.Score != _shownScore)
             {
                 // Le score bondit d'autant plus que le gain est gros, et brille en doré sur les gros gains.

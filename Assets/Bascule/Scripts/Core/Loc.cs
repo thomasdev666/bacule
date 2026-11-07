@@ -74,6 +74,7 @@ namespace Bascule.Core
             ["ad_playing"] = new[] { "Publicité…", "Ad playing…" },
             ["ad_simulated"] = new[] { "(publicité simulée — régie à brancher)", "(simulated ad — network not wired yet)" },
             ["ad_unavailable"] = new[] { "Pas de publicité disponible", "No ad available" },
+            ["store_unavailable"] = new[] { "Boutique indisponible : vérifie ta connexion", "Store unavailable: check your connection" },
 
             // Carte de score
             ["card_score"] = new[] { "points", "points" },

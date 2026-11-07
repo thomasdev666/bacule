@@ -38,7 +38,7 @@ Sans régie branchée, `SimulatedAdService` affiche une fausse pub pour tester t
 1. Créer un compte sur [Unity Ads (Unity Cloud → Monetization)](https://cloud.unity.com), ajouter le projet, et noter le **Game ID** Android et iOS.
 2. Créer deux blocs publicitaires : `Rewarded_Android` / `Rewarded_iOS` (récompensé) et `Interstitial_Android` / `Interstitial_iOS` (interstitiel). Ce sont les noms par défaut, déjà dans `GameApp.AdIds`.
 3. Package Manager → **Advertisement Legacy** (`com.unity.ads`). Le define `BASCULE_UNITYADS` s'active tout seul.
-4. Remplir `GameApp.AdIds.Game` avec le Game ID. Laisser `TestMode = true` jusqu'à la publication (sinon le compte peut être suspendu pour clics de test).
+4. Remplir `GameApp.AdIds.Game` avec le Game ID (iOS et Android). `TestMode` suit tout seul le type de build : pubs de test dans un build de développement, vraies pubs sinon. Pour tester la vraie version sur ton téléphone, l'ajouter comme appareil de test dans Unity Ads, et ne jamais cliquer sur ses propres pubs (compte suspendu).
 5. Dans le tableau de bord Unity Ads, régler le public sur « contenu pour toute la famille / public mixte ». Le code déclare déjà au SDK l'absence de consentement au ciblage (`gdpr.consent = false`, `privacy.consent = false`, `privacy.mode = mixed`, `user.nonbehavioral = true`).
 6. Le joueur qui a acheté « Sans publicité » ou l'offre de départ ne voit plus aucune pub imposée et revit sans vidéo. Les vidéos qui donnent des pièces restent proposées : elles sont toujours au choix.
 
