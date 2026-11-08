@@ -767,8 +767,9 @@ namespace Bascule.UI
             Ui.Place(_chestText.rectTransform, 0, 1, 132, -508, 560, 60, 0, 0.5f);
             for (int i = 0; i < _chestPips.Length; i++)
             {
-                _chestPips[i] = Ui.Image(card.transform, Art.Circle, Palette.Muted, "Case");
-                Ui.Place(_chestPips[i].rectTransform, 1, 1, -60 - (_chestPips.Length - 1 - i) * 64, -508, 48, 48, 0.5f, 0.5f);
+                // Trois étoiles dorées (icône du jeu) : pleines une à une, grises tant qu'elles ne sont pas gagnées.
+                _chestPips[i] = Ui.Icon(card.transform, Art.IconSprite(Icon.Star), "Case");
+                Ui.Place(_chestPips[i].rectTransform, 1, 1, -60 - (_chestPips.Length - 1 - i) * 72, -508, 64, 64, 0.5f, 0.5f);
             }
 
             _heads = Ui.Rect("NouvellesTetes", card.transform);
@@ -884,7 +885,7 @@ namespace Bascule.UI
             int filled = gain.Chest != null ? Chest.GamesPerChest : gain.ChestProgress;
             for (int i = 0; i < _chestPips.Length; i++)
             {
-                _chestPips[i].color = i < filled ? Palette.Accent : new Color(0.55f, 0.6f, 0.68f, 0.35f);
+                _chestPips[i].color = i < filled ? Palette.Accent : new Color(0.45f, 0.5f, 0.6f, 0.45f);
                 _chestPips[i].rectTransform.localScale = Vector3.one;
             }
             SetChestRow(gain.Chest != null, false);
