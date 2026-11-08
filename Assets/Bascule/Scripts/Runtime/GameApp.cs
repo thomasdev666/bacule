@@ -1631,6 +1631,8 @@ namespace Bascule
         void UpdateMusic(float dt)
         {
             var s = Session;
+            // Duel : musique compétitive, du compte à rebours jusqu'à l'écran de résultat.
+            _music.SetDuel(Duel != null && (Duel.InMatch || Duel.Current == DuelController.Phase.Results));
             if (s.IsRunning && !s.Paused)
                 _music.Set(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, s.Danger)), 1f);
             else if (s.Paused) _music.Set(0f, 0.25f);
