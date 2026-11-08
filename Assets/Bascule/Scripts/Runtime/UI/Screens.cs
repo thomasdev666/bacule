@@ -522,7 +522,7 @@ namespace Bascule.UI
                 _shownGoal = 2;
                 _goal.gameObject.SetActive(true);
                 bool done = DailyChallenge.DoneToday(App.Profile, s.DayKey);
-                _goal.text = done ? Loc.Get("daily_objective_done") : Loc.Format("daily_objective", Loc.MissionText(DailyChallenge.Objective(s.DayKey)));
+                _goal.text = done ? Loc.Get("daily_objective_done") : Loc.Format("daily_objective", Loc.DailyText(DailyChallenge.For(s.DayKey)));
                 _goal.color = done ? ArtCache.Hex("#9CF5B0") : ArtCache.Hex("#FFE7A0");
                 return;
             }

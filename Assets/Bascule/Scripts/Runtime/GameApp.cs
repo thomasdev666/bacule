@@ -599,9 +599,9 @@ namespace Bascule
             int streak = Daily.CurrentStreak(p.daily, TodayKey);
             bool played = Daily.PlayedToday(p.daily, TodayKey);
             int today = p.daily.bestDate == TodayKey ? p.daily.bestScoreToday : 0;
-            var obj = DailyChallenge.Objective(TodayKey);
-            string body = Loc.Format("daily_objective", Loc.MissionText(obj)) + "\n"
-                + (DailyChallenge.DoneToday(p, TodayKey) ? Loc.Get("daily_objective_already") : Loc.Format("daily_objective_reward", obj.reward))
+            var obj = DailyChallenge.For(TodayKey);
+            string body = Loc.Format("daily_objective", Loc.DailyText(obj)) + "\n"
+                + (DailyChallenge.DoneToday(p, TodayKey) ? Loc.Get("daily_objective_already") : Loc.Format("daily_objective_reward", obj.Reward))
                 + "\n\n" + Loc.Get("daily_rule");
             if (today > 0) body += "\n\n" + Loc.Format("daily_best", Loc.FormatScore(today));
             if (streak > 0) body += "\n" + Loc.Format("daily_streak", streak);

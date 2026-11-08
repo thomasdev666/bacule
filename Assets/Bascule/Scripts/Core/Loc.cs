@@ -313,6 +313,27 @@ namespace Bascule.Core
             ["m_SurviveGusts"] = new[] { "Résiste à {0} rafales de vent dans une partie", "Withstand {0} wind gusts in one game" },
             ["m_HoldSeconds"] = new[] { "Tiens {0} sans faire tomber Basile", "Hold on for {0} without Basile falling" },
             ["m_CleanScore"] = new[] { "Fais {0} points sans perdre un seul poids", "Score {0} without losing a single weight" },
+            ["dc_combo"] = new[] { "Fais un combo ×{0}", "Get a ×{0} combo" },
+            ["dc_clean_score"] = new[] { "Fais {0} points sans perdre un seul poids", "Score {0} without losing a single weight" },
+            ["dc_hold"] = new[] { "Tiens {0} sans tomber", "Hold on for {0}" },
+            ["dc_score"] = new[] { "Fais {0} points", "Score {0} points" },
+            ["dc_balloon_one"] = new[] { "Fais s'envoler le 128", "Lift off the 128" },
+            ["dc_balloon"] = new[] { "Fais s'envoler le 128 {0} fois", "Lift off the 128 {0} times" },
+            ["dc_merges"] = new[] { "Fais {0} fusions en une partie", "Make {0} merges in one game" },
+            ["dc_save"] = new[] { "Sauve Basile à {0} % de la chute", "Save Basile at {0}% of the fall" },
+            ["dc_score_combo"] = new[] { "Fais {0} points et un combo ×{1}", "Score {0} and get a ×{1} combo" },
+            ["dc_clean_value"] = new[] { "Fabrique un {0} sans perdre un seul poids", "Make a {0} without losing a single weight" },
+            ["dc_drops"] = new[] { "Pose {0} poids sans tomber", "Drop {0} weights without falling" },
+            ["dc_clean_hold"] = new[] { "Tiens {0} sans perdre un seul poids", "Hold on for {0} without losing a weight" },
+            ["dc_gust_one"] = new[] { "Atteins le vent et résiste à une rafale", "Reach the wind and withstand a gust" },
+            ["dc_gust"] = new[] { "Résiste à {0} rafales de vent", "Withstand {0} wind gusts" },
+            ["dc_score_save"] = new[] { "Fais {0} points et sauve Basile à {1} %", "Score {0} and save Basile at {1}%" },
+            ["dc_clean_combo"] = new[] { "Fais un combo ×{0} sans perdre un seul poids", "Get a ×{0} combo without losing a weight" },
+            ["dc_clean_balloon"] = new[] { "Fais s'envoler le 128 sans perdre un seul poids", "Lift off the 128 without losing a weight" },
+            ["dc_clean_merges"] = new[] { "Fais {0} fusions sans perdre un seul poids", "Make {0} merges without losing a weight" },
+            ["dc_hold_combo"] = new[] { "Tiens {0} et fais un combo ×{1}", "Hold on for {0} and get a ×{1} combo" },
+            ["dc_drops_clean"] = new[] { "Pose {0} poids sans en perdre un seul", "Drop {0} weights without losing one" },
+            ["dc_value_combo"] = new[] { "Fabrique un {0} et fais un combo ×{1}", "Make a {0} and get a ×{1} combo" },
             ["daily_objective"] = new[] { "Défi : {0}", "Challenge: {0}" },
             ["daily_objective_done"] = new[] { "Défi du jour réussi !", "Daily challenge done!" },
             ["daily_objective_reward"] = new[] { "Récompense : {0} pièces", "Reward: {0} coins" },
@@ -545,6 +566,15 @@ namespace Bascule.Core
         public static string MissionText(Mission m) => Format("m_" + m.kind,
             m.kind == MissionKind.ScoreInGame || m.kind == MissionKind.TotalScore || m.kind == MissionKind.NoHeartLost || m.kind == MissionKind.CleanScore ? (object)FormatScore(m.target)
             : m.kind == MissionKind.HoldSeconds ? FormatDuration(m.target) : m.target);
+
+        /// <summary>Texte d'un défi du jour (durées en minutes, scores avec espaces).</summary>
+        public static string DailyText(DailyChallenge.Def d)
+        {
+            object a = d.Key.Contains("hold") ? FormatDuration(d.A) : d.Key.Contains("score") ? FormatScore(d.A) : (object)d.A;
+            if (d.Key == "balloon" && d.A == 1) return Get("dc_balloon_one");
+            if (d.Key == "gust" && d.A == 1) return Get("dc_gust_one");
+            return Format("dc_" + d.Key, a, d.B);
+        }
 
         /// <summary>Durée lisible : « 90 s », « 2 min », « 2 min 30 ».</summary>
         public static string FormatDuration(int seconds)

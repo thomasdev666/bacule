@@ -1145,27 +1145,46 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
-        public void DailyObjectiveSameForEveryoneAndPaidOnce()
+        public void DailyChallengesNeverRepeatWithinThreeWeeks()
         {
-            var a = DailyChallenge.Objective("2026-11-08");
-            var b = DailyChallenge.Objective("2026-11-08");
-            Assert.AreEqual(a.kind, b.kind); Assert.AreEqual(a.target, b.target);
-            Assert.AreNotEqual(MissionKind.SurviveGusts, a.kind);
-            // Un jour où l'objectif est un combo ×4.
+            Assert.GreaterOrEqual(DailyChallenge.All.Length, 21);
+            var ids = new HashSet<string>();
+            foreach (var d in DailyChallenge.All) Assert.True(ids.Add(d.Key + "/" + d.A + "/" + d.B), "défi en double : " + d.Key);
+            var day = new DateTime(2026, 1, 1);
+            for (int start = 0; start < 3 * 365; start++)
+            {
+                var seen = new HashSet<DailyChallenge.Def>();
+                for (int k = 0; k < 21; k++)
+                    Assert.True(seen.Add(DailyChallenge.For(day.AddDays(start + k).ToString("yyyy-MM-dd"))), "répété dans les 21 jours à partir du jour " + start);
+            }
+            // Même défi pour tout le monde le même jour, et un texte pour chacun.
+            Assert.AreSame(DailyChallenge.For("2026-11-08"), DailyChallenge.For("2026-11-08"));
+            foreach (var d in DailyChallenge.All)
+            {
+                var text = Loc.DailyText(d);
+                Assert.False(string.IsNullOrEmpty(text) || text.StartsWith("dc_"), "texte manquant : " + d.Key);
+            }
+            Assert.AreEqual("Tiens 3 min sans tomber", Loc.DailyText(DailyChallenge.All[2]));
+            Assert.AreEqual("Fais 4 000 points et un combo ×4", Loc.DailyText(DailyChallenge.All[7]).Replace('\u00A0', ' ').Replace('\u202F', ' '));
+        }
+
+        [Test]
+        public void DailyChallengeHarderAndPaidOnce()
+        {
+            // Jour où le défi est « 4 000 points et un combo ×4 » : une seule condition ne suffit pas.
+            var start = new DateTime(2026, 1, 1);
             string day = null;
-            for (int d = 1; d <= 28 && day == null; d++) { var k = "2026-02-" + d.ToString("00"); if (DailyChallenge.Objective(k).kind == MissionKind.Combo) day = k; }
+            for (int k = 0; k < 28 && day == null; k++) { var key = start.AddDays(k).ToString("yyyy-MM-dd"); if (DailyChallenge.For(key).Key == "score_combo") day = key; }
             Assert.NotNull(day);
             var t = new EconomyTuning();
             var p = new Profile();
-            var miss = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 3 }, day);
-            Assert.IsNull(miss.DailyObjective);
-            var win = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 4 }, day);
+            Assert.IsNull(EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 5000, BestChain = 3 }, day).DailyObjective);
+            Assert.IsNull(EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 2000, BestChain = 5 }, day).DailyObjective);
+            var win = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 4200, BestChain = 4 }, day);
             Assert.NotNull(win.DailyObjective);
             Assert.AreEqual(DailyChallenge.Reward, win.DailyCoins);
-            var again = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 5 }, day);
-            Assert.IsNull(again.DailyObjective, "une seule récompense par jour");
-            var normal = EconomyRun.Apply(t, new Profile(), new RunStats { Daily = false, DayKey = "", Score = 500, BestChain = 4 }, day);
-            Assert.IsNull(normal.DailyObjective, "seulement en défi du jour");
+            Assert.IsNull(EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 9000, BestChain = 6 }, day).DailyObjective, "une fois par jour");
+            Assert.IsNull(EconomyRun.Apply(t, new Profile(), new RunStats { Daily = false, Score = 9000, BestChain = 6 }, day).DailyObjective, "seulement en défi du jour");
         }
 
         static Profile NewProfile() { var p = new Profile(); p.Sanitize(); return p; }

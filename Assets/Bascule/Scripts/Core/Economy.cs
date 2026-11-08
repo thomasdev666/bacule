@@ -136,7 +136,7 @@ namespace Bascule.Core
         public bool GoalReached;
         public int GoalCoins;
         /// <summary>Défi du jour réussi à cette partie (null sinon) et ses pièces.</summary>
-        public Mission DailyObjective;
+        public DailyChallenge.Def DailyObjective;
         public int DailyCoins;
         /// <summary>Coffre ouvert à cette partie (null sinon), et progression du coffre après la partie.</summary>
         public Chest.Loot Chest;
@@ -161,6 +161,8 @@ namespace Bascule.Core
         public int Gusts;
         public float Seconds;
         public int LostWeights;
+        /// <summary>Poids posés.</summary>
+        public int Drops;
         /// <summary>Règle spéciale de la partie (récompenses seulement), objectif de la partie, graine du coffre.</summary>
         public SpecialKind Special;
         public int Goal;
@@ -447,12 +449,12 @@ namespace Bascule.Core
             // Défi du jour : son objectif, réussi une fois par jour (pièces en plus).
             if (r.Daily && !string.IsNullOrEmpty(r.DayKey) && p.daily.objectiveDate != r.DayKey)
             {
-                var obj = DailyChallenge.Objective(r.DayKey);
+                var obj = DailyChallenge.For(r.DayKey);
                 if (DailyChallenge.Met(obj, r))
                 {
                     p.daily.objectiveDate = r.DayKey;
                     g.DailyObjective = obj;
-                    g.DailyCoins = obj.reward;
+                    g.DailyCoins = obj.Reward;
                     Wallet.Add(p, g.DailyCoins);
                 }
             }

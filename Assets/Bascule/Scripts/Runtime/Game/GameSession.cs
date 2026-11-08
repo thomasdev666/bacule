@@ -42,7 +42,7 @@ namespace Bascule
         {
             Score = Score, Merges = Merges, MaxValue = MaxValue, Balloons = Balloons, BestChain = BestChain,
             BestSave = BestSave, Daily = Mode == GameMode.Daily, DayKey = DayKey,
-            Gusts = Gusts, Seconds = Seconds, LostWeights = LostWeights,
+            Gusts = Gusts, Seconds = Seconds, LostWeights = LostWeights, Drops = Drops,
             Special = Special, Goal = Goal, Seed = Seed,
         };
     }

@@ -207,39 +207,78 @@ namespace Bascule.Core
     }
 
     /// <summary>
-    /// Ce qui fait du défi du jour un vrai défi : le même objectif pour tout le monde, tiré de la date
-    /// (combo ×4, tenir 2 minutes, ne perdre aucun poids…), avec des pièces à la clé.
-    /// Le vent reste comme en partie normale (à partir de 5 000 points).
+    /// Défi du jour : un exploit bien plus dur qu'une mission, le même pour tout le monde ce jour-là, à réussir
+    /// en une seule partie (souvent deux conditions à la fois). 28 défis différents qui tournent dans un ordre fixe :
+    /// aucun ne revient avant 4 semaines. 150 pièces, une fois par jour. Le vent reste à partir de 5 000 points.
     /// </summary>
     public static class DailyChallenge
     {
-        public const int Reward = 120;
+        public const int Reward = 150;
 
-        static readonly (MissionKind kind, int target)[] Pool =
+        /// <summary>Un défi : texte (clé Loc « dc_… » et ses deux nombres) et condition de réussite.</summary>
+        public sealed class Def
         {
-            (MissionKind.Combo, 4),
-            (MissionKind.HoldSeconds, 120),
-            (MissionKind.CleanScore, 2000),
-            (MissionKind.MakeValue, 64),
-            (MissionKind.ScoreInGame, 3500),
-            (MissionKind.NearMiss, 90),
+            public string Key;
+            public int A, B;
+            public int Reward = DailyChallenge.Reward;
+            public Func<RunStats, bool> Met;
+        }
+
+        static Def D(string key, int a, int b, Func<RunStats, bool> met) => new Def { Key = key, A = a, B = b, Met = met };
+
+        /// <summary>
+        /// Les 28 défis, dans l'ordre où ils passent (types alternés : score, endurance, précision, combos, 128…).
+        /// Ne pas réordonner sans raison : les joueurs verraient deux fois le même défi en peu de temps.
+        /// </summary>
+        public static readonly Def[] All =
+        {
+            D("combo", 4, 0, r => r.BestChain >= 4),
+            D("clean_score", 3000, 0, r => r.Score >= 3000 && r.LostWeights == 0),
+            D("hold", 180, 0, r => r.Seconds >= 180),
+            D("score", 5000, 0, r => r.Score >= 5000),
+            D("balloon", 1, 0, r => r.Balloons >= 1),
+            D("merges", 60, 0, r => r.Merges >= 60),
+            D("save", 95, 0, r => r.BestSave >= 0.95f),
+            D("score_combo", 4000, 4, r => r.Score >= 4000 && r.BestChain >= 4),
+            D("clean_value", 64, 0, r => r.MaxValue >= 64 && r.LostWeights == 0),
+            D("drops", 150, 0, r => r.Drops >= 150),
+            D("clean_hold", 150, 0, r => r.Seconds >= 150 && r.LostWeights == 0),
+            D("combo", 5, 0, r => r.BestChain >= 5),
+            D("gust", 1, 0, r => r.Gusts >= 1),
+            D("score_save", 3000, 90, r => r.Score >= 3000 && r.BestSave >= 0.9f),
+            D("merges", 80, 0, r => r.Merges >= 80),
+            D("clean_combo", 4, 0, r => r.BestChain >= 4 && r.LostWeights == 0),
+            D("hold", 240, 0, r => r.Seconds >= 240),
+            D("score", 6000, 0, r => r.Score >= 6000),
+            D("clean_balloon", 1, 0, r => r.Balloons >= 1 && r.LostWeights == 0),
+            D("clean_merges", 50, 0, r => r.Merges >= 50 && r.LostWeights == 0),
+            D("hold_combo", 120, 4, r => r.Seconds >= 120 && r.BestChain >= 4),
+            D("balloon", 2, 0, r => r.Balloons >= 2),
+            D("clean_score", 4500, 0, r => r.Score >= 4500 && r.LostWeights == 0),
+            D("drops_clean", 100, 0, r => r.Drops >= 100 && r.LostWeights == 0),
+            D("score_save", 4500, 90, r => r.Score >= 4500 && r.BestSave >= 0.9f),
+            D("value_combo", 64, 4, r => r.MaxValue >= 64 && r.BestChain >= 4),
+            D("gust", 2, 0, r => r.Gusts >= 2),
+            D("clean_hold", 200, 0, r => r.Seconds >= 200 && r.LostWeights == 0),
         };
 
-        /// <summary>Objectif du jour (identique pour tous les joueurs ce jour-là).</summary>
-        public static Mission Objective(string dayKey)
+        static readonly DateTime Origin = new DateTime(2026, 1, 1);
+
+        /// <summary>Numéro du jour (depuis le 1er janvier 2026), d'après la clé « aaaa-mm-jj ».</summary>
+        public static int DayIndex(string dayKey)
         {
-            var rng = new GameRng(GameRng.HashSeed("bascule-daily-objective-" + (dayKey ?? "")));
-            var e = Pool[(int)(rng.NextFloat() * Pool.Length) % Pool.Length];
-            return new Mission { kind = e.kind, target = e.target, reward = Reward };
+            if (!DateTime.TryParseExact(dayKey ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) return 0;
+            return (int)Math.Floor((d - Origin).TotalDays);
         }
 
-        /// <summary>L'objectif est-il atteint en une seule partie ?</summary>
-        public static bool Met(Mission objective, RunStats r)
+        /// <summary>Défi du jour (identique pour tous les joueurs ce jour-là ; le même revient tous les 28 jours).</summary>
+        public static Def For(string dayKey)
         {
-            var m = new Mission { kind = objective.kind, target = objective.target };
-            Missions.Step(m, r);
-            return m.progress >= m.target;
+            int n = All.Length, i = DayIndex(dayKey) % n;
+            return All[i < 0 ? i + n : i];
         }
+
+        public static bool Met(Def d, RunStats r) => d != null && d.Met(r);
 
         public static bool DoneToday(Profile p, string dayKey) => p.daily.objectiveDate == dayKey;
     }
