@@ -3,13 +3,18 @@ using System.Collections.Generic;
 
 namespace Bascule.Core
 {
-    public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh }
+    public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh, Curls }
+
+    /// <summary>Tenue du corps : le débardeur de Basile, ou le costume croisé (tête Challenger).</summary>
+    public enum Outfit { Tank, Suit }
 
     public enum Accessory
     {
         None, Glasses, Sunglasses, Cap, Beanie, Crown, Headband, Mustache, Freckles, Bow, Halo, Headphones, Antennas,
         // Boutique et têtes premium
         TopHat, Pirate, Viking, Chef, CatEars, Flower, PartyHat, Wizard, Astronaut, Unicorn, DevilHorns,
+        // 1.3
+        ThinMustache,
     }
 
     public enum UnlockKind
@@ -43,6 +48,10 @@ namespace Bascule.Core
         public Expression Expression;
         /// <summary>Têtes Premium : identifiant du produit qui les donne (Shop.Legends, Shop.Starter).</summary>
         public string Product;
+        /// <summary>Tenue du corps (débardeur par défaut).</summary>
+        public Outfit Outfit;
+        /// <summary>Clé des images du corps : la peau, plus la tenue si ce n'est pas le débardeur (« #E8B48C_suit »).</summary>
+        public string BodyKey => Outfit == Outfit.Suit ? Skin + "_suit" : Skin;
 
         public bool IsSpecial => Unlock != UnlockKind.Score && Unlock != UnlockKind.Default && Unlock != UnlockKind.Level && Unlock != UnlockKind.Shop && Unlock != UnlockKind.Premium;
         public string Name(string lang) => lang == "en" ? NameEn : NameFr;
@@ -292,7 +301,11 @@ namespace Bascule.Core
             list.Add(P(id++, "Ange", "Angel", Shop.Legends, S6, HairStyle.Swoosh, "#FFF1B8", Accessory.Halo, Expression.Sleepy));
             list.Add(P(id++, "Basile doré", "Golden Basile", Shop.Starter, "#FFD45A", HairStyle.Short, "#C8901E", Accessory.Sunglasses, Expression.Grin));
             // 1.3 : tête des duels (toujours ajouter à la fin : les identifiants sont sauvegardés).
-            list.Add(H(id++, "Challenger", "Challenger", UnlockKind.DuelWins, 15, S3, HairStyle.Mohawk, Red, Accessory.Headband, Expression.Smirk));
+            // Challenger : à l'effigie du créateur du jeu (boucles brunes, fine moustache, sourire en coin)
+            // et le seul personnage en costume croisé bleu marine à fines rayures.
+            var challenger = H(id++, "Challenger", "Challenger", UnlockKind.DuelWins, 15, "#D9A071", HairStyle.Curls, "#24170F", Accessory.ThinMustache, Expression.Grin);
+            challenger.Outfit = Outfit.Suit;
+            list.Add(challenger);
             return list;
         }
 

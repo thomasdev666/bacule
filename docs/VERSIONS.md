@@ -10,6 +10,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - Compte à rebours 3-2-1 (Basile entre pendant « 3… 2… », le premier poids attend « Partez ! »), chrono, scores en direct, « {nom} penche à 88 % ! », « Rafale dans 0:08 · pour vous deux ».
   - La pression monte avec le temps (planche plus sensible dès 20 s, rafales communes dès 25 s, de plus en plus fortes) : un duel dure 1 à 3 minutes.
   - L'adversaire lâche : **K.O. !**, 3 s pour poser un dernier poids (anneau qui se vide), puis Basile lève les bras sous les confettis. Si c'est toi qui lâches, sa vue grandit au centre : tu le regardes tenir.
+  - **Tête Challenger** à l'effigie du créateur : cheveux courts bouclés, fine moustache, peau hâlée, et le seul personnage en **costume croisé** bleu marine à fines rayures (chemise blanche, pantalon assorti, chaussures de ville). Nouvelle notion de tenue (`HeadDef.Outfit`, `MascotArtist.BuildSuit`, clé de corps `peau_suit`). ArtPack régénéré, `ArtVersion` 15.
   - Résultat : victoire / défaite / égalité, temps tenus, scores, pièces (60 / 25 / 40), progression vers la **tête Challenger** (15 victoires), Revanche (les deux doivent accepter), Accueil.
   - Abandon (bouton ✕ en bas à gauche, ou quitter l'application) : défaite ; l'adversaire sans nouvelles pendant 8 s : victoire. Pas de pause en duel.
   - Le bouton Duel n'apparaît que si le paquet réseau est installé (plus aucun « Bientôt » dans le jeu).

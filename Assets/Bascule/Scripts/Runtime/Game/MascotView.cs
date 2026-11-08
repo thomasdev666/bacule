@@ -87,10 +87,10 @@ namespace Bascule
             _head = head;
             _headBack.sprite = _art.HeadBack(head);
             _headFront.sprite = _art.HeadFront(head);
-            if (_skin != head.Skin)
+            if (_skin != head.BodyKey)
             {
-                _skin = head.Skin;
-                var p = _art.MascotParts(head.Skin);
+                _skin = head.BodyKey; // peau + tenue
+                var p = _art.MascotParts(head.BodyKey);
                 _thighL.sprite = _thighR.sprite = p["thigh"];
                 _shinL.sprite = _shinR.sprite = p["shin"];
                 _shoeL.sprite = _shoeR.sprite = p["shoe"];

@@ -371,6 +371,31 @@ namespace Bascule.Core
                 case HairStyle.Curly:
                     Fringe(Shape.Union(Puff(cx, cy + 0.82f * r, 0.95f * r, 11, 0.24f * r), Shape.Ellipse(cx, cy + 0.8f * r, 0.95f * r, 0.36f * r)));
                     break;
+                case HairStyle.Curls:
+                {
+                    // Cheveux courts et bouclés : une calotte près du crâne, bordée de petites boucles serrées,
+                    // quelques boucles sur le front, côtés courts.
+                    var s = Cap(0.06f);
+                    for (int i = 0; i < 9; i++)
+                    {
+                        double a = (165 - i * 18.75) * Math.PI / 180;
+                        s = Shape.Union(s, Shape.Circle(cx + (float)Math.Cos(a) * 0.92f * r, cy + 0.78f * r + (float)Math.Sin(a) * 0.4f * r, 0.12f * r));
+                    }
+                    for (int i = 0; i < 4; i++)
+                        s = Shape.Union(s, Shape.Circle(cx - 0.36f * r + i * 0.24f * r, cy + 0.62f * r - (i == 1 || i == 2 ? 0.03f : 0f) * r, 0.1f * r));
+                    s = Shape.Union(s, Shape.Tapered(cx - 0.97f * r, cy + 0.6f * r, 0.1f * r, cx - 0.96f * r, cy + 0.34f * r, 0.05f * r));
+                    s = Shape.Union(s, Shape.Tapered(cx + 0.97f * r, cy + 0.6f * r, 0.1f * r, cx + 0.96f * r, cy + 0.34f * r, 0.05f * r));
+                    Fringe(s);
+                    // Petites boucles en reflets.
+                    var shine = hair.Light(2.2f).WithAlpha(0.5f);
+                    for (int row = 0; row < 2; row++)
+                        for (int i = 0; i < 6 - row; i++)
+                        {
+                            float x = cx - (0.6f - row * 0.12f) * r + i * 0.24f * r, y = cy + (0.82f + row * 0.17f) * r;
+                            img.FillClipped(s, Shape.Arc(x, y, 0.06f * r, 20f + row * 40f + i * 25f, 220f + row * 40f + i * 25f, 0.02f * r), shine, 1f);
+                        }
+                    break;
+                }
                 case HairStyle.Mohawk:
                 {
                     var s = Shape.Tapered(cx, cy + 0.72f * r, 0.2f * r, cx + 0.05f * r, cy + 1.42f * r, 0.08f * r);
@@ -451,6 +476,13 @@ namespace Bascule.Core
                 {
                     var m = Shape.Smooth(Shape.Ellipse(cx - 0.18f * r, cy - 0.24f * r, 0.22f * r, 0.1f * r, 12f), Shape.Ellipse(cx + 0.18f * r, cy - 0.24f * r, 0.22f * r, 0.1f * r, -12f), 0.05f * r);
                     Toon.Part(img, m, hair.Shade(0.85f), sz * 0.5f, acc);
+                    break;
+                }
+                case Accessory.ThinMustache:
+                {
+                    // Fine moustache bien taillée.
+                    var m = Shape.Smooth(Shape.Ellipse(cx - 0.14f * r, cy - 0.235f * r, 0.16f * r, 0.042f * r, 10f), Shape.Ellipse(cx + 0.14f * r, cy - 0.235f * r, 0.16f * r, 0.042f * r, -10f), 0.04f * r);
+                    img.Fill(m, hair.WithAlpha(0.9f), 0.012f * r);
                     break;
                 }
                 case Accessory.Bow:

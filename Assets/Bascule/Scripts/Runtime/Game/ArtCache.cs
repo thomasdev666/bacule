@@ -179,7 +179,7 @@ namespace Bascule
             catch (System.Exception) { parts = new Dictionary<string, Sprite>(); }
 
             var lines = new List<string>();
-            foreach (var kv in MascotArtist.Build(Rgba.FromHex(skinHex)))
+            foreach (var kv in MascotArtist.Build(skinHex))
             {
                 var p = kv.Value;
                 var pivot = new Vector2(p.PivotX / p.Image.Width, p.PivotY / p.Image.Height);
@@ -303,7 +303,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 14;
+        public const int ArtVersion = 15;
 
         static string _cacheDir;
 

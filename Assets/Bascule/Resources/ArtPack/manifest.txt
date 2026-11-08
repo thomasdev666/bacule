@@ -279,6 +279,15 @@ mascot_C9D3E0_shorts
 mascot_C9D3E0_thigh
 mascot_C9D3E0_torso
 mascot_C9D3E0_upperArm
+mascot_D9A071_suit_cushion
+mascot_D9A071_suit_forearm
+mascot_D9A071_suit_hand
+mascot_D9A071_suit_shin
+mascot_D9A071_suit_shoe
+mascot_D9A071_suit_shorts
+mascot_D9A071_suit_thigh
+mascot_D9A071_suit_torso
+mascot_D9A071_suit_upperArm
 mascot_E0AC69_cushion
 mascot_E0AC69_forearm
 mascot_E0AC69_hand

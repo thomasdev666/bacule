@@ -72,6 +72,17 @@ namespace Bascule.Core
         static readonly Toon.Style Body = new Toon.Style { Outline = 0.03f, Shade = 0.18f, Soft = 0.14f, ShadeStrength = 0.8f, Rim = 0.04f, RimOpacity = 0.45f, Specular = false };
         static readonly Toon.Style Limb = new Toon.Style { Outline = 0.06f, Shade = 0.3f, Soft = 0.25f, ShadeStrength = 0.8f, Rim = 0.08f, RimOpacity = 0.4f, Specular = false };
 
+        /// <summary>
+        /// Corps pour une clé « peau » ou « peau_suit » (HeadDef.BodyKey) : débardeur de Basile ou costume croisé.
+        /// </summary>
+        public static Dictionary<string, Part> Build(string bodyKey)
+        {
+            bool suit = bodyKey.EndsWith("_suit", StringComparison.OrdinalIgnoreCase);
+            int cut = bodyKey.IndexOf('_');
+            var skin = Rgba.FromHex(cut >= 0 ? bodyKey.Substring(0, cut) : bodyKey);
+            return suit ? BuildSuit(skin) : Build(skin);
+        }
+
         public static Dictionary<string, Part> Build(Rgba skin)
         {
             return new Dictionary<string, Part>
@@ -239,6 +250,167 @@ namespace Bascule.Core
             for (int i = 0; i < 3; i++)
                 img.FillClipped(upper, Shape.Capsule(cx - 0.1f * u + i * 0.07f * u, cy + 0.12f * u - i * 0.05f * u, cx + 0.02f * u + i * 0.07f * u, cy + 0.14f * u - i * 0.05f * u, 0.022f * u), Rgba.White, 1f);
             img.FillClipped(upper, Shape.Arc(cx + 0.18f * u, cy + 0.06f * u, 0.16f * u, 200f, 300f, 0.035f * u), Rgba.White.WithAlpha(0.9f), 1f);
+            part.PivotX = cx - 0.08f * u; part.PivotY = cy + 0.1f * u;
+            return part;
+        }
+
+        // ================================================================== Costume croisé (tête Challenger)
+
+        public static readonly Rgba Navy = Rgba.FromHex("#1F2645");
+        static readonly Rgba Pinstripe = Rgba.FromHex("#B7C1EE").WithAlpha(0.34f);
+        static readonly Rgba Shirt = Rgba.FromHex("#F8F7F2");
+        static readonly Rgba DressShoe = Rgba.FromHex("#1C1B22");
+        static readonly Rgba ButtonColor = Rgba.FromHex("#10131F");
+        const float StripeGap = 0.085f;
+
+        /// <summary>
+        /// Costume croisé bleu marine à fines rayures, chemise blanche col ouvert, pantalon assorti, chaussures de ville
+        /// noires. Mêmes tailles et mêmes pivots que le corps de Basile : le squelette ne change pas.
+        /// </summary>
+        public static Dictionary<string, Part> BuildSuit(Rgba skin)
+        {
+            return new Dictionary<string, Part>
+            {
+                ["torso"] = SuitTorso(skin),
+                ["shorts"] = SuitHips(),
+                ["thigh"] = Segment(MascotRig.Thigh, 0.3f, 0.25f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
+                ["shin"] = Segment(MascotRig.Shin, 0.25f, 0.21f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
+                ["upperArm"] = Segment(MascotRig.UpperArm, 0.26f, 0.2f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
+                ["forearm"] = SuitForearm(),
+                ["hand"] = Hand(skin),
+                ["shoe"] = DressShoes(),
+                ["cushion"] = Cushion(),
+            };
+        }
+
+        /// <summary>Fines rayures claires : verticales sur le buste, dans la longueur sur les membres (dessinés à l'horizontale).</summary>
+        static void Stripes(Raster img, Shape clip, bool alongX)
+        {
+            float u = U, gap = StripeGap * u;
+            int n = (int)Math.Ceiling((alongX ? img.Height : img.Width) / gap) + 1;
+            for (int i = 0; i < n; i++)
+            {
+                float p = i * gap + gap * 0.5f;
+                var line = alongX ? Shape.Box(img.Width * 0.5f, p, img.Width, 0.0075f * u) : Shape.Box(p, img.Height * 0.5f, 0.0075f * u, img.Height);
+                img.FillClipped(clip, line, Pinstripe, 1f);
+            }
+        }
+
+        static Part SuitTorso(Rgba skin)
+        {
+            var part = Canvas(2.3f, 2.2f, out var img, out float cx, out float cy);
+            float u = U;
+
+            // Cou (peau).
+            Toon.Part(img, Shape.Tapered(cx, cy + 0.5f * u, 0.26f * u, cx, cy + 0.95f * u, 0.24f * u), skin, u, Body);
+            img.Fill(Shape.Ellipse(cx, cy + 0.82f * u, 0.3f * u, 0.12f * u), skin.Shadow(0.7f).WithAlpha(0.6f), 0.08f * u);
+
+            // Chemise blanche, col ouvert : on voit un peu de peau en V sous le cou.
+            var shirt = Shape.Poly(cx - 0.34f * u, cy + 0.7f * u, cx + 0.34f * u, cy + 0.7f * u, cx + 0.12f * u, cy - 0.3f * u, cx - 0.12f * u, cy - 0.3f * u);
+            Toon.Part(img, shirt, Shirt, u, Body);
+            var skinV = Shape.Poly(cx - 0.13f * u, cy + 0.72f * u, cx + 0.13f * u, cy + 0.72f * u, cx, cy + 0.36f * u).Grow(0.02f * u);
+            img.FillClipped(shirt, skinV, skin, 1.5f);
+            img.FillClipped(shirt, Shape.Capsule(cx, cy + 0.36f * u, cx, cy - 0.3f * u, 0.012f * u), Shirt.Shade(0.8f), 1f); // patte de boutonnage
+            // Pointes du col, posées sur le revers.
+            for (int sgn = -1; sgn <= 1; sgn += 2)
+            {
+                var collar = Shape.Poly(cx + sgn * 0.13f * u, cy + 0.74f * u, cx + sgn * 0.34f * u, cy + 0.66f * u, cx + sgn * 0.24f * u, cy + 0.42f * u, cx + sgn * 0.06f * u, cy + 0.5f * u).Grow(0.02f * u);
+                Toon.Part(img, collar, Shirt, 0.5f * u, new Toon.Style { Outline = 0.05f, Shade = 0.18f, Soft = 0.2f, Rim = 0f, Specular = false });
+            }
+
+            // Veste : épaules carrées (épaulettes), buste, bas de veste qui couvre la taille.
+            var shoulders = Shape.Smooth(
+                Shape.Smooth(Shape.Circle(cx - 0.8f * u, cy + 0.55f * u, 0.31f * u), Shape.Circle(cx + 0.8f * u, cy + 0.55f * u, 0.31f * u), 0.2f * u),
+                Shape.Poly(cx - 0.86f * u, cy + 0.7f * u, cx + 0.86f * u, cy + 0.7f * u, cx + 0.66f * u, cy + 0.05f * u, cx - 0.66f * u, cy + 0.05f * u).Grow(0.08f * u), 0.25f * u);
+            var body = Shape.Poly(cx - 0.68f * u, cy + 0.4f * u, cx + 0.68f * u, cy + 0.4f * u, cx + 0.66f * u, cy - 0.98f * u, cx - 0.66f * u, cy - 0.98f * u).Grow(0.06f * u);
+            var jacket = Shape.Smooth(shoulders, body, 0.2f * u);
+            // Ouverture en V jusqu'au boutonnage croisé.
+            var opening = Shape.Poly(cx - 0.36f * u, cy + 0.8f * u, cx + 0.36f * u, cy + 0.8f * u, cx + 0.03f * u, cy - 0.3f * u, cx - 0.03f * u, cy - 0.3f * u);
+            jacket = Shape.Subtract(jacket, opening);
+            Toon.Part(img, jacket, Navy, 2 * u, Body);
+            Stripes(img, jacket, false);
+
+            // Revers à cran pointu (« peak lapels »), un peu plus sombres, avec leur couture.
+            for (int sgn = -1; sgn <= 1; sgn += 2)
+            {
+                var lapel = Shape.Poly(
+                    cx + sgn * 0.36f * u, cy + 0.8f * u,
+                    cx + sgn * 0.52f * u, cy + 0.5f * u,
+                    cx + sgn * 0.62f * u, cy + 0.56f * u, // pointe du revers
+                    cx + sgn * 0.5f * u, cy + 0.32f * u,
+                    cx + sgn * 0.04f * u, cy - 0.32f * u,
+                    cx + sgn * 0.03f * u, cy - 0.3f * u);
+                var l = Shape.Intersect(lapel.Grow(0.01f * u), jacket.Grow(0.02f * u));
+                Toon.Part(img, l, Navy.Shade(0.86f), u, new Toon.Style { Outline = 0.03f, Shade = 0.12f, Soft = 0.2f, Rim = 0.05f, RimOpacity = 0.35f, Specular = false });
+                Stripes(img, l, false);
+            }
+
+            // Plis du tissu.
+            img.FillClipped(jacket, Shape.Arc(cx - 0.42f * u, cy - 0.1f * u, 0.32f * u, 200f, 300f, 0.022f * u), Navy.Outline().WithAlpha(0.5f), 2f);
+            img.FillClipped(jacket, Shape.Arc(cx + 0.42f * u, cy - 0.1f * u, 0.32f * u, 240f, 340f, 0.022f * u), Navy.Outline().WithAlpha(0.5f), 2f);
+
+            // Poche poitrine et pochette blanche (côté gauche du personnage, à droite de l'image).
+            float px = cx + 0.4f * u, py = cy + 0.05f * u;
+            img.FillClipped(jacket, Shape.Box(px, py, 0.14f * u, 0.014f * u, 0.005f * u, -6f), Navy.Outline().WithAlpha(0.8f), 1f);
+            Toon.Part(img, Shape.Poly(px - 0.1f * u, py + 0.02f * u, px - 0.02f * u, py + 0.11f * u, px + 0.04f * u, py + 0.04f * u, px + 0.1f * u, py + 0.1f * u, px + 0.12f * u, py + 0.02f * u),
+                Shirt, 0.3f * u, new Toon.Style { Outline = 0.06f, Shade = 0.12f, Soft = 0.2f, Rim = 0f, Specular = false });
+            // Poches basses à rabat.
+            for (int sgn = -1; sgn <= 1; sgn += 2)
+                img.FillClipped(jacket, Shape.Box(cx + sgn * 0.42f * u, cy - 0.66f * u, 0.17f * u, 0.016f * u, 0.006f * u), Navy.Outline().WithAlpha(0.75f), 1f);
+
+            // Six boutons du croisé (deux colonnes de trois).
+            for (int row = 0; row < 3; row++)
+                for (int sgn = -1; sgn <= 1; sgn += 2)
+                {
+                    float bx = cx + sgn * (0.2f - row * 0.015f) * u, by = cy - (0.34f + row * 0.19f) * u;
+                    Toon.Part(img, Shape.Circle(bx, by, 0.042f * u), ButtonColor, 0.12f * u,
+                        new Toon.Style { Outline = 0.08f, Shade = 0.2f, Soft = 0.2f, Rim = 0.1f, RimOpacity = 0.6f, Specular = true, SpecSize = 0.12f });
+                }
+            // Bord croisé : le pan droit passe sur le pan gauche.
+            img.FillClipped(jacket, Shape.Capsule(cx + 0.03f * u, cy - 0.3f * u, cx + 0.05f * u, cy - 0.98f * u, 0.014f * u), Navy.Outline().WithAlpha(0.85f), 1f);
+
+            part.PivotY = cy;
+            return part;
+        }
+
+        /// <summary>Haut du pantalon (à la place du short).</summary>
+        static Part SuitHips()
+        {
+            var part = Canvas(1.9f, 1.2f, out var img, out float cx, out float cy);
+            float u = U;
+            var waist = Shape.Box(cx, cy + 0.2f * u, 0.66f * u, 0.22f * u, 0.1f * u);
+            var legL = Shape.Box(cx - 0.36f * u, cy - 0.12f * u, 0.33f * u, 0.32f * u, 0.1f * u, -8f);
+            var legR = Shape.Box(cx + 0.36f * u, cy - 0.12f * u, 0.33f * u, 0.32f * u, 0.1f * u, 8f);
+            var trousers = Shape.Smooth(waist, Shape.Union(legL, legR), 0.15f * u);
+            Toon.Part(img, trousers, Navy, 1.4f * u, Body);
+            Stripes(img, trousers, false);
+            img.FillClipped(trousers, Shape.Capsule(cx, cy - 0.05f * u, cx, cy - 0.45f * u, 0.025f * u), Navy.Outline(), 2f);
+            part.PivotY = cy;
+            return part;
+        }
+
+        /// <summary>Manche de veste, poignet de chemise blanc qui dépasse.</summary>
+        static Part SuitForearm() =>
+            Segment(MascotRig.Forearm, 0.21f, 0.17f, Navy, (img, limb, ax, bx) =>
+            {
+                float u = U;
+                Stripes(img, limb, true);
+                float x0 = ax + (bx - ax) * 0.86f;
+                var cuff = Shape.Intersect(limb.Grow(0.01f * u), Shape.HalfPlane(-1, 0, -x0));
+                Toon.Part(img, cuff, Shirt, 0.4f * u, Limb);
+                img.FillClipped(cuff, Shape.Circle(x0 + 0.06f * u, 0.5f * img.Height - 0.05f * u, 0.022f * u), Rgba.FromHex("#C9CED8"), 1f); // bouton de manchette
+            }, 0);
+
+        /// <summary>Chaussures de ville noires, bout fin et brillant.</summary>
+        static Part DressShoes()
+        {
+            var part = Canvas(1.0f, 0.7f, out var img, out float cx, out float cy);
+            float u = U;
+            var sole = Shape.Box(cx + 0.05f * u, cy - 0.17f * u, 0.4f * u, 0.05f * u, 0.05f * u);
+            var upper = Shape.Smooth(Shape.Ellipse(cx + 0.12f * u, cy - 0.06f * u, 0.36f * u, 0.15f * u), Shape.Ellipse(cx - 0.1f * u, cy + 0.04f * u, 0.22f * u, 0.18f * u), 0.12f * u);
+            Toon.Part(img, upper, DressShoe, 0.8f * u, new Toon.Style { Outline = 0.05f, Shade = 0.2f, Soft = 0.18f, Rim = 0.08f, RimOpacity = 0.55f, Specular = true, SpecSize = 0.09f });
+            Toon.Part(img, sole, Rgba.FromHex("#3A2A20"), 0.8f * u, new Toon.Style { Outline = 0.05f, Shade = 0.1f, Soft = 0.1f, Rim = 0f, Specular = false });
+            img.FillClipped(upper, Shape.Arc(cx - 0.02f * u, cy + 0.02f * u, 0.14f * u, 300f, 420f, 0.012f * u), Rgba.White.WithAlpha(0.25f), 1f); // couture
             part.PivotX = cx - 0.08f * u; part.PivotY = cy + 0.1f * u;
             return part;
         }

@@ -125,7 +125,7 @@ namespace Bascule.Core
         public static IEnumerable<string> Skins()
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var h in HeadCatalog.All) if (seen.Add(h.Skin)) yield return h.Skin;
+            foreach (var h in HeadCatalog.All) if (seen.Add(h.BodyKey)) yield return h.BodyKey;
         }
 
         public static string MascotKey(string skinHex, string part) => "mascot_" + skinHex.TrimStart('#') + "_" + part;
@@ -135,7 +135,7 @@ namespace Bascule.Core
         {
             var jobs = new List<Job>();
             meta = new List<string>();
-            foreach (var kv in MascotArtist.Build(Rgba.FromHex(skinHex)))
+            foreach (var kv in MascotArtist.Build(skinHex))
             {
                 var p = kv.Value;
                 var img = p.Image;
