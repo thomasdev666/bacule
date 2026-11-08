@@ -169,17 +169,21 @@ namespace Bascule.UI
             _dock = dockRt;
             Ui.Place(dockRt, 0.5f, 0, 0, DockBottom, 1040, DockHeight, 0.5f, 0);
 
-            var row = new (Icon icon, string label, Color color, Action action)[]
+            // Le duel n'apparaît que s'il fonctionne vraiment dans cette version (jamais de bouton « bientôt » :
+            // une fonction annoncée mais absente peut faire refuser l'application).
+            var items = new List<(Icon icon, string label, Color color, Action action)>
             {
                 (Icon.Face, Loc.Get("heads"), Palette.Purple, App.ShowCollection),
                 (Icon.Target, Loc.Get("missions"), Palette.Success, App.ShowMissions),
                 (Icon.Bag, Loc.Get("shop"), Palette.Primary, () => App.ShowShop("accueil")),
                 (Icon.Trophy, Loc.Get("leaderboard"), Palette.Accent, App.ShowLeaderboard),
-                (Icon.Swords, Loc.Get("duel"), Palette.Secondary, App.DuelSoon),
             };
+            if (App.DuelAvailable) items.Add((Icon.Swords, Loc.Get("duel"), Palette.Secondary, App.OpenDuel));
+            var row = items.ToArray();
+            float spacing = row.Length >= 5 ? 204f : 250f;
             for (int i = 0; i < row.Length; i++)
             {
-                float x = (i - 2f) * 204f;
+                float x = (i - (row.Length - 1) * 0.5f) * spacing;
                 var b = Ui.IconButton(dockRt, row[i].icon, row[i].color, row[i].action, row[i].label);
                 Ui.Place((RectTransform)b.transform, 0.5f, 0, x, 50, 116, 122, 0.5f, 0);
                 var lbl = Ui.Title(dockRt, row[i].label, 34, Color.white, "Legende");
@@ -187,15 +191,13 @@ namespace Bascule.UI
                 lbl.resizeTextForBestFit = true; lbl.resizeTextMinSize = 26; lbl.resizeTextMaxSize = lbl.fontSize;
                 if (i == 4)
                 {
-                    // Duels : bientôt disponibles (petite étiquette sur le bouton, bouton un peu éteint).
-                    // Étiquette rouge cerclée de blanc, texte blanc cerné : lisible sur le dock sombre.
-                    var ring = Ui.Image(b.transform, Art.Pill, Color.white, "Bientot", true);
+                    // Duel : petite pastille « EN DIRECT » qui attire l'œil.
+                    var ring = Ui.Image(b.transform, Art.Pill, Color.white, "Direct", true);
                     Ui.Place(ring.rectTransform, 0.5f, 1, 0, 26, 160, 54, 0.5f, 1);
-                    var soon = Ui.Image(ring.transform, Art.Pill, Palette.Primary, "Fond", true);
-                    Ui.Stretch(soon.rectTransform, 4, 4, 4, 4);
-                    var st = Ui.Title(soon.transform, Loc.Get("soon_tag"), 30, Color.white);
-                    Ui.Stretch(st.rectTransform, 8, 0, 8, 3);
-                    b.GetComponent<Image>().color = Color.Lerp(row[i].color, new Color(0.5f, 0.52f, 0.62f), 0.45f);
+                    var live = Ui.Image(ring.transform, Art.Pill, Palette.Primary, "Fond", true);
+                    Ui.Stretch(live.rectTransform, 4, 4, 4, 4);
+                    var lt = Ui.Title(live.transform, Loc.Get("live_tag"), 30, Color.white);
+                    Ui.Stretch(lt.rectTransform, 8, 0, 8, 3);
                 }
                 if (i == 1) _missionBadge = MetaUi.Badge(b.transform, Art, out _missionBadgeGo);
                 if (i == 2) _shopBadge = MetaUi.Badge(b.transform, Art, out _shopBadgeGo);
@@ -284,13 +286,11 @@ namespace Bascule.UI
         float _punch, _hintTimer, _bubbleX, _flashA, _glow;
         Image _flash;
         RectTransform _hudBottom;
-        // Bandeau de rafale : pastille bleue « RAFALE » et chevrons qui filent dans le sens du vent.
-        RectTransform _wind;
-        CanvasGroup _windGroup;
-        Image[] _windChevrons;
-        Text _windText;
-        WindPhase _shownWind;
-        float _windAlpha, _windPop;
+        // Disposition du duel : l'en-tête TOI / VS / adversaire remplace le score ; niveau et « Suivant » se resserrent.
+        RectTransform _pauseRt, _scorePillRt, _tubeRt, _nextRt;
+        Text _tubeLabel;
+        // Annonce de rafale : grande banderole animée (UI/GustBanner.cs).
+        GustBanner _gust;
         readonly Vector3[] _corners = new Vector3[4];
 
         /// <summary>Éclair de couleur plein écran (appelé par la partie sur un gros combo ou un 128).</summary>
@@ -316,10 +316,12 @@ namespace Bascule.UI
             _vignette.transform.SetAsFirstSibling();
 
             var pause = Ui.IconButton(Safe, Icon.Pause, Palette.Dark, App.PauseGame, "Pause");
-            Ui.Place((RectTransform)pause.transform, 0, 1, 30, -30, 140, 148, 0, 1);
+            _pauseRt = (RectTransform)pause.transform;
+            Ui.Place(_pauseRt, 0, 1, 30, -30, 140, 148, 0, 1);
 
             var scorePill = Ui.Glass(Safe, "FondScore");
             Ui.Place(scorePill.rectTransform, 0.5f, 1, 0, -40, 440, 150, 0.5f, 1);
+            _scorePillRt = scorePill.rectTransform;
             _score = Ui.Title(scorePill.transform, "0", 108);
             Ui.Stretch(_score.rectTransform, 0, -6, 0, 6);
             _score.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -331,6 +333,9 @@ namespace Bascule.UI
             // Niveau à bulle : la bulle file vers le côté haut, les bouts rouges = danger.
             var tube = Ui.Image(Safe, Art.LevelTube, Color.white, "Niveau");
             Ui.Place(tube.rectTransform, 0.5f, 1, 0, -300, 600, 90);
+            _tubeRt = tube.rectTransform;
+            _tubeLabel = Ui.Title(tube.transform, Loc.Get("duel_your_plank"), 50, ArtCache.Hex("#BFE0FF"), "Legende");
+            Ui.Place(_tubeLabel.rectTransform, 0.5f, 0, 0, -6, 600, 70, 0.5f, 1);
             var bubble = Ui.Image(tube.transform, Art.Bubble, Color.white, "Bulle");
             _bubble = bubble.rectTransform;
             Ui.Place(_bubble, 0.5f, 0.5f, 0, 0, 74, 74);
@@ -362,6 +367,7 @@ namespace Bascule.UI
             // Poids suivant.
             var box = Ui.Card(Safe, "Suivant");
             Ui.Place(box.rectTransform, 1, 1, -26, -26, 210, 250, 1, 1);
+            _nextRt = box.rectTransform;
             var lbl = Ui.Label(box.transform, Loc.Get("next"), 40, Palette.Ink);
             Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -44, 200, 56);
             _nextWeight = Ui.Icon(box.transform, null, "Poids");
@@ -390,78 +396,18 @@ namespace Bascule.UI
             _mark = Ui.Title(Safe, "", 40, new Color(1, 1, 1, 0.8f), "Filigrane");
             Ui.Place(_mark.rectTransform, 0.5f, 0, 0, 34, 1000, 56, 0.5f, 0);
             _mark.horizontalOverflow = HorizontalWrapMode.Overflow;
-            BuildWindBanner();
+            _gust = new GustBanner(Safe, Art);
             _hand = Ui.Icon(Safe, Art.IconSprite(Icon.Hand), "Main");
             Ui.Place(_hand.rectTransform, 0.5f, 0.5f, 0, 120, 150, 150);
         }
 
-        void BuildWindBanner()
-        {
-            _wind = Ui.Rect("Rafale", Safe);
-            // En bas, sur l'herbe sous les pieds de Basile : ne cache ni le poids tenu, ni la pile, ni la planche.
-            Ui.Place(_wind, 0.5f, 0, 0, 120, 640, 124);
-            _windGroup = _wind.gameObject.AddComponent<CanvasGroup>();
-            _windGroup.blocksRaycasts = false; _windGroup.interactable = false;
-            var pill = Ui.Image(_wind, Art.Pill, ArtCache.Hex("#2F7BEA"), "Fond", true);
-            Ui.Stretch(pill.rectTransform);
-            CapsuleSlice.Attach(pill);
-            var rim = Ui.Image(pill.transform, Art.Pill, new Color(1f, 1f, 1f, 0.22f), "Reflet", true);
-            Ui.Stretch(rim.rectTransform, 14, 62, 14, 10);
-            CapsuleSlice.Attach(rim);
-            _windText = Ui.Title(_wind, Loc.Get("wind_banner"), 64);
-            Ui.Place(_windText.rectTransform, 0.5f, 0.5f, 0, 2, 360, 110);
-            _windChevrons = new Image[6];
-            for (int i = 0; i < _windChevrons.Length; i++)
-            {
-                var c = Ui.Icon(_wind, Art.IconSprite(Icon.Back), "Chevron");
-                // Trois chevrons de chaque côté du mot ; ils filent dans le sens du vent.
-                float x = (i < 3 ? -1 : 1) * (215 + (i % 3) * 44);
-                Ui.Place(c.rectTransform, 0.5f, 0.5f, x, 0, 64, 64);
-                c.raycastTarget = false;
-                _windChevrons[i] = c;
-            }
-            Ui.Isolate(_wind.gameObject);
-            _wind.gameObject.SetActive(false);
-        }
-
         void UpdateWind(GameSession s, float dt)
         {
-            var phase = s.WindPhase;
-            if (phase != _shownWind)
+            bool started = _gust.Tick(s.WindPhase, s.WindDirection, s.WindWarning, s.WindEnvelope, App.Profile.settings.reducedMotion, dt);
+            if (started)
             {
-                if (phase == WindPhase.Warning)
-                {
-                    _windPop = 1f;
-                    var p = App.Profile;
-                    if (!p.windTipShown) { p.windTipShown = true; Say("tip_wind", 4.2f, 2); }
-                }
-                if (phase == WindPhase.Blowing) _windPop = 0.6f;
-                _shownWind = phase;
-            }
-            bool on = phase != WindPhase.None;
-            _windAlpha = Mathf.MoveTowards(_windAlpha, on ? 1f : 0f, dt * (on ? 6f : 2.5f));
-            bool visible = _windAlpha > 0.01f;
-            if (_wind.gameObject.activeSelf != visible) _wind.gameObject.SetActive(visible);
-            if (!visible) return;
-            _windGroup.alpha = _windAlpha;
-            int dir = s.WindDirection;
-            float now = Time.unscaledTime;
-            // Annonce : la pastille bat comme un cœur ; souffle : elle reste, les chevrons accélèrent.
-            float beat = phase == WindPhase.Warning ? 1f + 0.06f * Mathf.Sin(now * 12f) : 1f;
-            _windPop = Mathf.MoveTowards(_windPop, 0f, dt * 3f);
-            float pop = 1f + 0.35f * _windPop * _windPop;
-            _wind.localScale = Vector3.one * beat * pop;
-            float speed = phase == WindPhase.Blowing ? 3.2f : 1.6f;
-            for (int i = 0; i < _windChevrons.Length; i++)
-            {
-                var c = _windChevrons[i];
-                // L'icône « retour » pointe à gauche : retournée quand le vent souffle vers la droite.
-                c.rectTransform.localEulerAngles = new Vector3(0, 0, dir > 0 ? 180f : 0f);
-                int k = i % 3;
-                int order = dir > 0 ? k : 2 - k;
-                float wave = Mathf.Repeat(now * speed - order * 0.28f, 1f);
-                var col = Color.white; col.a = 0.25f + 0.75f * Mathf.Sin(wave * Mathf.PI);
-                c.color = col;
+                var p = App.Profile;
+                if (!p.windTipShown) { p.windTipShown = true; Say("tip_wind", 4.2f, 2); }
             }
         }
 
@@ -531,9 +477,40 @@ namespace Bascule.UI
             _mode.text = s.Mode == GameMode.Daily ? Loc.Get("daily") : s.Mode == GameMode.Duel ? Loc.Get("duel") : "";
             _shownGoal = -2;
             UpdateGoal(s);
-            _shownWind = WindPhase.None;
-            _windAlpha = 0f;
-            _wind.gameObject.SetActive(false);
+            _gust.Hide();
+            SetDuelLayout(App.Duel != null && App.Duel.InMatch);
+        }
+
+        /// <summary>
+        /// Duel : plus de pause (le temps ne s'arrête pas chez l'autre), plus de score central ni de record ;
+        /// le niveau se loge entre la vue en direct et « Suivant », et le poids tenu descend sous la vue en direct.
+        /// </summary>
+        void SetDuelLayout(bool duel)
+        {
+            _pauseRt.gameObject.SetActive(!duel);
+            _scorePillRt.gameObject.SetActive(!duel);
+            _best.gameObject.SetActive(!duel);
+            _tubeLabel.gameObject.SetActive(duel);
+            if (duel)
+            {
+                _mode.gameObject.SetActive(false);
+                _goal.gameObject.SetActive(false);
+                _progress.SetActive(false);
+                Ui.Place(_tubeRt, 0.5f, 1, 78, -258, 600, 90);
+                _tubeRt.localScale = Vector3.one * 0.7f;
+                Ui.Place(_nextRt, 1, 1, -26, -196, 210, 250, 1, 1);
+                _nextRt.localScale = Vector3.one * 0.9f;
+                Ui.Place(_hudBottom, 0.5f, 1, 0, DuelHudScreen.CardTop - DuelHudScreen.CardHeight - 62, 10, 2, 0.5f, 0.5f);
+            }
+            else
+            {
+                _mode.gameObject.SetActive(true);
+                Ui.Place(_tubeRt, 0.5f, 1, 0, -300, 600, 90);
+                _tubeRt.localScale = Vector3.one;
+                Ui.Place(_nextRt, 1, 1, -26, -26, 210, 250, 1, 1);
+                _nextRt.localScale = Vector3.one;
+                Ui.Place(_hudBottom, 0.5f, 1, 0, -498, 10, 2, 0.5f, 0.5f);
+            }
         }
 
         void UpdateGoal(GameSession s)
@@ -643,7 +620,7 @@ namespace Bascule.UI
         void UpdateProgress(int score)
         {
             var nextHead = HeadCatalog.NextScoreHead(App.Profile.unlockedHeads);
-            _progress.SetActive(nextHead != null);
+            _progress.SetActive(nextHead != null && !(App.Duel != null && App.Duel.InMatch));
             if (nextHead == null) return;
             int prev = 0;
             foreach (var h in HeadCatalog.All)

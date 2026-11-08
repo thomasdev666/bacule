@@ -381,6 +381,47 @@ namespace Bascule.Core.Tests
     public class DuelTests
     {
         [Test]
+        public void InviteLinksGiveTheCode()
+        {
+            Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink("bascule://duel/K7QM2X"));
+            Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink("bascule://duel/k7qm2x/"));
+            Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink("https://orpheex.fr/bascule/duel.html?c=K7QM2X"));
+            Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink("https://orpheex.fr/bascule/duel.html?x=1&c=k7qm2x#top"));
+            Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink(DuelRules.InviteLink("K7QM2X")));
+            Assert.IsNull(DuelRules.CodeFromLink("bascule://duel"));
+            Assert.IsNull(DuelRules.CodeFromLink("https://orpheex.fr/bascule"));
+            Assert.IsNull(DuelRules.CodeFromLink(null));
+        }
+
+        [Test]
+        public void ChallengerAfterFifteenWins()
+        {
+            var p = new Profile();
+            var t = new DuelTuning();
+            for (int i = 0; i < 14; i++) DuelRules.Record(p, DuelOutcome.Win, t);
+            Assert.AreEqual(0, DuelRules.UnlockHeads(p).Count);
+            DuelRules.Record(p, DuelOutcome.Lose, t);
+            Assert.AreEqual(0, DuelRules.UnlockHeads(p).Count);
+            DuelRules.Record(p, DuelOutcome.Win, t);
+            var heads = DuelRules.UnlockHeads(p);
+            Assert.AreEqual(1, heads.Count);
+            Assert.AreEqual("Challenger", heads[0].NameFr);
+            Assert.That(p.unlockedHeads, Does.Contain(heads[0].Id));
+            Assert.AreEqual(0, DuelRules.UnlockHeads(p).Count, "une seule fois");
+            Assert.AreEqual(16, p.duelsPlayed);
+            Assert.AreEqual(15 * t.coinsWin + t.coinsLose, p.coins - new Profile().coins);
+        }
+
+        [Test]
+        public void OpponentNamesAreFiltered()
+        {
+            Assert.AreEqual("Léa", DuelRules.CleanName("Léa", "Ami"));
+            Assert.AreEqual("Ami", DuelRules.CleanName("", "Ami"));
+            Assert.AreEqual("Ami", DuelRules.CleanName("connard", "Ami"));
+            Assert.AreEqual("Super Lea", DuelRules.CleanName("Super Lea", "Ami"));
+        }
+
+        [Test]
         public void PressureRisesWithTimeNotScore()
         {
             var t = new DuelTuning();

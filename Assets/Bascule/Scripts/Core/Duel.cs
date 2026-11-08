@@ -120,6 +120,62 @@ namespace Bascule.Core
             return coins;
         }
 
+        /// <summary>Têtes débloquées par les victoires en duel (la « Challenger ») : ajoutées au profil, renvoyées pour l'annonce.</summary>
+        public static List<HeadDef> UnlockHeads(Profile p)
+        {
+            var list = new List<HeadDef>();
+            var run = new RunAchievements { DuelWins = p.duelWins };
+            foreach (var h in HeadCatalog.All)
+            {
+                if (h.Unlock != UnlockKind.DuelWins || p.unlockedHeads.Contains(h.Id)) continue;
+                if (HeadCatalog.IsEarned(h, run)) { p.unlockedHeads.Add(h.Id); list.Add(h); }
+            }
+            return list;
+        }
+
+        /// <summary>Nom de l'adversaire tel qu'on l'affiche : pseudo filtré, sinon <paramref name="fallback"/>.</summary>
+        public static string CleanName(string name, string fallback)
+        {
+            var c = PseudoFilter.Clean(name);
+            return string.IsNullOrEmpty(c) ? fallback : c.Replace('_', ' ');
+        }
+
+        /// <summary>Lien d'invitation (page web) : https://orpheex.fr/bascule/duel.html?c=CODE.</summary>
+        public const string InviteUrl = "https://orpheex.fr/bascule/duel.html";
+        /// <summary>Lien qui ouvre directement le jeu (schéma déclaré dans l'application) : bascule://duel/CODE.</summary>
+        public const string AppScheme = "bascule";
+
+        public static string InviteLink(string code) => InviteUrl + "?c=" + Uri.EscapeDataString(code ?? "");
+
+        /// <summary>
+        /// Code de duel contenu dans un lien (bascule://duel/CODE, …/duel.html?c=CODE) ; null si ce n'est pas un lien de duel.
+        /// </summary>
+        public static string CodeFromLink(string url)
+        {
+            if (string.IsNullOrEmpty(url) || url.IndexOf("duel", StringComparison.OrdinalIgnoreCase) < 0) return null;
+            string raw = null;
+            int q = url.IndexOf("c=", StringComparison.OrdinalIgnoreCase);
+            if (q >= 0 && q > 0 && (url[q - 1] == '?' || url[q - 1] == '&'))
+            {
+                raw = url.Substring(q + 2);
+                int amp = raw.IndexOfAny(new[] { '&', '#' });
+                if (amp >= 0) raw = raw.Substring(0, amp);
+            }
+            else
+            {
+                string path = url;
+                int cut = path.IndexOfAny(new[] { '?', '#' });
+                if (cut >= 0) path = path.Substring(0, cut);
+                path = path.TrimEnd('/');
+                int slash = path.LastIndexOf('/');
+                if (slash >= 0) raw = path.Substring(slash + 1);
+                if (raw != null && raw.Equals("duel", StringComparison.OrdinalIgnoreCase)) raw = null;
+            }
+            if (string.IsNullOrEmpty(raw)) return null;
+            var code = NormalizeCode(Uri.UnescapeDataString(raw));
+            return code != null && code.Length >= 4 && code.Length <= 12 ? code : null;
+        }
+
         /// <summary>Code de duel lisible : majuscules, sans espaces ni tirets.</summary>
         public static string NormalizeCode(string text)
         {

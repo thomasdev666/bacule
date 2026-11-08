@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Bascule.Core;
+using Bascule.Duel;
 using Bascule.Services;
 using Bascule.UI;
 using UnityEngine;
@@ -102,6 +103,11 @@ namespace Bascule
         MissionsScreen _missions;
         ShopScreen _shop;
         ConfirmScreen _confirm;
+        DuelLobbyScreen _duelLobby;
+        DuelHudScreen _duelHud;
+        DuelResultScreen _duelResult;
+        /// <summary>Duel en temps réel (code, vue en direct, résultat).</summary>
+        public DuelController Duel { get; private set; }
         AdOverlay _adOverlay;
         Toast _toast;
         UiScreen _current;
@@ -191,6 +197,8 @@ namespace Bascule
             Session.Merged += v => _hud.OnMerged(v);
             Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
             Session.WeightLost += v => _hud.OnWeightLost(v);
+            Session.LoseStarted += () => Duel?.OnLocalLoseStarted();
+            InitDuel();
 
 #if BASCULE_LEVELPLAY && !UNITY_EDITOR
             _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial);
@@ -371,6 +379,7 @@ namespace Bascule
             var t = _frame;
             _home = Make<HomeScreen>(t, null);
             _hud = Make<HudScreen>(t, null);
+            _duelHud = Make<DuelHudScreen>(t, null);
             _gameOver = Make<GameOverScreen>(t, Palette.Shade);
             _collection = Make<CollectionScreen>(t, Palette.Shade);
             _leaderboard = Make<LeaderboardScreen>(t, Palette.Shade);
@@ -381,6 +390,8 @@ namespace Bascule
             _missions = Make<MissionsScreen>(t, Palette.Shade);
             _shop = Make<ShopScreen>(t, Palette.Shade);
             _gift = Make<GiftScreen>(t, Palette.Shade);
+            _duelLobby = Make<DuelLobbyScreen>(t, Palette.Shade);
+            _duelResult = Make<DuelResultScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.93f));
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
@@ -452,8 +463,15 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
+            // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
+            if (screen == _hud && Duel != null && Duel.InMatch)
+            {
+                _duelHud.Show();
+                _duelHud.Root.SetSiblingIndex(_hud.Root.GetSiblingIndex() + 1);
+            }
+            else _duelHud.Hide();
             _current = screen;
             screen?.Show();
         }
@@ -471,6 +489,7 @@ namespace Bascule
         void ShowHome()
         {
             Show(_home);
+            if (!string.IsNullOrEmpty(_pendingDuelCode)) { ConsumePendingDuelLink(); return; }
             HomePopups();
         }
 
@@ -559,7 +578,7 @@ namespace Bascule
         void StartRun(GameMode mode, uint seed)
         {
             Session.SetPaused(false);
-            if (Profile.randomHead) RollRandomHead(); // tête au hasard : une autre tête à chaque partie
+            if (Profile.randomHead && mode != GameMode.Duel) RollRandomHead(); // tête au hasard : une autre tête à chaque partie (pas en duel : l'adversaire a déjà reçu la nôtre)
             // Mode infini seulement : objectif de la partie et partie spéciale (récompenses, jamais le score).
             Session.Goal = mode == GameMode.Infinite ? RunGoal.For(Profile) : 0;
             Session.Special = mode == GameMode.Infinite ? SpecialRun.Next(Profile) : SpecialKind.None;
@@ -584,24 +603,192 @@ namespace Bascule
                 Loc.Get(played ? "daily_again" : "play"), () => Play(GameMode.Daily), Loc.Get("back"), null);
         }
 
-        /// <summary>Duels entre amis : pas encore ouverts. On le dit simplement (sans champ de code inutilisable).</summary>
-        public void DuelSoon()
+        // ------------------------------------------------------------------ Duel en temps réel
+
+        string _pendingDuelCode;
+
+        /// <summary>Le duel en temps réel est disponible dans cette version (paquet réseau installé).</summary>
+        public bool DuelAvailable => Duel != null && Duel.Available;
+
+        void InitDuel()
         {
-            _confirm.Ask(Loc.Get("duel_soon_title"), Loc.Get("duel_soon_body"), Art.IconSprite(Icon.Swords), Loc.Get("ok"), null, null, null);
+#if BASCULE_MULTIPLAYER
+            IDuelNetwork net = new UgsDuelNetwork();
+#else
+            IDuelNetwork net = new OfflineDuelNetwork();
+#endif
+            Duel = new DuelController(net, () => Tuning);
+            if (net.Available) Duel.AttachView(OpponentView.Create(transform, Art, _font, Tuning));
+            Duel.StartRun = seed =>
+            {
+                FinalizeRun();
+                _save.ClearRun();
+                StartRun(GameMode.Duel, seed);
+            };
+            Duel.FinishRun = () => Session.FinishDuelRun();
+            Duel.Capture = snap => Session.CaptureDuel(snap);
+            Duel.RunTime = () => Session.RunTime;
+            Duel.Score = () => Session.Score;
+            Duel.LockInput = on => Session.InputLocked = on;
+            Duel.Changed += OnDuelChanged;
+            Duel.Notice += key => _toast?.Say(Loc.Get(key));
+            Duel.ResultReady += OnDuelResult;
+
+            // Invitation : bascule://duel/CODE ouvre le jeu et rejoint le duel (au lancement ou application déjà ouverte).
+            Application.deepLinkActivated += OnDeepLink;
+            if (!string.IsNullOrEmpty(Application.absoluteURL)) _pendingDuelCode = DuelRules.CodeFromLink(Application.absoluteURL);
         }
 
-        public void AskDuelCode()
+        void OnDeepLink(string url)
         {
-            _prompt.Ask(Loc.Get("duel_prompt"), "", InputField.ContentType.Alphanumeric, code =>
+            var code = DuelRules.CodeFromLink(url);
+            if (code == null) return;
+            Stats.Event("duel_link");
+            if (Duel.InMatch) return; // déjà en duel : on ne coupe pas la partie en cours
+            if (Duel.InDuel) Duel.Leave();
+            JoinDuel(code);
+        }
+
+        /// <summary>Un lien d'invitation a ouvert le jeu : on rejoint le duel dès que l'accueil est prêt.</summary>
+        void ConsumePendingDuelLink()
+        {
+            if (string.IsNullOrEmpty(_pendingDuelCode)) return;
+            var code = _pendingDuelCode;
+            _pendingDuelCode = null;
+            JoinDuel(code);
+        }
+
+        DuelHello MyHello() => new DuelHello
+        {
+            Name = string.IsNullOrEmpty(Profile.pseudo) ? "" : Profile.pseudo,
+            Head = Profile.selectedHead,
+            Plank = Profile.selectedPlank,
+        };
+
+        public void OpenDuel()
+        {
+            if (!DuelAvailable) { _toast.Say(Loc.Get("duel_unavailable")); return; }
+            FinalizeRun();
+            Stats.Event("duel_open", ("wins", Profile.duelWins));
+            Show(_duelLobby);
+        }
+
+        public void DuelHost()
+        {
+            Stats.Event("duel_host");
+            Duel.Host(MyHello());
+        }
+
+        public void DuelJoinPrompt()
+        {
+            _prompt.Ask(Loc.Get("duel_join_prompt"), "", InputField.ContentType.Alphanumeric, JoinDuel, 12);
+        }
+
+        void JoinDuel(string code)
+        {
+            if (!DuelAvailable) { _toast.Say(Loc.Get("duel_unavailable")); return; }
+            if (Duel.InDuel) return;
+            code = DuelRules.NormalizeCode(code);
+            if (string.IsNullOrEmpty(code)) { _toast.Say(Loc.Get("duel_invalid")); return; }
+            FinalizeRun();
+            if (Session.IsRunning) { SaveRunSnapshot(); Session.SetPaused(false); Session.GoIdle(); }
+            Show(_duelLobby);
+            Stats.Event("duel_join");
+            Duel.Join(MyHello(), code);
+        }
+
+        public void DuelCancel()
+        {
+            Duel.Leave();
+            ShowHome();
+        }
+
+        public void DuelShareInvite()
+        {
+            if (string.IsNullOrEmpty(Duel.Code)) return;
+            Stats.Event("duel_invite");
+            _share.ShareText(Loc.Format("duel_invite_text", DuelRules.InviteLink(Duel.Code), Duel.Code));
+        }
+
+        public void DuelCopyCode()
+        {
+            if (string.IsNullOrEmpty(Duel.Code)) return;
+            GUIUtility.systemCopyBuffer = Duel.Code;
+            _toast.Say(Loc.Get("duel_copied"), Icon.Check, Palette.Play);
+        }
+
+        public void DuelAskQuit()
+        {
+            if (!Duel.InMatch) { DuelHome(); return; }
+            _confirm.Ask(Loc.Get("duel_quit_title"), Loc.Format("duel_quit_body", Duel.TheirName), Art.IconSprite(Icon.Flag),
+                Loc.Get("duel_quit_ok"), () => Duel.Forfeit(), Loc.Get("duel_quit_no"), null);
+        }
+
+        public void DuelRematch()
+        {
+            Stats.Event("duel_rematch");
+            Duel.AskRematch();
+            if (_duelResult.Visible) _duelResult.Refresh();
+        }
+
+        public void DuelHome()
+        {
+            Duel.Leave();
+            Session.InputLocked = false;
+            Session.SetPaused(false);
+            Session.GoIdle();
+            ShowHome();
+        }
+
+        void OnDuelChanged()
+        {
+            switch (Duel.Current)
             {
-                if (ChallengeCode.TryDecode(code, out uint seed))
-                {
-                    FinalizeRun();
-                    _save.ClearRun();
-                    StartRun(GameMode.Duel, seed);
-                }
-                else _toast.Say(Loc.Get("duel_invalid"));
-            });
+                case DuelController.Phase.None:
+                    if (_duelLobby.Visible) _duelLobby.Refresh();
+                    break;
+                case DuelController.Phase.Connecting:
+                case DuelController.Phase.Hosting:
+                case DuelController.Phase.Greeting:
+                    if (!_duelLobby.Visible) Show(_duelLobby); else _duelLobby.Refresh();
+                    break;
+                case DuelController.Phase.Countdown:
+                    // Départ (ou revanche) : la partie est lancée à la prochaine image par le contrôleur.
+                    _confirm.Hide();
+                    _prompt.Hide();
+                    break;
+                case DuelController.Phase.Results:
+                    if (_duelResult.Visible) _duelResult.Refresh();
+                    break;
+            }
+        }
+
+        void OnDuelResult()
+        {
+            var o = Duel.Outcome;
+            int coins = DuelRules.Record(Profile, o, Tuning.duel);
+            var heads = DuelRules.UnlockHeads(Profile);
+            Duel.SetRewards(coins, heads);
+            SaveProfile();
+            Stats.Event("duel_end", ("outcome", o.ToString()), ("seconds", Duel.MySeconds), ("forfeit", Duel.ByForfeit),
+                ("wins", Profile.duelWins), ("played", Profile.duelsPlayed));
+            if (heads.Count > 0) Stats.Event("head_unlocked", ("id", heads[0].Id));
+            if (o == DuelOutcome.Win) _haptics.Medium();
+            // Abandon de ma part : ma partie s'arrête là.
+            if (Session.IsRunning && Session.Mode == GameMode.Duel) { Session.InputLocked = false; Session.GoIdle(); }
+            // Un instant pour voir la fin (bras levés, chute de l'adversaire), puis le résultat.
+            StartCoroutine(ShowDuelResult(Duel.ByForfeit ? 0.4f : 1.4f));
+        }
+
+        System.Collections.IEnumerator ShowDuelResult(float delay)
+        {
+            float t = 0f;
+            while (t < delay) { t += Time.unscaledDeltaTime; yield return null; }
+            if (Duel.Current != DuelController.Phase.Results) yield break; // revanche déjà lancée, ou duel quitté
+            Session.InputLocked = false;
+            _confirm.Hide();
+            Show(_duelResult);
+            _audio.Play(Duel.Outcome == DuelOutcome.Lose ? Sfx.Click : Sfx.Lift);
         }
 
         public void ResumeSavedRun()
@@ -615,7 +802,7 @@ namespace Bascule
 
         public void PauseGame()
         {
-            if (!Session.IsRunning) return;
+            if (!Session.IsRunning || Session.Mode == GameMode.Duel) return; // le temps ne s'arrête pas chez l'adversaire
             Session.SetPaused(true);
             SaveRunSnapshot();
             _pause.Show();
@@ -648,6 +835,12 @@ namespace Bascule
         void OnRunEnded(RunResult result)
         {
             _save.ClearRun();
+            if (result.Mode == GameMode.Duel)
+            {
+                // Duel : pas de bilan solo (record, classement, coffre) ; le résultat arrive quand les deux ont fini.
+                Duel.OnLocalRunEnded(result);
+                return;
+            }
             _pendingResult = result;
             _pendingFinalized = false;
             _gainDoubled = false;
@@ -1378,7 +1571,7 @@ namespace Bascule
 
         void SaveRunSnapshot()
         {
-            if (!Session.IsRunning) return;
+            if (!Session.IsRunning || Session.Mode == GameMode.Duel) return; // un duel ne se reprend pas plus tard
             var s = Session.Capture();
             if (s != null) _save.SaveRun(s);
         }
@@ -1393,7 +1586,11 @@ namespace Bascule
                 Session.Layout();
             }
 
+            Duel.Tick(Time.deltaTime);
             if (_hud.Visible) _hud.Tick(dt);
+            if (_duelHud.Visible) _duelHud.Tick(dt);
+            if (_duelLobby.Visible) _duelLobby.Tick(dt);
+            if (_duelResult.Visible) _duelResult.Tick(dt);
             if (_home.Visible) _home.Tick(dt);
             if (_shop.Visible) _shop.Tick(dt);
             if (_missions.Visible) _missions.Tick(dt);
@@ -1420,6 +1617,9 @@ namespace Bascule
                 else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
+                else if (_current == _hud && Session.Mode == GameMode.Duel && Duel.InMatch) DuelAskQuit();
+                else if (_current == _duelLobby) DuelCancel();
+                else if (_current == _duelResult) DuelHome();
                 else if (_current == _hud && Session.IsRunning) { if (_pause.Visible) ResumeGame(); else PauseGame(); }
                 else if (_current == _collection || _current == _leaderboard || _current == _settings || _current == _missions || _current == _shop) GoHome();
             }
@@ -1458,7 +1658,8 @@ namespace Bascule
                 if (_home.Visible) { _home.Refresh(); HomePopups(); }
                 return;
             }
-            if (Session.IsRunning)
+            if (Duel.InMatch) Duel.OnAppPaused();
+            else if (Session.IsRunning)
             {
                 SaveRunSnapshot();
                 if (!Session.Paused) PauseGame();

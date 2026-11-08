@@ -156,6 +156,9 @@ namespace Bascule
         const int FontSize = 96;
 
         public int Value { get; private set; }
+        /// <summary>Identifiant stable (duel : la vue de l'adversaire suit chaque poids d'une photo à l'autre).</summary>
+        public ushort NetId { get; private set; }
+        static ushort _nextNetId;
         public bool Landed { get; set; }
         public bool Merging { get; set; }
         public bool Dropped { get; set; }
@@ -179,6 +182,7 @@ namespace Bascule
             var go = new GameObject("Poids " + value);
             go.transform.SetParent(parent, false);
             var w = go.AddComponent<WeightBody>();
+            w.NetId = ++_nextNetId == 0 ? ++_nextNetId : _nextNetId;
             w.Value = WeightCatalog.Normalize(value);
             w.Size = WeightCatalog.Size(w.Value, t);
             float tex = w.Size / (2f * WeightArtist.BottomHalfWidth); // largeur monde de la texture

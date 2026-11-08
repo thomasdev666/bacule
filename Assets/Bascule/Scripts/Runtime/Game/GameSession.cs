@@ -153,6 +153,10 @@ namespace Bascule
         public event Action NewRecord;
         /// <summary>Le score vient d'atteindre l'objectif de la partie.</summary>
         public event Action GoalReachedEvent;
+        /// <summary>Basile vient de lâcher (début de la chute, avant l'écran de fin) : le duel prévient l'adversaire tout de suite.</summary>
+        public event Action LoseStarted;
+        /// <summary>Temps de jeu de la partie (s), sans l'arrivée de Basile ni les pauses.</summary>
+        public float RunTime => _runTime;
         /// <summary>Une rafale s'annonce (direction : +1 vers la droite).</summary>
         public event Action<int> WindWarned;
         /// <summary>La rafale commence à souffler.</summary>
@@ -167,6 +171,8 @@ namespace Bascule
         public float WindWarning => _wind?.WarningProgress ?? 0f;
         /// <summary>Nombre de rafales de la partie (première rafale : le HUD explique quoi faire).</summary>
         public int WindCount => _wind?.Count ?? 0;
+        /// <summary>Duel : secondes avant l'annonce de la prochaine rafale commune (-1 : aucune de prévue).</summary>
+        public float NextGustIn => _wind?.NextScriptedIn ?? -1f;
 
         // ------------------------------------------------------------------ Mise en place
 
@@ -372,7 +378,10 @@ namespace Bascule
             _goalAnnounced = false; GoalDone = false;
             _nextMilestone = 1000;
             _plank = new PlankModel(_t.plank);
-            _wind = new Gusts(_t.wind, seed ^ 0x5A17C3u);
+            // Duel : rafales programmées, les mêmes au même instant chez les deux joueurs.
+            _wind = mode == GameMode.Duel
+                ? Gusts.Scripted(_t.wind, DuelRules.GustSchedule(seed, _t.duel), _t.duel.gustMaxPeakRatio)
+                : new Gusts(_t.wind, seed ^ 0x5A17C3u);
             _seq = new SpawnSequence(seed, _t.spawn);
             _score = new ScoreKeeper(_t.score);
             NewNearMiss();
@@ -479,7 +488,7 @@ namespace Bascule
             return s;
         }
 
-        public bool CanRevive => Current == State.Over && !Revived && _lossSnapshot != null;
+        public bool CanRevive => Current == State.Over && !Revived && _lossSnapshot != null && Mode != GameMode.Duel;
 
         /// <summary>
         /// Seconde chance : on revient à l'instant de la chute, la planche est remise à plat
@@ -762,8 +771,12 @@ namespace Bascule
             else _guide.enabled = false;
         }
 
+        /// <summary>Duel : le poids est là mais on ne peut pas encore le lâcher (compte à rebours).</summary>
+        public bool InputLocked { get; set; }
+
         void HandleAim()
         {
+            if (InputLocked) { _dragging = false; return; }
             if (!PointerInput.Read(out var screen, out bool pressed, out bool held, out bool released)) return;
             if (pressed && !PointerInput.OverUi(screen)) _dragging = true;
             if (!_dragging) return;
@@ -874,7 +887,7 @@ namespace Bascule
             LimitSpeeds();
             ProcessMerges();
             ComputeTorque(dt, out _torque, out _load);
-            _plank.Sensitivity = Difficulty.Sensitivity(Score, _t.plank);
+            _plank.Sensitivity = CurrentSensitivity();
             _plank.Step(dt, _torque + StepWind(dt), _load);
             _nearMiss.Update(_plank.Danger, _plank.Lost);
             if (!_plank.Lost)
@@ -886,6 +899,14 @@ namespace Bascule
             PlacePlank(false);
             CheckLostWeights();
             if (_plank.Lost) BeginLose();
+        }
+
+        /// <summary>Sensibilité de la planche : selon le score, et en duel aussi selon le temps (la pression monte toujours).</summary>
+        float CurrentSensitivity()
+        {
+            float s = Difficulty.Sensitivity(Score, _t.plank);
+            if (Mode == GameMode.Duel) s = Mathf.Max(s, DuelRules.Sensitivity(_runTime, _t.duel));
+            return s;
         }
 
         /// <summary>Fait avancer le vent ; renvoie le couple qu'il ajoute à la planche.</summary>
@@ -1106,6 +1127,7 @@ namespace Bascule
 
         void BeginLose()
         {
+            LoseStarted?.Invoke();
             _lossSnapshot = Capture();
             Current = State.Losing;
             _loseTimer = 2.2f; // le temps de voir la mascotte tomber
@@ -1127,6 +1149,50 @@ namespace Bascule
         }
 
         const int LastWords = 8;
+
+        // ------------------------------------------------------------------ Duel
+
+        /// <summary>
+        /// Duel gagné : l'adversaire a lâché et le temps du dernier poids est écoulé. La partie s'arrête sans chute :
+        /// Basile lève les bras sous les confettis.
+        /// </summary>
+        public bool FinishDuelRun()
+        {
+            if (!IsRunning && Current != State.Arrival) return false;
+            if (Current == State.Arrival) { _mascot.Walking = false; _mascot.HandsOverride = false; }
+            if (_held != null) { Destroy(_held.gameObject); _held = null; }
+            _dragging = false;
+            _guide.enabled = false;
+            Current = State.Over;
+            _mascot.Cheer();
+            _fx.Confetti(_mascot.PivotWorld + new Vector2(0, 3.5f), 60);
+            _audio.Play(Sfx.Lift);
+            _haptics.Medium();
+            RunEnded?.Invoke(BuildResult());
+            return true;
+        }
+
+        /// <summary>Photo de la partie pour l'adversaire (positions par rapport au pivot : indépendantes de la taille d'écran).</summary>
+        public void CaptureDuel(DuelSnapshot s)
+        {
+            s.TimeMs = (uint)Mathf.Max(0f, _runTime * 1000f);
+            s.Score = Score;
+            s.Angle = _plank != null ? _plank.Angle : 0f;
+            s.Danger = _plank != null ? _plank.Danger : 0f;
+            var pivot = _mascot.PivotWorld;
+            s.HeldValue = _held != null ? _held.Value : 0;
+            s.HeldX = _held != null ? _held.transform.position.x - pivot.x : 0f;
+            s.Wind = WindDirection * Mathf.Max(WindEnvelope, WindPhase == WindPhase.Warning ? 0.15f : 0f);
+            s.Weights.Clear();
+            // Du plus bas au plus haut : si la pile dépasse la limite d'un paquet, ce sont les plus hauts qui manquent.
+            foreach (var w in _weights)
+            {
+                if (w == null || w.Merging) continue;
+                if (s.Weights.Count >= DuelProtocol.MaxWeights) break;
+                var p = (Vector2)w.transform.position - pivot;
+                s.Weights.Add(new DuelWeight { Id = w.NetId, Value = w.Value, X = p.x, Y = p.y, Rotation = w.transform.eulerAngles.z });
+            }
+        }
 
         /// <summary>Photo du monde (caméra du jeu seule, sans l'interface) pour la carte de score. Une image, une fois par chute.</summary>
         void TakePhoto()
