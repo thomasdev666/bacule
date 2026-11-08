@@ -139,6 +139,8 @@ namespace Bascule.Core
         public int bestStreak;
         public string bestDate = "";
         public int bestScoreToday;
+        /// <summary>Jour où l'objectif du défi du jour a été réussi.</summary>
+        public string objectiveDate = "";
     }
 
     /// <summary>Score joué hors ligne, envoyé au classement plus tard.</summary>
@@ -204,6 +206,44 @@ namespace Bascule.Core
         }
     }
 
+    /// <summary>
+    /// Ce qui fait du défi du jour un vrai défi : le même objectif pour tout le monde, tiré de la date
+    /// (combo ×4, tenir 2 minutes, ne perdre aucun poids…), avec des pièces à la clé.
+    /// Le vent reste comme en partie normale (à partir de 5 000 points).
+    /// </summary>
+    public static class DailyChallenge
+    {
+        public const int Reward = 120;
+
+        static readonly (MissionKind kind, int target)[] Pool =
+        {
+            (MissionKind.Combo, 4),
+            (MissionKind.HoldSeconds, 120),
+            (MissionKind.CleanScore, 2000),
+            (MissionKind.MakeValue, 64),
+            (MissionKind.ScoreInGame, 3500),
+            (MissionKind.NearMiss, 90),
+        };
+
+        /// <summary>Objectif du jour (identique pour tous les joueurs ce jour-là).</summary>
+        public static Mission Objective(string dayKey)
+        {
+            var rng = new GameRng(GameRng.HashSeed("bascule-daily-objective-" + (dayKey ?? "")));
+            var e = Pool[(int)(rng.NextFloat() * Pool.Length) % Pool.Length];
+            return new Mission { kind = e.kind, target = e.target, reward = Reward };
+        }
+
+        /// <summary>L'objectif est-il atteint en une seule partie ?</summary>
+        public static bool Met(Mission objective, RunStats r)
+        {
+            var m = new Mission { kind = objective.kind, target = objective.target };
+            Missions.Step(m, r);
+            return m.progress >= m.target;
+        }
+
+        public static bool DoneToday(Profile p, string dayKey) => p.daily.objectiveDate == dayKey;
+    }
+
     /// <summary>Défi du jour : graine commune à tous les joueurs pour la journée (UTC), série de jours consécutifs.</summary>
     public static class Daily
     {
@@ -256,6 +296,8 @@ namespace Bascule.Core
         public bool revived;
         public float elapsed;
         public int lostWeights;
+        /// <summary>Rafales déjà traversées dans cette partie.</summary>
+        public int gusts;
         public int goal;
         public int special;
         public List<WeightState> weights = new List<WeightState>();

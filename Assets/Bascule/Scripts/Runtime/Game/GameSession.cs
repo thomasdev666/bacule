@@ -22,6 +22,8 @@ namespace Bascule
         public int Drops;
         public int LostWeights;
         public bool Revived;
+        /// <summary>Rafales de vent traversées sans tomber.</summary>
+        public int Gusts;
         public int Merges;
         /// <summary>Partie spéciale (récompenses seulement) et objectif de la partie.</summary>
         public SpecialKind Special;
@@ -39,7 +41,8 @@ namespace Bascule
         public RunStats Stats => new RunStats
         {
             Score = Score, Merges = Merges, MaxValue = MaxValue, Balloons = Balloons, BestChain = BestChain,
-            BestSave = BestSave, Daily = Mode == GameMode.Daily,
+            BestSave = BestSave, Daily = Mode == GameMode.Daily, DayKey = DayKey,
+            Gusts = Gusts, Seconds = Seconds, LostWeights = LostWeights,
             Special = Special, Goal = Goal, Seed = Seed,
         };
     }
@@ -382,6 +385,7 @@ namespace Bascule
             _wind = mode == GameMode.Duel
                 ? Gusts.Scripted(_t.wind, DuelRules.GustSchedule(seed, _t.duel), _t.duel.gustMaxPeakRatio)
                 : new Gusts(_t.wind, seed ^ 0x5A17C3u);
+            _gustsSurvived = 0; _lastWind = WindPhase.None;
             _seq = new SpawnSequence(seed, _t.spawn);
             _score = new ScoreKeeper(_t.score);
             NewNearMiss();
@@ -439,6 +443,7 @@ namespace Bascule
             _plank.Sensitivity = Difficulty.Sensitivity(s.score, _t.plank);
             // Reprise (ou seconde chance) : pas de rafale « en retard » pour les paliers déjà passés, et un temps de répit.
             _wind = new Gusts(_t.wind, s.seed ^ 0x5A17C3u ^ (uint)s.score);
+            _lastWind = WindPhase.None; _gustsSurvived = s.gusts;
             _wind.Reset(s.score);
             _seq = new SpawnSequence(s.seed, _t.spawn);
             _seq.Restore(s.rngState, s.dropIndex, s.current, s.next);
@@ -472,7 +477,7 @@ namespace Bascule
                 current = _seq.Current, next = _seq.Next, plankAngle = _plank.Angle, plankVelocity = _plank.AngularVelocity,
                 strainTime = _plank.StrainTime, score = _score.Score, bestChain = _score.BestChain, merges = _score.Merges,
                 balloons = _score.Balloons, maxValue = _score.MaxValue, lostWeights = _score.LostWeights, bestSave = _nearMiss.BestSave, saves = _nearMiss.Saves,
-                revived = Revived, elapsed = _runTime, goal = Goal, special = (int)Special,
+                gusts = _gustsSurvived, revived = Revived, elapsed = _runTime, goal = Goal, special = (int)Special,
             };
             foreach (var w in _weights)
             {
@@ -541,7 +546,7 @@ namespace Bascule
             Balloons = _score?.Balloons ?? 0, BestChain = _score?.BestChain ?? 0, MaxValue = _score?.MaxValue ?? 0,
             Drops = Drops, Revived = Revived,
             LostWeights = _score?.LostWeights ?? 0,
-            Merges = _score?.Merges ?? 0, Seconds = _runTime,
+            Merges = _score?.Merges ?? 0, Seconds = _runTime, Gusts = _gustsSurvived,
             Special = Special, Goal = Goal,
             Tension = new List<float>(_tension),
         };
@@ -909,6 +914,9 @@ namespace Bascule
             return s;
         }
 
+        int _gustsSurvived;
+        WindPhase _lastWind;
+
         /// <summary>Fait avancer le vent ; renvoie le couple qu'il ajoute à la planche.</summary>
         float StepWind(float dt)
         {
@@ -917,6 +925,9 @@ namespace Bascule
             bool blocked = _plank.Calm > 0f || _plank.Steady > 0f || _runTime < 3f;
             float signedRatio = _plank.Angle / Mathf.Max(1f, _t.plank.maxAngle) * _t.plank.tiltDirection;
             var started = _wind.Update(dt, Score, _plank.Danger, signedRatio, blocked);
+            // Une rafale traversée : son souffle s'est terminé et la planche tient toujours.
+            if (_lastWind == WindPhase.Blowing && _wind.Phase == WindPhase.None && !_plank.Lost) _gustsSurvived++;
+            _lastWind = _wind.Phase;
             if (started == WindPhase.Warning)
             {
                 _audio.Play(Sfx.Wind, 1, 0.9f);

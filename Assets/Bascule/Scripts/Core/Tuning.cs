@@ -106,6 +106,7 @@ namespace Bascule.Core
     [Serializable]
     public class WindTuning
     {
+
         /// <summary>Score à partir duquel le vent peut souffler.</summary>
         public int startScore = 5000;
         /// <summary>Paliers qui déclenchent une rafale ; ensuite, un palier tous les milestoneEvery points.</summary>

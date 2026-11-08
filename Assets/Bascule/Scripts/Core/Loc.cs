@@ -32,7 +32,7 @@ namespace Bascule.Core
             ["leaderboard"] = new[] { "Classement", "Leaderboard" },
             ["settings"] = new[] { "Réglages", "Settings" },
             ["back"] = new[] { "Retour", "Back" },
-            ["daily_rule"] = new[] { "Le même parcours de poids pour tout le monde aujourd'hui. Une seule partie compte pour le classement du jour.", "The same weight sequence for everyone today. One game counts for today's leaderboard." },
+            ["daily_rule"] = new[] { "Le même parcours de poids pour tout le monde aujourd'hui. Ton meilleur score du jour compte pour le classement.", "The same weights for everyone today. Your best score of the day counts for the daily ranking." },
             ["daily_best"] = new[] { "Ton meilleur aujourd'hui : {0}", "Your best today: {0}" },
             ["daily_streak"] = new[] { "Série : {0} jour(s)", "Streak: {0} day(s)" },
             ["daily_again"] = new[] { "Rejouer", "Play again" },
@@ -52,7 +52,7 @@ namespace Bascule.Core
             ["hint_short"] = new[] { "Garde Basile en équilibre !", "Keep Basile balanced!" },
             ["score_label"] = new[] { "SCORE", "SCORE" },
             ["best_combo"] = new[] { "Meilleur combo : ×{0}", "Best combo: ×{0}" },
-            ["next_head_left"] = new[] { "Encore {0} pts pour débloquer cette tête !", "{0} more points to unlock this head!" },
+            ["next_head_left"] = new[] { "Fais {0} en une partie pour la débloquer (record : {1})", "Score {0} in one run to unlock it (best: {1})" },
             ["pause"] = new[] { "Pause", "Pause" },
             ["pause_score"] = new[] { "Score : {0}   ·   Record : {1}", "Score: {0}   ·   Best: {1}" },
             ["continue"] = new[] { "Continuer", "Continue" },
@@ -310,6 +310,13 @@ namespace Bascule.Core
             ["m_Combo"] = new[] { "Fais un combo ×{0}", "Get a ×{0} combo" },
             ["m_NearMiss"] = new[] { "Sauve Basile à {0} % de la chute", "Save Basile at {0}% of the fall" },
             ["m_PlayDaily"] = new[] { "Joue le défi du jour", "Play the daily challenge" },
+            ["m_SurviveGusts"] = new[] { "Résiste à {0} rafales de vent dans une partie", "Withstand {0} wind gusts in one game" },
+            ["m_HoldSeconds"] = new[] { "Tiens {0} sans faire tomber Basile", "Hold on for {0} without Basile falling" },
+            ["m_CleanScore"] = new[] { "Fais {0} points sans perdre un seul poids", "Score {0} without losing a single weight" },
+            ["daily_objective"] = new[] { "Défi : {0}", "Challenge: {0}" },
+            ["daily_objective_done"] = new[] { "Défi du jour réussi !", "Daily challenge done!" },
+            ["daily_objective_reward"] = new[] { "Récompense : {0} pièces", "Reward: {0} coins" },
+            ["daily_objective_already"] = new[] { "Défi réussi aujourd'hui ✓ Rejoue pour battre ton score.", "Done today ✓ Play again to beat your score." },
             ["m_NoHeartLost"] = new[] { "Fais {0} points en une partie", "Score {0} in one game" },
 
             // Cadeau du jour
@@ -535,7 +542,17 @@ namespace Bascule.Core
             }
         }
 
-        public static string MissionText(Mission m) => Format("m_" + m.kind, m.kind == MissionKind.ScoreInGame || m.kind == MissionKind.TotalScore || m.kind == MissionKind.NoHeartLost ? (object)FormatScore(m.target) : m.target);
+        public static string MissionText(Mission m) => Format("m_" + m.kind,
+            m.kind == MissionKind.ScoreInGame || m.kind == MissionKind.TotalScore || m.kind == MissionKind.NoHeartLost || m.kind == MissionKind.CleanScore ? (object)FormatScore(m.target)
+            : m.kind == MissionKind.HoldSeconds ? FormatDuration(m.target) : m.target);
+
+        /// <summary>Durée lisible : « 90 s », « 2 min », « 2 min 30 ».</summary>
+        public static string FormatDuration(int seconds)
+        {
+            if (seconds < 60) return seconds + " s";
+            int min = seconds / 60, sec = seconds % 60;
+            return sec == 0 ? min + " min" : min + " min " + sec.ToString("00");
+        }
 
         /// <summary>Durée courte : « 5 h 03 » ou « 12 min 04 ».</summary>
         public static string Duration(double seconds)

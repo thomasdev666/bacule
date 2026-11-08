@@ -64,7 +64,9 @@ namespace Bascule.Core
     // État sauvegardé (dans Profile)
     // =====================================================================================================
 
-    public enum MissionKind { PlayGames, ScoreInGame, TotalScore, Merges, MakeValue, Balloon, Combo, NearMiss, PlayDaily, /* plus proposée (cœurs retirés) : gardée pour les anciennes sauvegardes */ NoHeartLost }
+    public enum MissionKind { PlayGames, ScoreInGame, TotalScore, Merges, MakeValue, Balloon, Combo, NearMiss, PlayDaily, /* plus proposée (cœurs retirés) : gardée pour les anciennes sauvegardes */ NoHeartLost,
+        // 1.3 : missions d'exploit (toujours ajouter à la fin : les types sont sauvegardés)
+        SurviveGusts, HoldSeconds, CleanScore }
 
     [Serializable]
     public class Mission
@@ -133,11 +135,14 @@ namespace Bascule.Core
         /// <summary>Objectif de la partie atteint (pièces en plus).</summary>
         public bool GoalReached;
         public int GoalCoins;
+        /// <summary>Défi du jour réussi à cette partie (null sinon) et ses pièces.</summary>
+        public Mission DailyObjective;
+        public int DailyCoins;
         /// <summary>Coffre ouvert à cette partie (null sinon), et progression du coffre après la partie.</summary>
         public Chest.Loot Chest;
         public int ChestProgress;
         public SpecialKind Special;
-        public int Total => Coins + LevelCoins + MissionCoins + BonusCoins + GoalCoins + (Chest?.Coins ?? 0);
+        public int Total => Coins + LevelCoins + MissionCoins + BonusCoins + GoalCoins + DailyCoins + (Chest?.Coins ?? 0);
     }
 
     /// <summary>Tout ce qu'une partie a accompli (pour les missions et les têtes).</summary>
@@ -150,6 +155,12 @@ namespace Bascule.Core
         public int BestChain;
         public float BestSave;
         public bool Daily;
+        /// <summary>Jour du défi (mode défi du jour).</summary>
+        public string DayKey;
+        /// <summary>Rafales de vent traversées sans tomber, durée de la partie (s), poids perdus.</summary>
+        public int Gusts;
+        public float Seconds;
+        public int LostWeights;
         /// <summary>Règle spéciale de la partie (récompenses seulement), objectif de la partie, graine du coffre.</summary>
         public SpecialKind Special;
         public int Goal;
@@ -320,6 +331,9 @@ namespace Bascule.Core
             // Les missions les plus dures n'arrivent qu'une fois le jeu bien compris.
             if (level >= 6) pool.Add(MissionKind.NearMiss);
             if (level >= 10 || best >= 4000) pool.Add(MissionKind.Balloon);
+            // Missions d'exploit : tenir longtemps, ne rien laisser tomber, et (dès que le vent souffle) traverser des rafales.
+            if (gamesPlayed >= 5 || level >= 3) { pool.Add(MissionKind.HoldSeconds); pool.Add(MissionKind.CleanScore); }
+            if (best >= 6500) pool.Add(MissionKind.SurviveGusts);
             // Toujours une mission facile pour les débutants : « jouer N parties ».
             bool beginner = gamesPlayed < 10;
             int guard = 0;
@@ -347,7 +361,10 @@ namespace Bascule.Core
                 case MissionKind.TotalScore: m.target = Round((int)(bestRef * (2.2f + 1.5f * r)), 500); m.reward = 70; break;
                 case MissionKind.Merges: m.target = Round(30 + (int)(r * 40) + level * 2, 5); m.reward = 60; break;
                 case MissionKind.MakeValue: m.target = best >= 2500 || level >= 8 ? (r < 0.5f ? 64 : 32) : (r < 0.5f ? 32 : 16); m.reward = m.target >= 64 ? 90 : 60; break;
-                case MissionKind.Combo: m.target = level >= 8 && r < 0.5f ? 4 : 3; m.reward = m.target >= 4 ? 90 : 60; break;
+                case MissionKind.Combo: m.target = level >= 5 && r < 0.5f ? 4 : 3; m.reward = m.target >= 4 ? 100 : 60; break;
+                case MissionKind.SurviveGusts: m.target = r < 0.6f ? 2 : 3; m.reward = m.target >= 3 ? 130 : 100; break;
+                case MissionKind.HoldSeconds: m.target = level >= 8 ? (r < 0.5f ? 150 : 180) : (r < 0.5f ? 90 : 120); m.reward = m.target >= 150 ? 90 : 70; break;
+                case MissionKind.CleanScore: m.target = Round((int)(bestRef * (0.3f + 0.15f * r)), 100); m.reward = 90; break;
                 case MissionKind.PlayDaily: m.target = 1; m.reward = 60; break;
                 case MissionKind.NoHeartLost: m.target = Round((int)(bestRef * (0.3f + 0.2f * r)), 100); m.reward = 80; break;
                 case MissionKind.NearMiss: m.target = 90; m.reward = 90; break;
@@ -363,6 +380,15 @@ namespace Bascule.Core
             foreach (var m in s.list)
             {
                 if (m.done) continue;
+                Step(m, r);
+                if (m.progress >= m.target) { m.progress = m.target; m.done = true; done.Add(m); }
+            }
+            return done;
+        }
+
+        /// <summary>Fait avancer une mission avec une partie terminée (sans la marquer réussie).</summary>
+        public static void Step(Mission m, RunStats r)
+        {
                 switch (m.kind)
                 {
                     case MissionKind.PlayGames: m.progress++; break;
@@ -375,10 +401,10 @@ namespace Bascule.Core
                     case MissionKind.NoHeartLost: m.progress = Math.Max(m.progress, r.Score); break; // ancienne mission (sauvegardes)
                     case MissionKind.NearMiss: m.progress = Math.Max(m.progress, (int)Math.Round(Math.Min(r.BestSave, 1f) * 100)); break;
                     case MissionKind.Balloon: m.progress += r.Balloons; break;
+                    case MissionKind.SurviveGusts: m.progress = Math.Max(m.progress, r.Gusts); break;
+                    case MissionKind.HoldSeconds: m.progress = Math.Max(m.progress, (int)r.Seconds); break;
+                    case MissionKind.CleanScore: if (r.LostWeights == 0) m.progress = Math.Max(m.progress, r.Score); break;
                 }
-                if (m.progress >= m.target) { m.progress = m.target; m.done = true; done.Add(m); }
-            }
-            return done;
         }
 
         public static bool AllDone(MissionState s) => s.list.Count > 0 && s.list.TrueForAll(m => m.done);
@@ -416,6 +442,19 @@ namespace Bascule.Core
                 g.GoalReached = true;
                 g.GoalCoins = RunGoal.Reward;
                 Wallet.Add(p, g.GoalCoins);
+            }
+
+            // Défi du jour : son objectif, réussi une fois par jour (pièces en plus).
+            if (r.Daily && !string.IsNullOrEmpty(r.DayKey) && p.daily.objectiveDate != r.DayKey)
+            {
+                var obj = DailyChallenge.Objective(r.DayKey);
+                if (DailyChallenge.Met(obj, r))
+                {
+                    p.daily.objectiveDate = r.DayKey;
+                    g.DailyObjective = obj;
+                    g.DailyCoins = obj.reward;
+                    Wallet.Add(p, g.DailyCoins);
+                }
             }
 
             g.MissionsDone = Missions.Apply(p.missions, r);

@@ -474,7 +474,7 @@ namespace Bascule.UI
             if (creator)
                 _mark.text = s.Mode == GameMode.Daily ? Loc.Format("creator_mark_daily", Brag.DayNumber(s.DayKey))
                     : Loc.Get("creator_mark");
-            _mode.text = s.Mode == GameMode.Daily ? Loc.Get("daily") : s.Mode == GameMode.Duel ? Loc.Get("duel") : "";
+            _mode.text = s.Mode == GameMode.Duel ? Loc.Get("duel") : ""; // défi du jour : la ligne de l'objectif le dit déjà
             _shownGoal = -2;
             UpdateGoal(s);
             _gust.Hide();
@@ -515,6 +515,17 @@ namespace Bascule.UI
 
         void UpdateGoal(GameSession s)
         {
+            // Défi du jour : son objectif reste affiché sous le niveau pendant la partie.
+            if (s.Mode == GameMode.Daily && !(App.Duel != null && App.Duel.InMatch))
+            {
+                if (_shownGoal == 2) return;
+                _shownGoal = 2;
+                _goal.gameObject.SetActive(true);
+                bool done = DailyChallenge.DoneToday(App.Profile, s.DayKey);
+                _goal.text = done ? Loc.Get("daily_objective_done") : Loc.Format("daily_objective", Loc.MissionText(DailyChallenge.Objective(s.DayKey)));
+                _goal.color = done ? ArtCache.Hex("#9CF5B0") : ArtCache.Hex("#FFE7A0");
+                return;
+            }
             int state = s.Goal <= 0 ? -1 : s.GoalDone ? 1 : 0;
             if (state == _shownGoal) return;
             if (_shownGoal == 0 && state == 1) _goalPunch = 1f;
@@ -899,6 +910,7 @@ namespace Bascule.UI
             if (gain.Chest == null)
             {
                 if (gain.GoalReached) _runRewards.Add(new KeyValuePair<string, int>(Loc.Get("goal_reached"), gain.GoalCoins));
+                if (gain.DailyObjective != null) _runRewards.Add(new KeyValuePair<string, int>(Loc.Get("daily_objective_done"), gain.DailyCoins));
                 if (gain.MissionsDone.Count > 0)
                 {
                     int mc = 0; foreach (var m in gain.MissionsDone) mc += m.reward;
@@ -1048,7 +1060,7 @@ namespace Bascule.UI
                     if (h.Unlock == UnlockKind.Score && h.UnlockValue < next.UnlockValue && h.UnlockValue > prev) prev = h.UnlockValue;
                 float t = Mathf.Clamp01((best - prev) / (float)Mathf.Max(1, next.UnlockValue - prev));
                 bestT = t; goal = next;
-                text = Loc.Format("next_head_left", Loc.FormatScore(Mathf.Max(0, next.UnlockValue - best)));
+                text = Loc.Format("next_head_left", Loc.FormatScore(next.UnlockValue), Loc.FormatScore(best)); // une tête de score se gagne en une seule partie
             }
             var shop = HeadCatalog.SuggestedShopHead(p.unlockedHeads, coins, p.gamesPlayed);
             if (shop != null)

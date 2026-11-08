@@ -1118,6 +1118,56 @@ namespace Bascule.Core.Tests
 {
     public class EconomyTests
     {
+        [Test]
+        public void NewMissionsProgress()
+        {
+            var gust = new Mission { kind = MissionKind.SurviveGusts, target = 2 };
+            Missions.Step(gust, new RunStats { Gusts = 1 }); Assert.AreEqual(1, gust.progress);
+            Missions.Step(gust, new RunStats { Gusts = 2 }); Assert.AreEqual(2, gust.progress);
+            var hold = new Mission { kind = MissionKind.HoldSeconds, target = 120 };
+            Missions.Step(hold, new RunStats { Seconds = 125.4f }); Assert.AreEqual(125, hold.progress);
+            var clean = new Mission { kind = MissionKind.CleanScore, target = 1500 };
+            Missions.Step(clean, new RunStats { Score = 3000, LostWeights = 1 }); Assert.AreEqual(0, clean.progress, "un poids perdu : ne compte pas");
+            Missions.Step(clean, new RunStats { Score = 1600, LostWeights = 0 }); Assert.AreEqual(1600, clean.progress);
+            Assert.AreEqual("Tiens 2 min sans faire tomber Basile", Loc.MissionText(new Mission { kind = MissionKind.HoldSeconds, target = 120 }));
+            Assert.AreEqual("1 min 30", Loc.FormatDuration(90));
+        }
+
+        [Test]
+        public void GustMissionOnlyOnceTheWindBlows()
+        {
+            for (uint seed = 1; seed < 200; seed++)
+                Assert.False(Missions.Generate(seed, 20, 3000, 100).Exists(m => m.kind == MissionKind.SurviveGusts), "record 3 000 : jamais de vent");
+            bool seen = false;
+            for (uint seed = 1; seed < 400 && !seen; seed++)
+                seen = Missions.Generate(seed, 20, 9000, 100).Exists(m => m.kind == MissionKind.SurviveGusts);
+            Assert.True(seen);
+        }
+
+        [Test]
+        public void DailyObjectiveSameForEveryoneAndPaidOnce()
+        {
+            var a = DailyChallenge.Objective("2026-11-08");
+            var b = DailyChallenge.Objective("2026-11-08");
+            Assert.AreEqual(a.kind, b.kind); Assert.AreEqual(a.target, b.target);
+            Assert.AreNotEqual(MissionKind.SurviveGusts, a.kind);
+            // Un jour où l'objectif est un combo ×4.
+            string day = null;
+            for (int d = 1; d <= 28 && day == null; d++) { var k = "2026-02-" + d.ToString("00"); if (DailyChallenge.Objective(k).kind == MissionKind.Combo) day = k; }
+            Assert.NotNull(day);
+            var t = new EconomyTuning();
+            var p = new Profile();
+            var miss = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 3 }, day);
+            Assert.IsNull(miss.DailyObjective);
+            var win = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 4 }, day);
+            Assert.NotNull(win.DailyObjective);
+            Assert.AreEqual(DailyChallenge.Reward, win.DailyCoins);
+            var again = EconomyRun.Apply(t, p, new RunStats { Daily = true, DayKey = day, Score = 500, BestChain = 5 }, day);
+            Assert.IsNull(again.DailyObjective, "une seule récompense par jour");
+            var normal = EconomyRun.Apply(t, new Profile(), new RunStats { Daily = false, DayKey = "", Score = 500, BestChain = 4 }, day);
+            Assert.IsNull(normal.DailyObjective, "seulement en défi du jour");
+        }
+
         static Profile NewProfile() { var p = new Profile(); p.Sanitize(); return p; }
 
         [Test]

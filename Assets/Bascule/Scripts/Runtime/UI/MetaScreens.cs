@@ -24,6 +24,9 @@ namespace Bascule.UI
                 case MissionKind.Combo: return Icon.Flame;
                 case MissionKind.NearMiss: return Icon.Heart;
                 case MissionKind.PlayDaily: return Icon.Calendar;
+                case MissionKind.SurviveGusts: return Icon.Swords;
+                case MissionKind.HoldSeconds: return Icon.Hand;
+                case MissionKind.CleanScore: return Icon.Check;
                 default: return Icon.Target;
             }
         }
@@ -40,6 +43,9 @@ namespace Bascule.UI
                 case MissionKind.Combo: return Palette.Primary;
                 case MissionKind.NearMiss: return Palette.Primary;
                 case MissionKind.PlayDaily: return Palette.Secondary;
+                case MissionKind.SurviveGusts: return Palette.Secondary;
+                case MissionKind.HoldSeconds: return Palette.Success;
+                case MissionKind.CleanScore: return Palette.Accent;
                 default: return Palette.Purple;
             }
         }
