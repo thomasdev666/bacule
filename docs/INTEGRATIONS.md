@@ -87,6 +87,20 @@ Catalogue (`Core/Economy.cs → Shop.Products`) : uniquement du confort ou du co
 
 Le jeu note des événements anonymes (`Services/EngagementServices.cs → Analytics`) dans `analytics.jsonl` sur le téléphone : ouverture, début et fin de partie (score, durée, cause), tutoriel, niveaux, missions, cadeau, pubs vues, achats. Pour les voir de tous les joueurs pendant le lancement test, brancher un service (Unity Analytics, GameAnalytics, Firebase) en implémentant `IAnalyticsSink` et l'ajouter avec `App.Stats.AddSink(...)`. Ce que chaque mesure permet de décider est dans `docs/RAPPORT.md`, section « Mesurer ».
 
+## 4 quater. Duel en temps réel : Multiplayer Services (Relay)
+
+Le duel relie deux téléphones par le **relais** de Unity (pas besoin d'être sur le même Wi-Fi) ; une « session » privée pour deux donne le code à 6 caractères. Pas de Netcode : le jeu envoie ses propres petits messages (Unity Transport), environ 15 photos de partie par seconde (~1 à 2 Ko/s par joueur).
+
+1. **Package Manager → Unity Registry → « Multiplayer Services »** (`com.unity.services.multiplayer`, 1.0 ou plus). Il installe aussi Unity Transport. Le define `BASCULE_MULTIPLAYER` s'active seul (`Bascule.Runtime.asmdef`).
+2. **Dashboard Unity Cloud** (même projet que le classement) → **Multiplayer → Relay** : activer. **Lobby** (utilisé par les sessions) : activer aussi.
+3. Rien d'autre à configurer : la connexion anonyme est déjà celle du classement.
+4. **Tester** : deux téléphones (ou un téléphone et l'éditeur). Accueil → Duel → « Défier un ami » sur le premier, « Rejoindre un duel » + code sur le second. Le bouton Duel n'apparaît sur l'accueil que si le paquet est installé.
+5. **Lien d'invitation** : mettre `docs/site/bascule/duel.html` sur `https://orpheex.fr/bascule/duel.html`. Le schéma `bascule://` est déclaré par « Bascule → Configurer le projet » (`PlayerSettings.iOS.iOSUrlSchemes`) et vérifié après chaque build iOS (`Editor/IosBuildPost.cs`).
+
+**Plan gratuit** : Relay et Lobby sont gratuits jusqu'à un certain nombre de joueurs connectés en même temps (CCU) et de bande passante par mois ; au-delà, paiement à l'usage. Vérifier les chiffres à jour sur la page de tarifs de Unity Gaming Services et dans le Dashboard (Usage), et y régler une **alerte de dépense**. Un duel = 2 joueurs connectés et environ 3 Mo pour 3 minutes.
+
+Réglages (section `duel` de `bascule_tuning.json`) : compte à rebours, pression qui monte avec le temps (`pressureFromSeconds`, `sensitivityPerMinute`, `sensitivityMax`), rafales communes (`firstGustSeconds`, `gustGapMin/Max`, `gustStrength*`), fenêtre du dernier poids (`finalWindowSeconds`), égalité (`tieWindowSeconds`), pièces (`coinsWin/Lose/Draw`), tête Challenger (`challengerWins`), photos par seconde, délai d'abandon (`timeoutSeconds`).
+
 ## 5. Publication
 
 - **Identifiant** : `fr.orpheex.bascule` (réglé automatiquement par « Bascule → Configurer le projet »). Il ne pourra plus changer après la première mise en ligne : le valider avant.

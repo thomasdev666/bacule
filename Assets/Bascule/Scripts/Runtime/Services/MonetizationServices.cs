@@ -66,6 +66,19 @@ namespace Bascule.Services
         }
     }
 
+    /// <summary>
+    /// Version publiée sans régie publicitaire : aucune pub (jamais de fausse pub dans une version envoyée aux stores).
+    /// Les boutons « regarder une pub » disent simplement qu'aucune pub n'est disponible.
+    /// </summary>
+    public sealed class NoAdService : IAdService
+    {
+        public bool IsSimulated => false;
+        public bool CanShowRewarded => false;
+        public bool CanShowInterstitial => false;
+        public void ShowRewarded(string placement, Action<bool> onDone) => onDone?.Invoke(false);
+        public void ShowInterstitial(Action onDone) => onDone?.Invoke();
+    }
+
 #if BASCULE_UNITYADS
     /// <summary>
     /// Unity Ads (paquet com.unity.ads, gratuit). Pubs non personnalisées : on déclare au SDK que le joueur
@@ -203,6 +216,8 @@ namespace Bascule.Services
             // Avant le démarrage : aucune donnée utilisée pour cibler le joueur.
             global::Unity.Services.LevelPlay.LevelPlay.SetConsent(false);
             global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("do_not_sell", "true");
+            // Public mixte (des collégiens jouent) : l'identifiant publicitaire de l'appareil n'est pas collecté.
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("is_deviceid_optout", "true");
             _testSuite = PlayerPrefs.GetInt(TestSuitePref, 0) == 1;
             if (_testSuite)
             {

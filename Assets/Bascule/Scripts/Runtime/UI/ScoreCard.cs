@@ -196,7 +196,7 @@ namespace Bascule.UI
 
             _code.text = b.Mode == GameMode.Daily
                 ? Loc.Format("card_daily", Brag.DayNumber(b.DayKey))
-                : Loc.Get("card_challenge") + "  " + ChallengeCode.Encode(b.Seed);
+                : Loc.Get("card_challenge");
 
             _canvas.gameObject.SetActive(true);
             Canvas.ForceUpdateCanvases();

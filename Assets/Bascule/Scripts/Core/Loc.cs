@@ -37,11 +37,8 @@ namespace Bascule.Core
             ["daily_streak"] = new[] { "Série : {0} jour(s)", "Streak: {0} day(s)" },
             ["daily_again"] = new[] { "Rejouer", "Play again" },
             ["duel"] = new[] { "Duel", "Duel" },
-            ["duel_code"] = new[] { "J'ai un code défi", "I have a challenge code" },
-            ["duel_prompt"] = new[] { "Code défi de ton ami", "Your friend's challenge code" },
             ["duel_invalid"] = new[] { "Code invalide", "Invalid code" },
             ["thanks"] = new[] { "Merci !", "Thank you!" },
-            ["soon"] = new[] { "Bientôt disponible", "Coming soon" },
 
             // Partie
             ["score"] = new[] { "{0}", "{0}" },
@@ -146,10 +143,10 @@ namespace Bascule.Core
             ["last_7"] = new[] { "Au revoir le record…", "Bye-bye, record…" },
             ["creator_mode"] = new[] { "Mode vidéo", "Video mode" },
             ["creator_hint"] = new[] { "Nom du jeu et code défi à l'écran : filme et partage !", "Game name and code on screen: record and share!" },
-            ["creator_mark"] = new[] { "BASCULE · défi {0}", "BASCULE · code {0}" },
+            ["creator_mark"] = new[] { "BASCULE · le jeu d'équilibre", "BASCULE · the balance game" },
             ["creator_mark_daily"] = new[] { "BASCULE · défi du jour n°{0}", "BASCULE · daily #{0}" },
             ["card_daily"] = new[] { "Défi du jour n°{0} : même partie pour tous", "Daily #{0}: same game for everyone" },
-            ["card_challenge"] = new[] { "Tu fais mieux ? Défie-moi !", "Can you beat me?" },
+            ["card_challenge"] = new[] { "Tu fais mieux ? Défie-moi en duel !", "Can you beat me? Duel me!" },
             ["share_text"] = new[] { "J'ai fait {0} points sur Bascule avec {1} ! Tu fais mieux ? Code défi : {2}", "I scored {0} on Bascule with {1}! Can you beat it? Challenge code: {2}" },
 
             // Collection
@@ -320,7 +317,6 @@ namespace Bascule.Core
             ["gift_day"] = new[] { "Jour {0}", "Day {0}" },
             ["gift_claim"] = new[] { "Récupérer {0}", "Collect {0}" },
             ["ok"] = new[] { "OK", "OK" },
-            ["soon_tag"] = new[] { "Bientôt", "Soon" },
             ["duel_your_plank"] = new[] { "Ta planche", "Your plank" },
             ["live_tag"] = new[] { "Direct", "Live" },
             ["duel_title"] = new[] { "Duel en direct", "Live duel" },
@@ -379,8 +375,6 @@ namespace Bascule.Core
             ["duel_join_failed"] = new[] { "Code introuvable ou duel déjà commencé", "Code not found or duel already started" },
             ["gust_title"] = new[] { "RAFALE !", "GUST!" },
             ["gust_coming"] = new[] { "Le vent arrive", "Wind incoming" },
-            ["duel_soon_title"] = new[] { "Les duels arrivent bientôt !", "Duels are coming soon!" },
-            ["duel_soon_body"] = new[] { "Bientôt, tu pourras défier tes amis sur exactement la même partie. Reviens vite !", "Soon you'll be able to challenge your friends on the exact same run. Stay tuned!" },
             ["coins_word"] = new[] { "pièces", "coins" },
             ["gift_sub"] = new[] { "Jour {0} de ta série · reviens demain pour la suite !", "Day {0} of your streak · come back tomorrow!" },
             ["gift_big"] = new[] { "Jour 7 · Le gros cadeau", "Day 7 · The big gift" },

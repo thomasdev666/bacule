@@ -768,7 +768,7 @@ def share_card():
             img.alpha_composite(sq, (int(bx[0]) - 29, int(bx[1]) - 29))
     bb = place(0.5, 0, 0, 36, 1000, 190, 0.5, 0)
     nine(img, load("ui/button.png"), bb, (64, 64, 64, 66), tint=COL["Primary"])
-    title(img, "Tu fais mieux ? Défie-moi !  K7PM-3QXZ", (bb[0] + 30, bb[1] + 14, bb[2] - 30, bb[3] - 70), 48)
+    title(img, "Tu fais mieux ? Défie-moi en duel !", (bb[0] + 30, bb[1] + 14, bb[2] - 30, bb[3] - 70), 48)
     title(img, "orpheex.fr/bascule", place(0.5, 0, 0, 22 + 36, 900, 52, 0.5, 0), 40, color=rgb("#FFE8B0"))
     return Canvas(img)
 

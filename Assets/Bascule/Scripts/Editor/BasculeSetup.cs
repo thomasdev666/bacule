@@ -20,10 +20,10 @@ namespace Bascule.EditorTools
         public const string BundleId = "fr.orpheex.bascule";
         public const string Company = "Orphex";
         /// <summary>Version du jeu : la même que celle du zip (Bascule_V9.zip → 9.0).</summary>
-        public const string Version = "1.2";
+        public const string Version = "1.3";
         /// <summary>Numéro de build iOS : à augmenter à chaque envoi à Apple (deux envois ne peuvent pas avoir le même).</summary>
-        const string BuildNumber = "3";
-        const int VersionCode = 38;
+        const string BuildNumber = "4";
+        const int VersionCode = 39;
 
         static BasculeSetup()
         {
@@ -36,7 +36,8 @@ namespace Bascule.EditorTools
 
         static bool NeedsSetup() =>
             !File.Exists(ScenePath) || EditorBuildSettings.scenes.Length == 0 || PlayerSettings.bundleVersion != Version || PlayerSettings.iOS.buildNumber != BuildNumber || PlayerSettings.companyName != Company ||
-            PlayerSettings.defaultInterfaceOrientation != UIOrientation.Portrait || PlayerSettings.SplashScreen.show;
+            PlayerSettings.defaultInterfaceOrientation != UIOrientation.Portrait || PlayerSettings.SplashScreen.show ||
+            System.Array.IndexOf(PlayerSettings.iOS.iOSUrlSchemes ?? new string[0], DuelRules.AppScheme) < 0;
 
         [MenuItem("Bascule/Configurer le projet", priority = 0)]
         public static void ConfigureMenu() => Configure(true);
@@ -50,6 +51,8 @@ namespace Bascule.EditorTools
             PlayerSettings.iOS.targetOSVersionString = "15.0";
             // Bascule est un jeu d'iPhone, en portrait : pas de version iPad (moins de captures à fournir à Apple).
             PlayerSettings.iOS.targetDevice = iOSTargetDevice.iPhoneOnly;
+            // Lien d'invitation au duel : bascule://duel/CODE ouvre le jeu (la page web duel.html y renvoie).
+            PlayerSettings.iOS.iOSUrlSchemes = new[] { DuelRules.AppScheme };
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(PlayerSettings.Android.bundleVersionCode, VersionCode);
             // Textures et rendu : qualité maximale (pas de réduction de résolution des textures sur téléphone).
             QualitySettings.globalTextureMipmapLimit = 0;

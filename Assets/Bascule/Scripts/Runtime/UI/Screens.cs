@@ -473,7 +473,7 @@ namespace Bascule.UI
             _mark.gameObject.SetActive(creator);
             if (creator)
                 _mark.text = s.Mode == GameMode.Daily ? Loc.Format("creator_mark_daily", Brag.DayNumber(s.DayKey))
-                    : Loc.Format("creator_mark", ChallengeCode.Encode(s.Seed));
+                    : Loc.Get("creator_mark");
             _mode.text = s.Mode == GameMode.Daily ? Loc.Get("daily") : s.Mode == GameMode.Duel ? Loc.Get("duel") : "";
             _shownGoal = -2;
             UpdateGoal(s);

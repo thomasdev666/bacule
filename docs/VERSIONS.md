@@ -2,6 +2,25 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
+## V1.3 (1.3, build 4) – duel en direct, annonce de rafale, prêt pour la validation Apple
+- **Duel en temps réel entre amis** (`Core/Duel.cs`, `Runtime/Duel/`, `UI/DuelScreens.cs`) :
+  - Accueil → Duel → « Défier un ami » crée un code (6 caractères) et une invitation à envoyer (Snap, messages…) : `https://orpheex.fr/bascule/duel.html?c=CODE` ouvre le jeu (`bascule://duel/CODE`), sinon l'App Store, et garde le code à copier. « Rejoindre un duel » : saisir le code.
+  - Même graine pour les deux : **mêmes poids, mêmes rafales au même instant**. Le premier qui lâche perd ; deux chutes à moins de 0,3 s : le meilleur score gagne.
+  - **Vue en direct de l'adversaire** : une vraie petite scène du jeu (son Basile, sa tête, sa planche, ses poids, son décor) rejouée à partir de 15 photos par seconde, lissée, filmée par une seconde caméra (640 × 640, 30 images/s). Image nette, très peu de données. Cadre arrondi : le cadre rouge du danger et le voile rouge suivent exactement les coins.
+  - Compte à rebours 3-2-1 (Basile entre pendant « 3… 2… », le premier poids attend « Partez ! »), chrono, scores en direct, « {nom} penche à 88 % ! », « Rafale dans 0:08 · pour vous deux ».
+  - La pression monte avec le temps (planche plus sensible dès 20 s, rafales communes dès 25 s, de plus en plus fortes) : un duel dure 1 à 3 minutes.
+  - L'adversaire lâche : **K.O. !**, 3 s pour poser un dernier poids (anneau qui se vide), puis Basile lève les bras sous les confettis. Si c'est toi qui lâches, sa vue grandit au centre : tu le regardes tenir.
+  - Résultat : victoire / défaite / égalité, temps tenus, scores, pièces (60 / 25 / 40), progression vers la **tête Challenger** (15 victoires), Revanche (les deux doivent accepter), Accueil.
+  - Abandon (bouton ✕ en bas à gauche, ou quitter l'application) : défaite ; l'adversaire sans nouvelles pendant 8 s : victoire. Pas de pause en duel.
+  - Le bouton Duel n'apparaît que si le paquet réseau est installé (plus aucun « Bientôt » dans le jeu).
+- **Annonce de rafale** beaucoup plus visible (`UI/GustBanner.cs`) : grande banderole bleue qui entre depuis le côté du vent, « RAFALE ! » en très gros, flèches qui défilent, traits d'air, jauge jusqu'au souffle ; pendant le souffle, elle se resserre en pastille en bas pour laisser voir la pile.
+- **Validation Apple** (détails et notes pour la vérification : `docs/APP_STORE.md`) :
+  - `ITSAppUsesNonExemptEncryption = NO` ajouté à chaque build (plus de question « conformité à l'export ») ; langue de développement : français (`Editor/IosBuildPost.cs`) ;
+  - manifeste de confidentialité `Assets/Plugins/iOS/PrivacyInfo.xcprivacy` (pas de suivi, données déclarées, API à raison obligatoire) ;
+  - jamais de fausse pub dans une version publiée sans régie (`NoAdService`) ; identifiant publicitaire non collecté (`is_deviceid_optout`) ;
+  - politique de confidentialité à jour (LevelPlay, code ami, duel, durée de conservation).
+- 155 tests.
+
 ## V1.2 (1.2, build 3) – rafales de vent, fin de partie plus tendue, barre d'XP animée, code ami court
 - **Fin de partie plus tendue** (retour TestFlight : « vers 8 000 – 9 000, on ne peut plus perdre »).
   - Cause trouvée : le bras de levier est fixe (`referenceHalfLength`), donc la planche qui raccourcissait avec le score donnait **moins** de couple, donc moins de danger. Elle arrête maintenant de raccourcir à 4 000 points (`shrinkUntilScore`) : avant 4 000, rien ne change.

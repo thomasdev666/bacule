@@ -205,7 +205,10 @@ namespace Bascule
 #elif BASCULE_UNITYADS && !UNITY_EDITOR
             _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode);
 #else
-            _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
+            // Pubs simulées seulement dans l'éditeur et les versions de test ; une version publiée sans régie n'en montre aucune.
+            if (Application.isEditor || Debug.isDebugBuild)
+                _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
+            else _ads = new NoAdService();
 #endif
 #if BASCULE_IAP && !UNITY_EDITOR
             _purchases = new UnityIapService();
