@@ -18,6 +18,9 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Missions plus originales** : résister à 2 ou 3 rafales (seulement si le record dépasse 6 500 : le vent arrive à 5 000), tenir 1 min 30 à 3 min sans tomber, faire des points sans perdre un seul poids ; combo ×4 dès le niveau 5.
 - **Prochaine tête** : « Fais 6 500 en une partie pour la débloquer (record : 6 347) » au lieu de « Encore 153 pts », qui laissait croire que les points s'additionnaient.
 - **Coffre** : trois étoiles dorées au lieu de trois ronds.
+- **Néon des combos** (`UI/NeonEdge.cs`) : tout le contour de l'écran s'illumine, comme à l'activation de Siri sur iPhone (dégradé bleu, violet, rose, orange qui tourne, épaisseur qui ondule). Plus le combo est long, plus il est intense, épais, rapide et long. Dessiné en maillage, sans image.
+- **Classements à jour tout de suite** : le score part dès la fin de la partie (avant : en quittant l'écran de fin), et le classement attend les envois en cours avant de s'afficher.
+- Bouton « Défi du jour » de l'accueil : toujours le même libellé (plus de « Défi du jour fait - meilleur : … »).
 - **Annonce de rafale** beaucoup plus visible (`UI/GustBanner.cs`) : grande banderole bleue qui entre depuis le côté du vent, « RAFALE ! » en très gros, flèches qui défilent, traits d'air, jauge jusqu'au souffle ; pendant le souffle, elle se resserre en pastille en bas pour laisser voir la pile.
 - **Validation Apple** (détails et notes pour la vérification : `docs/APP_STORE.md`) :
   - `ITSAppUsesNonExemptEncryption = NO` ajouté à chaque build (plus de question « conformité à l'export ») ; langue de développement : français (`Editor/IosBuildPost.cs`) ;

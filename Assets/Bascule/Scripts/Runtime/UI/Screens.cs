@@ -227,10 +227,7 @@ namespace Bascule.UI
             string today = App.TodayKey;
             int streak = Daily.CurrentStreak(p.daily, today);
             var label = Ui.ButtonLabel(_daily);
-            if (label != null)
-                label.text = Daily.PlayedToday(p.daily, today)
-                    ? Loc.Format("daily_done", Loc.FormatScore(p.daily.bestDate == today ? p.daily.bestScoreToday : 0))
-                    : Loc.Get("daily");
+            if (label != null) label.text = Loc.Get("daily");
 
             _level.text = Loc.Format("level", p.level);
             MetaUi.SetFill(_xpFill, Levels.Fraction(App.Tuning.economy, p));
@@ -293,6 +290,15 @@ namespace Bascule.UI
         GustBanner _gust;
         readonly Vector3[] _corners = new Vector3[4];
 
+        NeonEdge _neon;
+
+        /// <summary>Combo : le contour de l'écran s'illumine (plus fort et plus longtemps avec la longueur du combo).</summary>
+        public void OnCombo(int chain)
+        {
+            _neon.ReducedMotion = App.Profile.settings.reducedMotion;
+            _neon.Combo(chain);
+        }
+
         /// <summary>Éclair de couleur plein écran (appelé par la partie sur un gros combo ou un 128).</summary>
         public void Flash(float strength, Color color)
         {
@@ -314,6 +320,9 @@ namespace Bascule.UI
             _flash.gameObject.SetActive(false);
             Ui.Stretch(_vignette.rectTransform);
             _vignette.transform.SetAsFirstSibling();
+            // Néon des combos sur tout le contour de l'écran (sous les textes du HUD, au-dessus du jeu).
+            _neon = NeonEdge.Create(Root);
+            _neon.transform.SetSiblingIndex(1);
 
             var pause = Ui.IconButton(Safe, Icon.Pause, Palette.Dark, App.PauseGame, "Pause");
             _pauseRt = (RectTransform)pause.transform;
@@ -478,6 +487,7 @@ namespace Bascule.UI
             _shownGoal = -2;
             UpdateGoal(s);
             _gust.Hide();
+            _neon.Off();
             SetDuelLayout(App.Duel != null && App.Duel.InMatch);
         }
 
@@ -1472,6 +1482,9 @@ namespace Bascule.UI
             }
 
             _status.text = Loc.Get("lb_loading");
+            // Les scores pas encore envoyés partent d'abord : le classement affiché est à jour.
+            await App.Leaderboard.FlushAsync(App.TodayKey);
+            if (request != _request || !Visible) return;
             LeaderboardPage page;
             if (friends)
             {

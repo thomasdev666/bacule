@@ -108,8 +108,12 @@ namespace Bascule.Services
             _save();
         }
 
-        public async void Flush(string todayKey)
+        public async void Flush(string todayKey) => await FlushAsync(todayKey);
+
+        /// <summary>Envoie les scores en attente ; si un envoi est déjà en cours, attend qu'il se termine.</summary>
+        public async System.Threading.Tasks.Task FlushAsync(string todayKey)
         {
+            for (int i = 0; _busy && i < 50; i++) await System.Threading.Tasks.Task.Delay(100);
             if (_busy || !_service.IsOnline || _profile.pendingScores.Count == 0) return;
             _busy = true;
             try

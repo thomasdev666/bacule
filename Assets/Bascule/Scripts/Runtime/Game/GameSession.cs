@@ -144,6 +144,8 @@ namespace Bascule
         public event Action<int> Merged;
         /// <summary>Éclair de couleur plein écran (gros combo, gros poids, 128) : intensité, couleur.</summary>
         public event Action<float, Color> ScreenFlash;
+        /// <summary>Combo de N fusions enchaînées (N ≥ 2) : néon sur le contour de l'écran.</summary>
+        public event Action<int> Combo;
         static readonly Color[] ComboColors =
         {
             ArtCache.Hex("#FFC93C"), ArtCache.Hex("#FF9A3C"), ArtCache.Hex("#FF5A8A"), ArtCache.Hex("#A66CFF"), ArtCache.Hex("#4A9BFF"), ArtCache.Hex("#2EC4A6"),
@@ -1049,6 +1051,7 @@ namespace Bascule
                 }
                 if (chain >= 4) ScreenFlash?.Invoke(Mathf.Min(0.35f, 0.12f + 0.05f * chain), cc);
                 _audio.Play(Sfx.Chime, _score.Chain);
+                Combo?.Invoke(chain);
             }
             ScoreChanged?.Invoke();
         }

@@ -197,6 +197,7 @@ namespace Bascule
             Session.Merged += v => _hud.OnMerged(v);
             Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
             Session.WeightLost += v => _hud.OnWeightLost(v);
+            Session.Combo += c => _hud.OnCombo(c);
             Session.LoseStarted += () => Duel?.OnLocalLoseStarted();
             InitDuel();
 
@@ -861,6 +862,11 @@ namespace Bascule
             _pendingGain = EconomyRun.Apply(Tuning.economy, preview, result.Stats, LocalDay);
             _celebration = rewards.NewBest || rewards.NewHeads.Count > 0 || _pendingGain.LevelHeads.Count > 0;
             _lastRunSeconds = result.Seconds;
+            // Classements : le score part tout de suite (avant, il partait en quittant l'écran de fin).
+            // Une seconde chance ne peut que l'améliorer : le meilleur des deux est gardé.
+            if (result.Mode == GameMode.Infinite) Leaderboard.Enqueue(Boards.World, result.Score, Profile.selectedHead, "");
+            if (result.Mode == GameMode.Daily) Leaderboard.Enqueue(Boards.Daily, result.Score, Profile.selectedHead, result.DayKey);
+            Leaderboard.Flush(TodayKey);
 
             // La carte de score n'est fabriquée qu'au moment de partager (sinon : à-coup à chaque défaite).
             Texture card = null;
@@ -887,8 +893,6 @@ namespace Bascule
             AdPolicy.OnRunEnded(Profile.ads);
             if (Offers.CheckStarter(Tuning.ads, Profile, Now)) _starterPopupPending = true;
             if (rewards.NewBest) _ratePending = true;
-            if (r.Mode == GameMode.Infinite) Leaderboard.Enqueue(Boards.World, r.Score, Profile.selectedHead, "");
-            if (r.Mode == GameMode.Daily) Leaderboard.Enqueue(Boards.Daily, r.Score, Profile.selectedHead, r.DayKey);
             if (!Profile.tutorialDone) { Profile.tutorialDone = true; Stats.Event("tutorial_done", ("score", r.Score)); }
             SaveProfile();
             Leaderboard.Flush(TodayKey);
