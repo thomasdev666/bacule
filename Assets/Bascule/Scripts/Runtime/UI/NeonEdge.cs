@@ -24,8 +24,12 @@ namespace Bascule.UI
         };
 
         const int Segments = 180;
-        /// <summary>Rayon des coins (unités d'interface) : proche de celui de l'écran d'un iPhone.</summary>
-        public float CornerRadius = 140f;
+        /// <summary>
+        /// Arrondi de la lueur intérieure dans les coins (unités d'interface), volontairement petit : le néon va jusqu'aux
+        /// vrais coins de l'image (anneau extérieur), et c'est l'écran du téléphone qui les arrondit lui-même. Le néon
+        /// épouse donc exactement la forme de chaque écran (coins arrondis d'iPhone ou coins carrés), sans forme dessinée.
+        /// </summary>
+        public float CornerRadius = 48f;
 
         float _intensity, _target, _hold, _spin, _phase, _breath, _width = 1f, _speed = 0.25f;
         public bool ReducedMotion;
@@ -121,6 +125,15 @@ namespace Bascule.UI
             n = -dir;
         }
 
+        /// <summary>Point où la demi-droite partant de p dans la direction d sort du rectangle r.</summary>
+        static Vector2 ToEdge(Rect r, Vector2 p, Vector2 d)
+        {
+            float tx = d.x > 1e-4f ? (r.xMax - p.x) / d.x : d.x < -1e-4f ? (r.xMin - p.x) / d.x : float.MaxValue;
+            float ty = d.y > 1e-4f ? (r.yMax - p.y) / d.y : d.y < -1e-4f ? (r.yMin - p.y) / d.y : float.MaxValue;
+            float t = Mathf.Max(0f, Mathf.Min(tx, ty));
+            return p + d * t;
+        }
+
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
@@ -138,6 +151,8 @@ namespace Bascule.UI
                 float wave = ReducedMotion ? 1f : 0.7f + 0.3f * Mathf.Sin((t * 4f + _breath * 0.35f) * Mathf.PI * 2f) * Mathf.Sin((t * 2f - _breath * 0.21f) * Mathf.PI * 2f + 1.3f);
                 float g = glow * Mathf.Max(0.35f, wave);
                 var bright = Color.Lerp(col, Color.white, 0.15f);
+                // Jusqu'au vrai bord de l'image, dans le prolongement (coins compris) : aucun coin non éclairé.
+                v.position = ToEdge(r, p, -n); v.color = new Color(bright.r, bright.g, bright.b, a); vh.AddVert(v);
                 // Bord : liseré vif.
                 v.position = p; v.color = new Color(bright.r, bright.g, bright.b, a); vh.AddVert(v);
                 // Fin du liseré.
@@ -149,8 +164,8 @@ namespace Bascule.UI
             }
             for (int i = 0; i < Segments; i++)
             {
-                int b = i * 4, nb = (i + 1) * 4;
-                for (int k = 0; k < 3; k++)
+                int b = i * 5, nb = (i + 1) * 5;
+                for (int k = 0; k < 4; k++)
                 {
                     vh.AddTriangle(b + k, nb + k, nb + k + 1);
                     vh.AddTriangle(b + k, nb + k + 1, b + k + 1);
