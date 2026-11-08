@@ -49,7 +49,8 @@ namespace Bascule.UI
         {
             if (chain < 2) return;
             float k = Mathf.Clamp01((chain - 2) / 3f); // ×2 → 0, ×5 et plus → 1
-            Ignite(Mathf.Lerp(0.5f, 1f, k), Mathf.Lerp(0.8f, 2.2f, k), Mathf.Lerp(0.8f, 1.6f, k), Mathf.Lerp(0.25f, 0.7f, k));
+            // Bien visible dès le premier combo, même sur un ciel clair ; énorme sur les gros combos.
+            Ignite(Mathf.Lerp(0.9f, 1f, k), Mathf.Lerp(1.1f, 2.6f, k), Mathf.Lerp(1.2f, 2.4f, k), Mathf.Lerp(0.35f, 0.9f, k));
         }
 
         /// <summary>Allume le néon : intensité (0..1), durée pleine (s), épaisseur relative, vitesse de rotation (tours/s).</summary>
@@ -140,7 +141,7 @@ namespace Bascule.UI
             if (_intensity <= 0.002f) return;
             var r = rectTransform.rect;
             float a = _intensity;
-            float glow = 70f * _width, core = 9f * Mathf.Lerp(1f, 1.4f, _width - 1f);
+            float glow = 95f * _width, core = 16f * Mathf.Lerp(1f, 1.5f, Mathf.Clamp01(_width - 1f));
             var v = UIVertex.simpleVert;
             for (int i = 0; i <= Segments; i++)
             {
@@ -156,9 +157,9 @@ namespace Bascule.UI
                 // Bord : liseré vif.
                 v.position = p; v.color = new Color(bright.r, bright.g, bright.b, a); vh.AddVert(v);
                 // Fin du liseré.
-                v.position = p + n * core; v.color = new Color(col.r, col.g, col.b, a * 0.75f); vh.AddVert(v);
+                v.position = p + n * core; v.color = new Color(col.r, col.g, col.b, a * 0.95f); vh.AddVert(v);
                 // Milieu de la lueur.
-                v.position = p + n * (core + g * 0.35f); v.color = new Color(col.r, col.g, col.b, a * 0.3f); vh.AddVert(v);
+                v.position = p + n * (core + g * 0.35f); v.color = new Color(col.r, col.g, col.b, a * 0.55f); vh.AddVert(v);
                 // Bout de la lueur : transparent.
                 v.position = p + n * (core + g); v.color = new Color(col.r, col.g, col.b, 0f); vh.AddVert(v);
             }

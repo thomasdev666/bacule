@@ -1042,14 +1042,18 @@ namespace Bascule
                 // Combo : plus la chaîne est longue, plus le texte est gros, coloré et secoue l'écran.
                 int chain = _score.Chain;
                 var cc = ComboColors[Mathf.Min(chain - 2, ComboColors.Length - 1)];
-                _fx.Text(pos + new Vector2(0, 1.6f), Loc.Format("combo", _score.Multiplier.ToString("0.#")), cc, Mathf.Min(1.9f, 1f + 0.2f * (chain - 2)), 1.3f);
+                // Texte plus gros dès le premier combo.
+                _fx.Text(pos + new Vector2(0, 1.6f), Loc.Format("combo", _score.Multiplier.ToString("0.#")), cc, Mathf.Min(2.5f, 1.45f + 0.25f * (chain - 2)), 1.5f);
+                _fx.Burst(pos + new Vector2(0, 0.4f), new Color(1f, 0.85f, 0.3f), 10 + chain * 4, 1.3f + 0.2f * chain);
+                _fx.Shockwave(pos, cc, 1.4f + 0.4f * chain);
                 if (chain >= 3)
                 {
-                    _fx.Burst(pos + new Vector2(0, 0.4f), new Color(1f, 0.85f, 0.3f), 8 + chain * 2, 1.2f + 0.15f * chain);
-                    _fx.Shockwave(pos, cc, 1.2f + 0.3f * chain);
-                    _fx.Shake(0.12f + 0.06f * chain);
+                    _fx.Shockwave(pos, Color.white, 2f + 0.5f * chain);
+                    _fx.Shake(0.16f + 0.07f * chain);
+                    _haptics.Medium();
                 }
-                if (chain >= 4) ScreenFlash?.Invoke(Mathf.Min(0.35f, 0.12f + 0.05f * chain), cc);
+                // Éclair de couleur sur tout l'écran dès le ×3.
+                if (chain >= 3) ScreenFlash?.Invoke(Mathf.Min(0.45f, 0.18f + 0.07f * (chain - 3)), cc);
                 _audio.Play(Sfx.Chime, _score.Chain);
                 Combo?.Invoke(chain);
             }
