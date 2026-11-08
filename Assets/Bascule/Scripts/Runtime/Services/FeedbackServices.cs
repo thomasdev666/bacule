@@ -198,10 +198,14 @@ namespace Bascule.Services
         // Niveaux choisis pour que musique + cœur + bruitages restent sous la saturation, même au plus fort.
         const float CalmLevel = 0.42f, TenseLevel = 0.44f, HeartLevel = 0.6f, DuelLevel = 0.4f;
         /// <summary>
-        /// Musique du duel (Resources/Musique/duel) : remix plus compétitif du thème, 107,5 battements par minute.
-        /// La boucle commence sur un premier temps de mesure et dure 28 mesures : le raccord tombe pile sur le temps.
+        /// Musique du duel : remix plus compétitif du thème, 108 battements par minute.
+        /// - Resources/Musique/duel_intro : 7 mesures jouées une seule fois (la montée avant le gros du morceau) ;
+        /// - Resources/Musique/duel_loop : 20 mesures exactement (80 temps), qui bouclent.
+        /// La coupe est placée 6 ms avant une frappe de grosse caisse, au même endroit du motif de batterie
+        /// et sur le même accord des deux côtés, avec un fondu enchaîné de 10 ms : la frappe masque la jonction.
+        /// L'intro s'arrête à l'échantillon où la boucle commence : la boucle est programmée à cet instant précis.
         /// </summary>
-        public const float DuelBpm = 107.49f;
+        public const float DuelBpm = 108f;
 #if UNITY_WEBGL && !UNITY_EDITOR
         static readonly bool Web = true;
         [System.Runtime.InteropServices.DllImport("__Internal")] static extern void BasculeAudioInit();
@@ -216,7 +220,7 @@ namespace Bascule.Services
         int _stalls;
         float _cooldown;
 
-        readonly AudioSource _calm, _tense, _duel;
+        readonly AudioSource _calm, _tense, _duel, _duelIntro;
         float _duelMix, _duelTarget, _duelPitch = 1f;
         // Deux sources pour le cœur : programmer le battement suivant ne coupe pas celui qui sonne encore.
         readonly AudioSource[] _hearts = new AudioSource[2];
@@ -232,7 +236,10 @@ namespace Bascule.Services
             _calm = Make(host);
             _tense = Make(host);
             _duel = Make(host);
-            _duel.clip = Resources.Load<AudioClip>("Musique/duel");
+            _duel.clip = Resources.Load<AudioClip>("Musique/duel_loop");
+            _duelIntro = Make(host);
+            _duelIntro.loop = false;
+            _duelIntro.clip = Resources.Load<AudioClip>("Musique/duel_intro");
             for (int h = 0; h < 2; h++)
             {
                 _hearts[h] = host.AddComponent<AudioSource>();
@@ -293,7 +300,7 @@ namespace Bascule.Services
         public bool Enabled
         {
             get => _enabled;
-            set { _enabled = value; if (!value) { _calm.volume = _tense.volume = _duel.volume = 0f; } }
+            set { _enabled = value; if (!value) { _calm.volume = _tense.volume = _duel.volume = _duelIntro.volume = 0f; } }
         }
 
         /// <summary>
@@ -306,11 +313,20 @@ namespace Bascule.Services
             float target = on ? 1f : 0f;
             if (target == _duelTarget) return;
             _duelTarget = target;
-            if (on && (!_duel.isPlaying || _duelMix < 0.05f))
+            if (on && ((!_duel.isPlaying && !_duelIntro.isPlaying) || _duelMix < 0.05f))
             {
-                _duel.Stop();
+                _duel.Stop(); _duelIntro.Stop();
+                _duel.pitch = _duelIntro.pitch = _duelPitch = 1f;
+                double at = AudioSettings.dspTime + 0.08;
                 _duel.timeSamples = 0;
-                _duel.PlayScheduled(AudioSettings.dspTime + 0.05);
+                if (_duelIntro.clip != null)
+                {
+                    // Intro une fois, puis la boucle exactement à l'échantillon où l'intro se termine.
+                    _duelIntro.timeSamples = 0;
+                    _duelIntro.PlayScheduled(at);
+                    _duel.PlayScheduled(at + (double)_duelIntro.clip.samples / _duelIntro.clip.frequency);
+                }
+                else _duel.PlayScheduled(at);
                 _nextHeartDsp = 0;
             }
         }
@@ -353,17 +369,19 @@ namespace Bascule.Services
             if (_duel.clip != null)
             {
                 // Duel : la tension se sent par le tempo qui monte (jusqu'à +8 %), un peu plus de volume et le cœur.
-                _duel.volume = DuelLevel * v * (0.9f + 0.2f * i) * duel;
-                float dp = 1f + 0.08f * i * i;
+                _duel.volume = _duelIntro.volume = DuelLevel * v * (0.9f + 0.2f * i) * duel;
+                // Le tempo ne bouge pas pendant l'intro : la boucle est déjà programmée pour sa dernière seconde.
+                bool inIntro = _duelIntro.isPlaying;
+                float dp = inIntro ? 1f : 1f + 0.08f * i * i;
                 if (Mathf.Abs(dp - _duelPitch) > 0.004f || (dp == 1f && _duelPitch != 1f)) { _duelPitch = dp; _duel.pitch = dp; }
-                if (_duelMix <= 0f && _duelTarget <= 0f && _duel.isPlaying) _duel.Stop();
+                if (_duelMix <= 0f && _duelTarget <= 0f && (_duel.isPlaying || _duelIntro.isPlaying)) { _duel.Stop(); _duelIntro.Stop(); }
             }
             // Le tempo monte doucement avec le danger (les deux couches ensemble : toujours synchrones).
             // Changement de vitesse seulement s'il se remarque : moins de recalculs du lecteur (et pas de « zip » audible).
             if (Web) { WebHeart(i, dt); return; }
             float pitch = 1f + 0.14f * i * i;
             if (Mathf.Abs(pitch - _pitch) > 0.004f || (pitch == 1f && _pitch != 1f)) { _pitch = pitch; _calm.pitch = _tense.pitch = pitch; }
-            if (DuelLead) HeartOnBeat(i, _duelPitch, _duel, DuelBpm);
+            if (DuelLead) HeartOnBeat(i, _duelPitch, _duelIntro.isPlaying ? _duelIntro : _duel, DuelBpm);
             else HeartOnBeat(i, _pitch, _calm, _bpm);
         }
 
@@ -441,7 +459,7 @@ namespace Bascule.Services
             if (!_started || Web) return;
             int pos = _calm.isPlaying ? _calm.timeSamples : 0;
             _calm.Stop(); _tense.Stop();
-            if (_duelTarget > 0f && _duel.clip != null && !_duel.isPlaying) _duel.Play();
+            if (_duelTarget > 0f && _duel.clip != null && !_duel.isPlaying && !_duelIntro.isPlaying) _duel.Play();
             _pitch = -1f; // réappliqué au prochain Tick
             PlayBoth(pos);
             _nextHeartDsp = 0;
