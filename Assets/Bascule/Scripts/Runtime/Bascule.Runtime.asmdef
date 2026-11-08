@@ -10,6 +10,9 @@
         "Unity.Services.Authentication",
         "Unity.Services.Leaderboards",
         "Unity.Services.CloudSave",
+        "Unity.Services.Multiplayer",
+        "Unity.Networking.Transport",
+        "Unity.Collections",
         "UnityEngine.Advertisements",
         "Unity.LevelPlay",
         "Unity.Purchasing",
@@ -36,6 +39,11 @@
             "name": "com.unity.inputsystem",
             "expression": "0.0.1",
             "define": "BASCULE_INPUTSYSTEM"
+        },
+        {
+            "name": "com.unity.services.multiplayer",
+            "expression": "1.0.0",
+            "define": "BASCULE_MULTIPLAYER"
         },
         {
             "name": "com.unity.services.cloudsave",

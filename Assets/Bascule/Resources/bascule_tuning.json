@@ -119,5 +119,27 @@
     "strengthMin": 0.3,
     "maxPeakRatio": 0.85,
     "maxDangerToStart": 0.5
+  },
+  "duel": {
+    "_aide": "Duel en temps réel (Core/Duel.cs). Mêmes poids et mêmes rafales pour les deux. La planche devient plus sensible avec le TEMPS (à partir de pressureFromSeconds, +sensitivityPerMinute par minute, jusqu'à sensitivityMax) : un duel dure 1 à 3 min, plus si les deux sont très forts. Le premier qui lâche perd ; l'autre a finalWindowSeconds pour poser un dernier poids.",
+    "countdownSeconds": 3,
+    "pressureFromSeconds": 20,
+    "sensitivityPerMinute": 0.3,
+    "sensitivityMax": 1.75,
+    "firstGustSeconds": 25,
+    "gustGapMin": 20,
+    "gustGapMax": 28,
+    "gustStrengthStart": 0.45,
+    "gustStrengthStep": 0.05,
+    "gustStrengthMax": 0.72,
+    "gustMaxPeakRatio": 0.92,
+    "finalWindowSeconds": 3,
+    "tieWindowSeconds": 0.3,
+    "coinsWin": 60,
+    "coinsLose": 25,
+    "coinsDraw": 40,
+    "challengerWins": 15,
+    "snapshotsPerSecond": 15,
+    "timeoutSeconds": 8
   }
 }

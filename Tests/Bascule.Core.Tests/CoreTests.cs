@@ -378,6 +378,148 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class DuelTests
+    {
+        [Test]
+        public void PressureRisesWithTimeNotScore()
+        {
+            var t = new DuelTuning();
+            Assert.AreEqual(1f, DuelRules.Sensitivity(10f, t));
+            Assert.That(DuelRules.Sensitivity(80f, t), Is.GreaterThan(1.2f));
+            Assert.That(DuelRules.Sensitivity(140f, t), Is.GreaterThan(DuelRules.Sensitivity(80f, t)));
+            Assert.AreEqual(t.sensitivityMax, DuelRules.Sensitivity(10000f, t), 1e-5);
+        }
+
+        [Test]
+        public void BothPlayersGetTheSameGusts()
+        {
+            var t = new DuelTuning();
+            var a = DuelRules.GustSchedule(1234, t);
+            var b = DuelRules.GustSchedule(1234, t);
+            Assert.AreEqual(a.Count, b.Count);
+            for (int i = 0; i < a.Count; i++) { Assert.AreEqual(a[i].At, b[i].At); Assert.AreEqual(a[i].Direction, b[i].Direction); Assert.AreEqual(a[i].Strength, b[i].Strength); }
+            Assert.AreEqual(t.firstGustSeconds, a[0].At);
+            for (int i = 1; i < a.Count; i++)
+            {
+                float gap = a[i].At - a[i - 1].At;
+                Assert.That(gap, Is.InRange(t.gustGapMin, t.gustGapMax));
+                Assert.That(a[i].Strength, Is.GreaterThanOrEqualTo(a[i - 1].Strength));
+            }
+            Assert.AreNotEqual(DuelRules.GustSchedule(99, t)[1].At, a[1].At, "une autre graine donne d'autres rafales");
+        }
+
+        [Test]
+        public void ScriptedGustsFollowTheScheduleAndStayFair()
+        {
+            var wt = new WindTuning();
+            var schedule = new List<DuelGust> { new DuelGust { At = 2f, Direction = 1, Strength = 0.9f } };
+            var g = Gusts.Scripted(wt, schedule, 0.92f);
+            WindPhase started = WindPhase.None;
+            for (int i = 0; i < 150 && started == WindPhase.None; i++) started = g.Update(0.02f, 0, 1.5f, 0.5f, true);
+            Assert.AreEqual(WindPhase.Warning, started, "même en danger : le duel ne décale pas les rafales");
+            Assert.That(g.Clock, Is.InRange(1.99f, 2.05f));
+            Assert.That(0.5f + g.Strength, Is.LessThanOrEqualTo(0.92f + 1e-4f), "le vent seul ne fait pas perdre");
+        }
+
+        [Test]
+        public void FirstToFallLosesWithTieBreakOnScore()
+        {
+            var t = new DuelTuning();
+            Assert.AreEqual(DuelOutcome.Win, DuelRules.Decide(null, 40f, 100, 900, t));
+            Assert.AreEqual(DuelOutcome.Lose, DuelRules.Decide(40f, null, 900, 100, t));
+            Assert.AreEqual(DuelOutcome.Win, DuelRules.Decide(41f, 40f, 100, 900, t), "il est tombé avant moi");
+            Assert.AreEqual(DuelOutcome.Win, DuelRules.Decide(40.1f, 40f, 900, 100, t), "chutes simultanées : meilleur score");
+            Assert.AreEqual(DuelOutcome.Lose, DuelRules.Decide(40f, 40.2f, 100, 900, t));
+            Assert.AreEqual(DuelOutcome.Draw, DuelRules.Decide(40f, 40.1f, 500, 500, t));
+        }
+
+        [Test]
+        public void RecordingADuelGivesCoinsAndCountsWins()
+        {
+            var t = new DuelTuning();
+            var p = new Profile(); p.Sanitize();
+            int before = p.coins;
+            Assert.AreEqual(t.coinsWin, DuelRules.Record(p, DuelOutcome.Win, t));
+            Assert.AreEqual(t.coinsLose, DuelRules.Record(p, DuelOutcome.Lose, t));
+            Assert.AreEqual(before + t.coinsWin + t.coinsLose, p.coins);
+            Assert.AreEqual(2, p.duelsPlayed);
+            Assert.AreEqual(1, p.duelWins);
+            var challenger = HeadCatalog.All.First(h => h.Unlock == UnlockKind.DuelWins);
+            Assert.IsFalse(HeadCatalog.IsEarned(challenger, new RunAchievements { DuelWins = t.challengerWins - 1 }));
+            Assert.IsTrue(HeadCatalog.IsEarned(challenger, new RunAchievements { DuelWins = t.challengerWins }));
+        }
+
+        [Test]
+        public void MessagesRoundTrip()
+        {
+            var h = DuelProtocol.ReadHello(DuelProtocol.Hello(new DuelHello { Name = "Léa", Head = 22, Plank = 3 }));
+            Assert.AreEqual("Léa", h.Name); Assert.AreEqual(22, h.Head); Assert.AreEqual(3, h.Plank);
+
+            DuelProtocol.ReadStart(DuelProtocol.Start(0xDEADBEEF, 3f), out uint seed, out float cd);
+            Assert.AreEqual(0xDEADBEEF, seed); Assert.AreEqual(3f, cd, 1e-3);
+
+            var snap = new DuelSnapshot { TimeMs = 71234, Score = 5210, Angle = -12.34f, Danger = 0.88f, HeldValue = 16, HeldX = 1.4f, Wind = -0.5f };
+            for (int i = 0; i < 60; i++) snap.Weights.Add(new DuelWeight { Id = (ushort)(1000 + i), Value = 1 << (i % 7), X = -3f + i * 0.1f, Y = 0.5f + i * 0.05f, Rotation = i * 3.3f - 50f });
+            var bytes = DuelProtocol.Snapshot(snap);
+            Assert.That(bytes.Length, Is.LessThan(1100), "une photo tient dans un paquet réseau");
+            Assert.AreEqual(DuelMsg.Snapshot, DuelProtocol.Kind(bytes));
+            var back = DuelProtocol.ReadSnapshot(bytes);
+            Assert.AreEqual(snap.TimeMs, back.TimeMs); Assert.AreEqual(snap.Score, back.Score);
+            Assert.AreEqual(snap.Angle, back.Angle, 0.01f); Assert.AreEqual(snap.Danger, back.Danger, 0.01f);
+            Assert.AreEqual(16, back.HeldValue); Assert.AreEqual(1.4f, back.HeldX, 0.01f); Assert.AreEqual(-0.5f, back.Wind, 0.01f);
+            Assert.AreEqual(60, back.Weights.Count);
+            for (int i = 0; i < 60; i++)
+            {
+                Assert.AreEqual(snap.Weights[i].Id, back.Weights[i].Id);
+                Assert.AreEqual(snap.Weights[i].Value, back.Weights[i].Value);
+                Assert.AreEqual(snap.Weights[i].X, back.Weights[i].X, 0.01f);
+                Assert.AreEqual(snap.Weights[i].Rotation, back.Weights[i].Rotation, 0.1f);
+            }
+            DuelProtocol.ReadFell(DuelProtocol.Fell(83000, 4100), out uint ft, out int fs);
+            Assert.AreEqual(83000u, ft); Assert.AreEqual(4100, fs);
+            Assert.AreEqual((DuelMsg)0, DuelProtocol.Kind(new byte[] { 3, 99 }), "autre version : ignoré");
+            Assert.DoesNotThrow(() => DuelProtocol.ReadSnapshot(new byte[] { 3, 1, 5 }), "message tronqué : pas de plantage");
+        }
+
+        [Test]
+        public void OpponentViewIsSmoothlyInterpolated()
+        {
+            var buf = new SnapshotBuffer { DelaySeconds = 0.1f };
+            // Photos toutes les 66 ms, arrivées avec un peu d'irrégularité.
+            for (int i = 0; i <= 10; i++)
+            {
+                var s = new DuelSnapshot { TimeMs = (uint)(i * 66), Score = i * 10, Angle = i * 2f };
+                s.Weights.Add(new DuelWeight { Id = 7, Value = 8, X = i * 0.1f, Y = 1f, Rotation = 350f + i * 4f });
+                if (i == 10) s.Weights.Add(new DuelWeight { Id = 9, Value = 2, X = 2f, Y = 3f });
+                buf.Add(s, 5f + i * 0.066f + (i % 3) * 0.01f);
+            }
+            // 5 s d'écart d'horloge : la vue doit le retrouver. Un peu avant la dernière photo + retard.
+            var v = buf.Sample(5f + 0.6f + 0.1f);
+            Assert.NotNull(v);
+            Assert.That(v.Angle, Is.InRange(17f, 19.5f), "angle interpolé entre deux photos");
+            var w7 = v.Weights.Find(w => w.Id == 7);
+            Assert.That(w7.X, Is.InRange(0.85f, 0.97f));
+            // 350° + 4°·i traverse 360° : l'interpolation prend le chemin court.
+            Assert.That(w7.Rotation, Is.InRange(370f, 390f).Or.InRange(10f, 30f));
+            // Une photo en retard (plus ancienne) est ignorée.
+            int before = buf.Count;
+            buf.Add(new DuelSnapshot { TimeMs = 10 }, 6f);
+            Assert.AreEqual(before, buf.Count);
+            // Bien après la dernière photo : on garde la dernière (pas d'extrapolation folle).
+            var late = buf.Sample(20f);
+            Assert.AreEqual(20f, late.Angle, 1e-3);
+            Assert.AreEqual(2, late.Weights.Count, "le poids apparu en dernier est bien là");
+        }
+
+        [Test]
+        public void DuelCodeIsReadFromTextOrLink()
+        {
+            Assert.AreEqual("K7Q3M2", DuelRules.NormalizeCode("k7q-3m2"));
+            Assert.AreEqual("K7Q3M2", DuelRules.NormalizeCode("Viens me défier sur Bascule ! Code : K7Q3M2 https://orpheex.fr/duel?c=K7Q3M2"));
+            Assert.IsNull(DuelRules.NormalizeCode(""));
+        }
+    }
+
     public class WindTests
     {
         /// <summary>Fait tourner le vent ; avec <paramref name="stop"/>, s'arrête dès qu'une phase commence.</summary>
@@ -528,8 +670,9 @@ namespace Bascule.Core.Tests
         [Test]
         public void HeadIdsAreUniqueAndStable()
         {
-            Assert.AreEqual(62, HeadCatalog.All.Count);
-            Assert.AreEqual(62, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
+            Assert.AreEqual(63, HeadCatalog.All.Count);
+            Assert.AreEqual(63, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
+            Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.DuelWins));
             for (int i = 0; i < HeadCatalog.All.Count; i++) Assert.AreEqual(i, HeadCatalog.All[i].Id, "les identifiants sont sauvegardés : ne jamais les renuméroter");
             Assert.AreEqual(UnlockKind.Default, HeadCatalog.Get(0).Unlock);
             Assert.AreEqual(20, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Score));

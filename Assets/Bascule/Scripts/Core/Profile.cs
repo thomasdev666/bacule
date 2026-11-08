@@ -54,6 +54,9 @@ namespace Bascule.Core
         public bool windTipShown;
         /// <summary>Code ami court publié en ligne (vide tant qu'il ne l'est pas : on partage alors le code long).</summary>
         public string friendCode = "";
+        /// <summary>Duels en temps réel joués et gagnés (tête « Challenger » à 15 victoires).</summary>
+        public int duelsPlayed;
+        public int duelWins;
         /// <summary>La demande d'autorisation des notifications a déjà été faite.</summary>
         public bool notificationsAsked;
         /// <summary>La demande de note sur le store a déjà été faite (une seule fois).</summary>

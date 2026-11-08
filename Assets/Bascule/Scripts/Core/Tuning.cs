@@ -18,6 +18,7 @@ namespace Bascule.Core
         public EconomyTuning economy = new EconomyTuning();
         public AdTuning ads = new AdTuning();
         public WindTuning wind = new WindTuning();
+        public DuelTuning duel = new DuelTuning();
 
         /// <summary>Corrige les valeurs absurdes (fichier mal édité) pour que le jeu reste jouable.</summary>
         public void Sanitize()
@@ -30,6 +31,15 @@ namespace Bascule.Core
             if (economy == null) economy = new EconomyTuning();
             if (ads == null) ads = new AdTuning();
             if (wind == null) wind = new WindTuning();
+            if (duel == null) duel = new DuelTuning();
+            duel.countdownSeconds = Clamp(duel.countdownSeconds, 0f, 10f);
+            duel.sensitivityMax = Clamp(duel.sensitivityMax, 1f, 3f);
+            duel.gustGapMin = Clamp(duel.gustGapMin, 5f, 300f);
+            duel.gustGapMax = Clamp(duel.gustGapMax, duel.gustGapMin, 300f);
+            duel.finalWindowSeconds = Clamp(duel.finalWindowSeconds, 0f, 10f);
+            duel.snapshotsPerSecond = Math.Max(5, Math.Min(30, duel.snapshotsPerSecond));
+            duel.timeoutSeconds = Clamp(duel.timeoutSeconds, 3f, 60f);
+            duel.challengerWins = Math.Max(1, duel.challengerWins);
             wind.warningSeconds = Clamp(wind.warningSeconds, 0.5f, 5f);
             wind.blowSeconds = Clamp(wind.blowSeconds, 0.5f, 8f);
             wind.rampSeconds = Clamp(wind.rampSeconds, 0.05f, 3f);

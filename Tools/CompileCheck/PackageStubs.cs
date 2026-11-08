@@ -241,4 +241,92 @@ namespace Unity.Services.CloudSave
     public interface ICloudSaveService { IDataService Data { get; } }
     public static class CloudSaveService { public static ICloudSaveService Instance => null; }
 }
+namespace Unity.Collections
+{
+    public struct DataStreamReader { public int Length => 0; public byte ReadByte() => 0; }
+    public struct DataStreamWriter { public bool WriteByte(byte value) => true; }
+}
+
+namespace Unity.Networking.Transport
+{
+    public struct NetworkEndpoint { public static NetworkEndpoint AnyIpv4 => default; }
+    public struct NetworkSettings { }
+    public struct NetworkPipeline { }
+    public struct ReliableSequencedPipelineStage { }
+    public struct UnreliableSequencedPipelineStage { }
+    public static class NetworkEvent { public enum Type : short { Empty = 0, Data, Connect, Disconnect } }
+    public struct NetworkConnection
+    {
+        public bool IsCreated => false;
+        public static bool operator ==(NetworkConnection a, NetworkConnection b) => true;
+        public static bool operator !=(NetworkConnection a, NetworkConnection b) => false;
+        public override bool Equals(object o) => o is NetworkConnection;
+        public override int GetHashCode() => 0;
+    }
+    public struct NetworkDriver : IDisposable
+    {
+        public static NetworkDriver Create(NetworkSettings settings) => default;
+        public bool IsCreated => false;
+        public NetworkPipeline CreatePipeline(params Type[] stages) => default;
+        public int Bind(NetworkEndpoint endpoint) => 0;
+        public int Listen() => 0;
+        public NetworkConnection Connect(NetworkEndpoint endpoint) => default;
+        public NetworkConnection Accept() => default;
+        public int Disconnect(NetworkConnection c) => 0;
+        public Unity.Jobs.JobHandle ScheduleUpdate(Unity.Jobs.JobHandle dependency = default) => default;
+        public NetworkEvent.Type PopEventForConnection(NetworkConnection c, out Unity.Collections.DataStreamReader reader) { reader = default; return NetworkEvent.Type.Empty; }
+        public int BeginSend(NetworkPipeline pipe, NetworkConnection c, out Unity.Collections.DataStreamWriter writer, int requiredPayloadSize = 0) { writer = default; return 0; }
+        public int EndSend(Unity.Collections.DataStreamWriter writer) => 0;
+        public void Dispose() { }
+    }
+}
+
+namespace Unity.Networking.Transport.Relay
+{
+    public struct RelayServerData { public NetworkEndpoint Endpoint; }
+    public static class RelayParameterExtensions
+    {
+        public static ref NetworkSettings WithRelayParameters(ref this NetworkSettings settings, ref RelayServerData serverData, int relayConnectionTimeMS = 3000) => ref settings;
+    }
+}
+
+namespace Unity.Services.Multiplayer
+{
+    public enum NetworkRole { Client = 0, Server = 1, Host = 2 }
+    public class NetworkConfiguration
+    {
+        public Unity.Networking.Transport.Relay.RelayServerData RelayServerData { get; }
+        public NetworkRole Role { get; }
+    }
+    public interface INetworkHandler
+    {
+        System.Threading.Tasks.Task StartAsync(NetworkConfiguration configuration);
+        System.Threading.Tasks.Task StopAsync();
+    }
+    public abstract class BaseSessionOptions { }
+    public class SessionOptions : BaseSessionOptions { public bool IsPrivate { get; set; } public int MaxPlayers { get; set; } public string Name { get; set; } }
+    public class JoinSessionOptions : BaseSessionOptions { }
+    public static class SessionOptionsExtensions
+    {
+        public static T WithRelayNetwork<T>(this T options, string region = default) where T : SessionOptions => options;
+        public static T WithNetworkHandler<T>(this T options, INetworkHandler networkHandler) where T : BaseSessionOptions => options;
+    }
+    public interface ISession
+    {
+        event Action Deleted;
+        event Action<string> PlayerHasLeft;
+        event Action RemovedFromSession;
+        string Code { get; }
+        bool IsHost { get; }
+        IHostSession AsHost();
+        System.Threading.Tasks.Task LeaveAsync();
+    }
+    public interface IHostSession : ISession { System.Threading.Tasks.Task DeleteAsync(); }
+    public interface IMultiplayerService
+    {
+        System.Threading.Tasks.Task<IHostSession> CreateSessionAsync(SessionOptions sessionOptions);
+        System.Threading.Tasks.Task<ISession> JoinSessionByCodeAsync(string sessionCode, JoinSessionOptions sessionOptions = default);
+    }
+    public static class MultiplayerService { public static IMultiplayerService Instance { get; set; } }
+}
 #endif

@@ -24,6 +24,7 @@ namespace Bascule.Core
         Premium,      // achat in-app (cosmétique uniquement)
         Level,        // atteindre un niveau de joueur (progresse avec le temps de jeu)
         Shop,         // achetée avec des pièces (UnlockValue = prix)
+        DuelWins,     // gagner X duels en temps réel
     }
 
     public enum Rarity { Common, Rare, Epic, Legendary }
@@ -56,6 +57,7 @@ namespace Bascule.Core
         public int BestChain;
         public int DailyStreak;
         public int WorldRank;      // 0 = inconnu
+        public int DuelWins;       // victoires en duel (total)
     }
 
     /// <summary>
@@ -109,6 +111,7 @@ namespace Bascule.Core
                 case UnlockKind.DailyStreak: return h.UnlockValue >= 14 ? Rarity.Epic : Rarity.Rare;
                 case UnlockKind.Balloon: case UnlockKind.Combo: return Rarity.Rare;
                 case UnlockKind.NearMiss: return Rarity.Epic;
+                case UnlockKind.DuelWins: return Rarity.Epic;
                 default: return Rarity.Legendary; // classement mondial, têtes premium
             }
         }
@@ -164,6 +167,7 @@ namespace Bascule.Core
                 case UnlockKind.Balloon: return a.Balloons >= h.UnlockValue;
                 case UnlockKind.Combo: return a.BestChain >= h.UnlockValue;
                 case UnlockKind.WorldTop: return a.WorldRank > 0 && a.WorldRank <= h.UnlockValue;
+                case UnlockKind.DuelWins: return a.DuelWins >= h.UnlockValue;
                 default: return false; // Premium : seulement par achat
             }
         }
@@ -287,6 +291,8 @@ namespace Bascule.Core
             list.Add(P(id++, "Diablotin", "Imp", Shop.Legends, "#FF8A80", HairStyle.Spiky, Black, Accessory.DevilHorns, Expression.Smirk));
             list.Add(P(id++, "Ange", "Angel", Shop.Legends, S6, HairStyle.Swoosh, "#FFF1B8", Accessory.Halo, Expression.Sleepy));
             list.Add(P(id++, "Basile doré", "Golden Basile", Shop.Starter, "#FFD45A", HairStyle.Short, "#C8901E", Accessory.Sunglasses, Expression.Grin));
+            // 1.3 : tête des duels (toujours ajouter à la fin : les identifiants sont sauvegardés).
+            list.Add(H(id++, "Challenger", "Challenger", UnlockKind.DuelWins, 15, S3, HairStyle.Mohawk, Red, Accessory.Headband, Expression.Smirk));
             return list;
         }
 

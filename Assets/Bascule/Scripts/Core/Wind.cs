@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Bascule.Core
 {
@@ -45,6 +46,26 @@ namespace Bascule.Core
         int _windowStartScore;
         bool _stagnant;
         bool _started;             // seuil de départ atteint
+
+        // Duel : rafales programmées (mêmes instants, directions et forces pour les deux joueurs).
+        List<DuelGust> _script;
+        int _scriptIndex;
+        float _clock, _scriptPeak;
+
+        /// <summary>
+        /// Rafales du duel : elles suivent la liste commune (DuelRules.GustSchedule), au même instant chez les deux
+        /// joueurs, quel que soit le score. Seule la limite d'équité dépend de la planche de chacun.
+        /// </summary>
+        public static Gusts Scripted(WindTuning tuning, List<DuelGust> schedule, float maxPeakRatio)
+        {
+            var g = new Gusts(tuning, 1);
+            g._script = schedule ?? new List<DuelGust>();
+            g._scriptPeak = maxPeakRatio;
+            return g;
+        }
+
+        /// <summary>Temps écoulé (duel), en secondes.</summary>
+        public float Clock => _clock;
 
         public Gusts(WindTuning tuning, uint seed)
         {
@@ -103,6 +124,7 @@ namespace Bascule.Core
         public WindPhase Update(float dt, int score, float danger, float signedRatio, bool blocked)
         {
             if (dt <= 0f) return WindPhase.None;
+            if (_script != null) return UpdateScripted(dt, signedRatio);
             if (!_started)
             {
                 if (score < _t.startScore) return WindPhase.None;
@@ -157,6 +179,34 @@ namespace Bascule.Core
             Count++;
             return WindPhase.Warning;
         }
+
+        WindPhase UpdateScripted(float dt, float signedRatio)
+        {
+            _clock += dt;
+            switch (Phase)
+            {
+                case WindPhase.Warning:
+                    PhaseTime += dt;
+                    if (PhaseTime >= _t.warningSeconds) { Phase = WindPhase.Blowing; PhaseTime = 0f; return WindPhase.Blowing; }
+                    return WindPhase.None;
+                case WindPhase.Blowing:
+                    PhaseTime += dt;
+                    if (PhaseTime >= _t.blowSeconds) { Phase = WindPhase.None; PhaseTime = 0f; }
+                    return WindPhase.None;
+            }
+            if (_scriptIndex >= _script.Count || _clock < _script[_scriptIndex].At) return WindPhase.None;
+            var g = _script[_scriptIndex++];
+            Direction = g.Direction >= 0 ? 1 : -1;
+            float toward = signedRatio * Direction;
+            Strength = Math.Max(_t.strengthMin, Math.Min(g.Strength, _scriptPeak - Math.Max(0f, toward)));
+            Phase = WindPhase.Warning;
+            PhaseTime = 0f;
+            Count++;
+            return WindPhase.Warning;
+        }
+
+        /// <summary>Secondes avant la prochaine rafale du duel (annonce), ou -1 s'il n'y en a plus / hors duel.</summary>
+        public float NextScriptedIn => _script != null && _scriptIndex < _script.Count ? _script[_scriptIndex].At - _clock : -1f;
 
         /// <summary>Intensité du souffle (0..1) : montée douce, ondulations, retombée. 0 pendant l'annonce.</summary>
         public float Envelope

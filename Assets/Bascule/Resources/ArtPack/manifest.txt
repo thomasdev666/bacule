@@ -74,6 +74,7 @@ headback59
 headback6
 headback60
 headback61
+headback62
 headback7
 headback8
 headback9
@@ -136,6 +137,7 @@ headfront59
 headfront6
 headfront60
 headfront61
+headfront62
 headfront7
 headfront8
 headfront9
@@ -228,6 +230,7 @@ locked59
 locked6
 locked60
 locked61
+locked62
 locked7
 locked8
 locked9
@@ -407,6 +410,7 @@ portrait59
 portrait6
 portrait60
 portrait61
+portrait62
 portrait7
 portrait8
 portrait9

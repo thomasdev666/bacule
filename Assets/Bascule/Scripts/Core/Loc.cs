@@ -89,6 +89,7 @@ namespace Bascule.Core
             ["diag_simulated"] = new[] { "Pubs simulées (régie non branchée)", "Simulated ads (no network)" },
             ["wind_banner"] = new[] { "RAFALE", "GUST" },
             ["tip_wind"] = new[] { "Le vent va pousser la planche !\nPose ton poids de l'autre côté", "The wind will push the plank!\nDrop your weight on the other side" },
+            ["unlock_duel"] = new[] { "Gagner {0} duels", "Win {0} duels" },
             ["store_unavailable"] = new[] { "Boutique indisponible : vérifie ta connexion", "Store unavailable: check your connection" },
 
             // Carte de score
@@ -477,6 +478,7 @@ namespace Bascule.Core
                 case UnlockKind.Premium: return Get(h.Product == Shop.Starter ? "unlock_starter" : "unlock_legends");
                 case UnlockKind.Level: return Format("unlock_level", h.UnlockValue);
                 case UnlockKind.Shop: return FormatScore(h.UnlockValue);
+                case UnlockKind.DuelWins: return Format("unlock_duel", h.UnlockValue);
                 default: return "";
             }
         }
