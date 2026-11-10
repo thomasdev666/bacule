@@ -75,6 +75,7 @@ namespace Bascule.EditorTools
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24; // Google Play : API 24 minimum
             // Un numéro de plus à chaque envoi (Google refuse deux envois avec le même).
             PlayerSettings.Android.bundleVersionCode += 1;
             EditorUserBuildSettings.buildAppBundle = true;

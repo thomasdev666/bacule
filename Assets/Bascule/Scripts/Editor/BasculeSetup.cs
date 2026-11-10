@@ -57,6 +57,8 @@ namespace Bascule.EditorTools
             // Lien d'invitation au duel : bascule://duel/CODE ouvre le jeu (la page web duel.html y renvoie).
             PlayerSettings.iOS.iOSUrlSchemes = new[] { DuelRules.AppScheme };
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(PlayerSettings.Android.bundleVersionCode, VersionCode);
+            // Google Play exige Android 7.0 (API 24) minimum pour la protection automatique.
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
             // Textures et rendu : qualité maximale (pas de réduction de résolution des textures sur téléphone).
             QualitySettings.globalTextureMipmapLimit = 0;
             PlayerSettings.companyName = Company;
