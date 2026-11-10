@@ -1065,7 +1065,7 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(0, p.gamesPlayed);
             Assert.AreEqual(1, p.level);
             Assert.AreEqual(0, p.personalTop.Count);
-            Assert.AreEqual(1000, p.coins, "seules les pièces achetées encore en poche restent");
+            Assert.AreEqual(0, p.coins, "toutes les pièces repartent de zéro");
             Assert.False(p.unlockedHeads.Contains(1) || p.unlockedHeads.Contains(40), "têtes gagnées remises à zéro");
             foreach (var h in HeadCatalog.All)
                 if (h.Unlock == UnlockKind.Premium && h.Product == Shop.Legends) Assert.True(p.unlockedHeads.Contains(h.Id), "têtes payées gardées");
@@ -1074,7 +1074,7 @@ namespace Bascule.Core.Tests
             Assert.AreEqual("Toto", p.pseudo);
             Assert.False(p.settings.sound);
             Assert.AreEqual(1, p.friends.Count);
-            Assert.True(p.seasonNotice);
+            Assert.True(p.welcomePending);
             Assert.False(Seasons.IsOld(p));
             Assert.AreEqual(0, HeadNews.Count(p), "pas de pastille « nouveau » pour les têtes rendues");
         }

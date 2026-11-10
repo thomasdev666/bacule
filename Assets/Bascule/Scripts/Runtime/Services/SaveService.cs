@@ -29,11 +29,12 @@ namespace Bascule.Services
             bool existed = p != null;
             p = p ?? new Profile();
             p.Sanitize();
-            // Nouvelle saison : une ancienne sauvegarde repart à zéro (Core.Seasons), une nouvelle est marquée tout de suite.
+            // Lancement : une ancienne sauvegarde repart à zéro (Core.Seasons), une nouvelle est marquée tout de suite.
             if (!existed || Seasons.IsOld(p))
             {
                 if (existed) { p = Seasons.Reset(p); SeasonReset = true; }
                 p.season = Seasons.Current;
+                p.welcomePending = true; // écran de bienvenue du lancement, pour tout le monde
                 SaveProfile(p);
             }
             return p;

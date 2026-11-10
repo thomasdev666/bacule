@@ -33,10 +33,10 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
    - quitter l'application pendant un duel (l'autre doit gagner après 8 s).
 4. **Vidéo du duel** (fortement conseillé) : filmer l'écran d'un duel sur deux iPhone (30 à 60 s), la mettre en ligne en lien non répertorié (YouTube ou Drive) et ajouter le lien dans les notes ci-dessous. Le testeur d'Apple n'a souvent qu'un appareil.
 
-## Nouvelle saison (avant l'envoi)
+## Lancement (avant l'envoi)
 
 - Tableau de bord Unity Cloud → **Leaderboards** : créer `bascule_monde_s2` (décroissant, garder le meilleur score) et `bascule_jour_s2` (pareil, remise à zéro quotidienne à 00:00 UTC). Sans eux, le classement reste vide et les scores ne partent pas.
-- Au premier lancement de la nouvelle version, chaque joueur repart de zéro (`Core.Seasons`) ; ses achats sont conservés (obligatoire pour Apple : un achat définitif ne se perd jamais, et « Restaurer mes achats » les rend aussi).
+- Au premier lancement de la nouvelle version, chaque joueur repart de zéro, pièces comprises (`Core.Seasons`) ; ses achats définitifs sont conservés (obligatoire pour Apple : un achat définitif ne se perd jamais, et « Restaurer mes achats » les rend aussi).
 
 ## App Store Connect
 

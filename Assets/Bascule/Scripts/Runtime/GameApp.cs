@@ -104,6 +104,7 @@ namespace Bascule
         ShopScreen _shop;
         ConfirmScreen _confirm;
         DailyScreen _daily;
+        WelcomeScreen _welcome;
         DuelLobbyScreen _duelLobby;
         DuelHudScreen _duelHud;
         DuelResultScreen _duelResult;
@@ -397,6 +398,7 @@ namespace Bascule
             _duelLobby = Make<DuelLobbyScreen>(t, Palette.Shade);
             _duelResult = Make<DuelResultScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.93f));
             _daily = Make<DailyScreen>(t, Palette.Shade);
+            _welcome = Make<WelcomeScreen>(t, Palette.Shade);
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
@@ -468,7 +470,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -504,12 +506,12 @@ namespace Bascule
         /// </summary>
         void HomePopups()
         {
-            // Nouvelle saison : on explique pourquoi tout repart à zéro (une seule fois).
-            if (Profile.seasonNotice)
+            // Lancement : écran de bienvenue, une seule fois, avant tout le reste.
+            if (Profile.welcomePending)
             {
-                Profile.seasonNotice = false;
+                Profile.welcomePending = false;
                 SaveProfile();
-                _confirm.Ask(Loc.Get("season_title"), Loc.Get("season_body"), Art.IconSprite(Icon.Star), Loc.Get("season_ok"), null, null, null);
+                _welcome.Show();
                 return;
             }
             // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.

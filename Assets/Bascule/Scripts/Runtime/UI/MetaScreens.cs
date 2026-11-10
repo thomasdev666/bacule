@@ -301,6 +301,71 @@ namespace Bascule.UI
         }
     }
 
+    // ===================================================================== Bienvenue (lancement)
+
+    /// <summary>
+    /// Écran de bienvenue du lancement, montré une fois à tout le monde : Basile sur fond de rayons, merci d'avoir
+    /// téléchargé le jeu, ce qui attend le joueur en quatre lignes, et les classements tout neufs.
+    /// </summary>
+    public sealed class WelcomeScreen : UiScreen
+    {
+        protected override void Build()
+        {
+            var card = Ui.Card(Safe, "Fenetre");
+            Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 20, 960, 1480);
+            card.gameObject.AddComponent<PopIn>();
+            var title = Ui.Title(card.transform, Loc.Get("welcome_title"), 100, Palette.Accent);
+            Ui.Place(title.rectTransform, 0.5f, 1, 0, -96, 880, 130);
+            var sub = Ui.Label(card.transform, Loc.Get("welcome_sub"), 44, Palette.Ink);
+            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -184, 880, 60);
+
+            // Bandeau violet : rayons qui tournent, Basile, étiquette « C'est le lancement ».
+            var hero = Ui.Image(card.transform, Art.Panel, Palette.Purple, "Bandeau", true);
+            Ui.Place(hero.rectTransform, 0.5f, 1, 0, -236, 860, 380, 0.5f, 1);
+            hero.gameObject.AddComponent<RectMask2D>();
+            var rays = Ui.Image(hero.transform, Art.Rays, new Color(1f, 0.9f, 0.5f, 0.35f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, -10, 900, 900);
+            rays.gameObject.AddComponent<Spin>().Speed = 12f;
+            var glow = Ui.Image(hero.transform, Art.SoftDisc, new Color(1f, 0.85f, 0.4f, 0.55f), "Halo");
+            Ui.Place(glow.rectTransform, 0.5f, 0.5f, 0, 10, 420, 420);
+            var basile = Ui.Image(hero.transform, Art.Portrait(HeadCatalog.Get(0)), Color.white, "Basile");
+            Ui.Place(basile.rectTransform, 0.5f, 0.5f, 0, 18, 270, 270);
+            basile.preserveAspect = true;
+            basile.gameObject.AddComponent<Rock>().Angle = 4f;
+            var tag = Ui.Image(hero.transform, Art.Pill, Palette.Primary, "Lancement", true);
+            Ui.Place(tag.rectTransform, 0.5f, 0, 0, 22, 520, 74, 0.5f, 0);
+            var tagText = Ui.Title(tag.transform, Loc.Get("welcome_launch"), 38, Color.white);
+            Ui.Stretch(tagText.rectTransform, 20, 2, 20, 0);
+            tag.gameObject.AddComponent<Pulse>().Amount = 0.04f;
+
+            // Ce qui attend le joueur.
+            Feature(card.transform, 0, Icon.Star, Palette.Secondary, Loc.Get("welcome_f1"));
+            Feature(card.transform, 1, Icon.Face, Palette.Purple, Loc.Get("welcome_f2"));
+            Feature(card.transform, 2, Icon.Calendar, Palette.Accent, Loc.Get("welcome_f3"));
+            Feature(card.transform, 3, Icon.Swords, Palette.Primary, Loc.Get("welcome_f4"));
+
+            var note = Ui.Label(card.transform, Loc.Get("welcome_note"), 36, Palette.Muted);
+            Ui.Place(note.rectTransform, 0.5f, 1, 0, -1178, 840, 100);
+
+            var go = Ui.Button(card.transform, Loc.Get("welcome_ok"), Palette.Play, Hide, Icon.Play, 62, "Partir");
+            Ui.Place((RectTransform)go.transform, 0.5f, 0, 0, 120, 760, 160);
+            go.gameObject.AddComponent<Pulse>().Amount = 0.025f;
+        }
+
+        void Feature(Transform parent, int i, Icon icon, Color tint, string text)
+        {
+            var row = Ui.Image(parent, Art.Pill, new Color(1f, 1f, 1f, 0.75f), "Atout", true);
+            Ui.Place(row.rectTransform, 0.5f, 1, 0, -650 - i * 120, 860, 104, 0.5f, 1);
+            var dot = Ui.Image(row.transform, Art.Circle, tint, "Pastille");
+            Ui.Place(dot.rectTransform, 0, 0.5f, 62, 0, 80, 80);
+            var ic = Ui.Icon(dot.transform, Art.IconSprite(icon), "Icone");
+            ic.color = Color.white;
+            Ui.Stretch(ic.rectTransform, 14, 14, 14, 14);
+            var label = Ui.Label(row.transform, text, 38, Palette.Ink, TextAnchor.MiddleLeft);
+            Ui.Stretch(label.rectTransform, 124, 6, 30, 6);
+        }
+    }
+
     // ===================================================================== Cadeau du jour
 
     public sealed class GiftScreen : UiScreen

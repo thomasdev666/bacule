@@ -1224,3 +1224,49 @@ def daily_screen():
 
 if __name__ == "__main__" and len(sys.argv) > 3 and sys.argv[3] == "defi":
     daily_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_defi_du_jour.png"))
+
+
+def welcome_screen():
+    """Bienvenue (WelcomeScreen) : lancement du jeu, montré une fois à tout le monde."""
+    c = home_screen()
+    img = c.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    cb = place(0.5, 0.5, 0, 20, 960, 1480)
+    card(img, cb)
+    title(img, "Bienvenue !", (cb[0], cb[1] + 31, cb[2], cb[1] + 161), 100, color=rgb(COL["Accent"]))
+    title(img, "Merci d'avoir téléchargé Bascule !", (cb[0], cb[1] + 154, cb[2], cb[1] + 214), 44, color=rgb(COL["Ink"]), outline=False)
+    hb = (W / 2 - 430, cb[1] + 236, W / 2 + 430, cb[1] + 616)
+    card(img, hb, tint=rgb(COL["Purple"]) + (255,))
+    hero = Image.new("RGBA", (int(hb[2] - hb[0]), int(hb[3] - hb[1])), (0, 0, 0, 0))
+    rays = load("ui/rays.png").resize((900, 900))
+    rays = ImageChops.multiply(rays, Image.new("RGBA", rays.size, (255, 230, 128, 90)))
+    hero.alpha_composite(rays, (int(hero.width / 2 - 450), int(hero.height / 2 + 10 - 450)))
+    g = Image.new("RGBA", hero.size, (0, 0, 0, 0))
+    ImageDraw.Draw(g).ellipse((hero.width / 2 - 170, hero.height / 2 - 190, hero.width / 2 + 170, hero.height / 2 + 150), fill=(255, 217, 102, 150))
+    hero.alpha_composite(g.filter(ImageFilter.GaussianBlur(40)))
+    por = load("heads/00.png").resize((270, 270), Image.LANCZOS)
+    hero.alpha_composite(por, (int(hero.width / 2 - 135), int(hero.height / 2 - 18 - 135)))
+    mask = Image.new("L", hero.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((8, 8, hero.width - 8, hero.height - 8), 50, fill=255)
+    img.paste(hero, (int(hb[0]), int(hb[1])), Image.composite(hero, Image.new("RGBA", hero.size, (0, 0, 0, 0)), mask))
+    tb = (W / 2 - 260, hb[3] - 96, W / 2 + 260, hb[3] - 22)
+    pill(img, tb, color=rgb(COL["Primary"]) + (255,))
+    title(img, "C'EST LE LANCEMENT", tb, 38)
+    rows = [("Star", "Secondary", "14 mondes à traverser, jusqu'à la Lune"), ("Face", "Purple", "63 têtes à gagner, chacune avec sa tenue"),
+            ("Calendar", "Accent", "Un nouveau défi chaque jour"), ("Swords", "Primary", "Défie tes amis en duel, en direct")]
+    for i, (ic, colr, text) in enumerate(rows):
+        rb = (W / 2 - 430, cb[1] + 650 + i * 120, W / 2 + 430, cb[1] + 754 + i * 120)
+        pill(img, rb, color=(255, 255, 255, 190))
+        d = ImageDraw.Draw(img)
+        cx, cy = rb[0] + 62, (rb[1] + rb[3]) / 2
+        d.ellipse((cx - 40, cy - 40, cx + 40, cy + 40), fill=rgb(COL[colr]))
+        tinted_icon(img, ic, (cx - 26, cy - 26, cx + 26, cy + 26), "#FFFFFF")
+        title(img, text, (rb[0] + 124, rb[1], rb[2] - 30, rb[3]), 38, color=rgb(COL["Ink"]), align="lm", outline=False)
+    title(img, "Les classements sont tout neufs :", (cb[0] + 60, cb[1] + 1130, cb[2] - 60, cb[1] + 1178), 36, color=rgb(COL["Muted"]), outline=False)
+    title(img, "le premier record du monde peut être le tien !", (cb[0] + 60, cb[1] + 1176, cb[2] - 60, cb[1] + 1224), 36, color=rgb(COL["Muted"]), outline=False)
+    button(img, (W / 2 - 380, cb[3] - 200, W / 2 + 380, cb[3] - 40), "Play", "C'est parti !", "Play", 62)
+    return c
+
+
+if __name__ == "__main__" and len(sys.argv) > 3 and sys.argv[3] == "bienvenue":
+    welcome_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_bienvenue.png"))

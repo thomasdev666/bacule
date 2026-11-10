@@ -81,8 +81,8 @@ namespace Bascule.Core
         public string lastDay = "";
         /// <summary>Saison de la sauvegarde (Seasons.Current) : une ancienne saison repart à zéro au lancement.</summary>
         public int season;
-        /// <summary>Le message « nouvelle saison » reste à montrer à l'accueil.</summary>
-        public bool seasonNotice;
+        /// <summary>L'écran de bienvenue (lancement du jeu) reste à montrer à l'accueil.</summary>
+        public bool welcomePending;
 
         public void Sanitize()
         {
@@ -121,11 +121,11 @@ namespace Bascule.Core
     }
 
     /// <summary>
-    /// Saisons : la version « mondes et tenues » est bien plus exigeante, donc tout le monde repart à zéro (record,
-    /// têtes, pièces, niveau, planches, missions, séries, statistiques) et les classements en ligne changent de nom
-    /// (Boards). On garde seulement ce qui n'est pas de la progression : identité, pseudo, amis, joueurs bloqués,
-    /// réglages, consentement, et surtout tout ce qui a été payé (sans pubs, packs de têtes, pièces achetées encore
-    /// en poche). Pour une prochaine remise à zéro : augmenter Current (et les noms des classements).
+    /// Saisons : pour le lancement officiel (version « mondes et tenues », bien plus exigeante), tout le monde repart à
+    /// zéro (record, têtes, pièces, niveau, planches, missions, séries, statistiques) et les classements en ligne
+    /// changent de nom (Boards). On garde seulement ce qui n'est pas de la progression : identité, pseudo, amis,
+    /// joueurs bloqués, réglages, consentement, et les achats définitifs (sans pubs, packs de têtes), qu'Apple impose de
+    /// ne jamais faire perdre. Pour une prochaine remise à zéro : augmenter Current (et les noms des classements).
     /// </summary>
     public static class Seasons
     {
@@ -151,14 +151,13 @@ namespace Bascule.Core
             fresh.tutorialDone = old.tutorialDone;
             fresh.balloonTipShown = old.balloonTipShown;
             fresh.windTipShown = old.windTipShown;
-            // Achats : les définitifs sont rendus (sans pubs, têtes premium) ; les pièces achetées encore en poche aussi.
+            // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
             if (old.adsRemoved) fresh.adsRemoved = true;
-            int paidLeft = Math.Max(0, Math.Min(old.coins, old.coinsBought));
-            fresh.coins = Math.Max(fresh.coins, paidLeft);
-            fresh.coinsBought = fresh.coins;
+            fresh.coins = 0;
+            fresh.coinsBought = 0;
             fresh.season = Current;
-            fresh.seasonNotice = old.gamesPlayed > 0;
+            fresh.welcomePending = true;
             fresh.Sanitize();
             fresh.seenHeads = new List<int>(fresh.unlockedHeads);
             fresh.seenHeadsInit = true;
