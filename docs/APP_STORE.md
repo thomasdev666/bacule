@@ -106,3 +106,36 @@ Ne pas choisir la catégorie « Enfants ». Elle interdit la plupart des régies
 
 - **Capture d'écran du duel** : facultative, mais elle montre la nouveauté.
 - **Numéro de build** : à chaque nouvel envoi, augmenter `BuildNumber` dans `Editor/BasculeSetup.cs`. Apple refuse deux envois avec le même numéro.
+
+
+## Page produit (iOS 27) : en-tête et résultats de recherche
+
+Images prêtes (PNG sans transparence, faites avec les dessins du jeu) :
+
+| Emplacement App Store Connect | Fichier | Format Apple |
+|---|---|---|
+| En-tête de la page produit | `docs/apercu/appstore_entete_3840x1646.png` | 21:9, 3840 × 1646 px |
+| Résultats de recherche | `docs/apercu/appstore_recherche_2880x1920.png` | 3:2, de 1920 × 1280 à 3840 × 2560 px |
+
+App Store Connect → l'app → la version → « Informations de la page produit » → En-tête / Résultats de recherche → **Charger**. Vérifier avec l'aperçu d'App Store Connect que rien d'important n'est coupé.
+
+Pour les refaire après un changement de dessin : exporter les décors en haute définition (collines, sol, soleil, nuages en 3840 px, voir `Tools/app_store_assets.py`), puis
+`python3 Tools/app_store_assets.py Exports/art <dossier des décors HD> docs/apercu`.
+
+### Texte promotionnel (170 caractères maximum, modifiable sans nouvelle version)
+
+```
+Nouveau : 14 mondes jusqu'à la Lune, une tenue pour chaque tête et un défi chaque jour. Garde Basile en équilibre et bats ton record !
+```
+
+### Nouveautés de cette version
+
+```
+Bascule fait peau neuve !
+• 14 mondes à traverser en montant ton score : plage, forêt, désert, montagne, ville, volcan, banquise… jusqu'à la Lune.
+• Un petit village en bois dès les premiers points.
+• Une tenue différente pour chacune des 63 têtes.
+• Défi du jour : un vrai défi chaque jour, avec sa barre de progression en direct.
+• Coffres plus vivants, partage de ton score en un geste, pastille sur les nouvelles têtes.
+• C'est le lancement : records, têtes, pièces et classements repartent de zéro pour tout le monde. Tes achats sont conservés.
+```
