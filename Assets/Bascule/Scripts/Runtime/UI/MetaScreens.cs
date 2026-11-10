@@ -259,9 +259,10 @@ namespace Bascule.UI
             var ic = Ui.Icon(tile.transform, Art.IconSprite(icon), "Icone");
             ic.color = tint;
             Ui.Place(ic.rectTransform, 0, 0.5f, 70, 18, 76, 76);
-            var value = Ui.Title(tile.transform, "-", 62, Palette.Ink);
+            // Texte simple, sans contour : un titre foncé cerné de foncé devient une tache illisible.
+            var value = Ui.Label(tile.transform, "0", 60, Palette.Ink);
             Ui.Place(value.rectTransform, 0.5f, 0.5f, 40, 26, 270, 84);
-            var cap = Ui.Label(tile.transform, caption, 30, Palette.Muted);
+            var cap = Ui.Label(tile.transform, caption, 32, Palette.Muted);
             Ui.Place(cap.rectTransform, 0.5f, 0, 0, 22, 370, 54, 0.5f, 0);
             return value;
         }
@@ -278,7 +279,7 @@ namespace Bascule.UI
             _pillText.text = done ? Loc.Get("daily_done_pill") : Loc.Format("daily_reward_pill", obj.Reward);
             ((RectTransform)_pillText.transform).offsetMin = new Vector2(done ? 24 : 90, 4);
             int best = p.daily.bestDate == today ? p.daily.bestScoreToday : 0;
-            _best.text = best > 0 ? Loc.FormatScore(best) : "-";
+            _best.text = Loc.FormatScore(best);
             int streak = Daily.CurrentStreak(p.daily, today);
             _streak.text = streak.ToString();
             Ui.ButtonLabel(_play).text = Loc.Get(Daily.PlayedToday(p.daily, today) ? "daily_again" : "play");

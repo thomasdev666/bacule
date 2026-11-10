@@ -349,7 +349,7 @@ namespace Bascule.Core
             ["daily_minutes"] = new[] { "{0} min", "{0} min" },
             ["daily_reward_pill"] = new[] { "+{0} pièces", "+{0} coins" },
             ["daily_done_pill"] = new[] { "Réussi aujourd'hui ✓", "Done today ✓" },
-            ["daily_best_label"] = new[] { "Ton meilleur aujourd'hui", "Your best today" },
+            ["daily_best_label"] = new[] { "Meilleur du jour", "Best today" },
             ["daily_streak_label"] = new[] { "Jours de suite", "Days in a row" },
             ["daily_rule_short"] = new[] { "Les mêmes poids pour tout le monde aujourd'hui. Ton meilleur score compte pour le classement du jour.", "The same weights for everyone today. Your best score counts for today's ranking." },
             ["daily_objective"] = new[] { "Défi : {0}", "Challenge: {0}" },

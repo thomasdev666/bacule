@@ -1206,7 +1206,7 @@ def daily_screen():
     pill(img, rb, color=rgb(COL["Accent"]) + (255,))
     tinted_icon(img, "Coin", (rb[0] + 19, rb[1] + 13, rb[0] + 85, rb[1] + 79), "#FFE678")
     title(img, "+150 pièces", (rb[0] + 90, rb[1], rb[2] - 24, rb[3] - 4), 44)
-    for side, ic, colr, val, cap in ((-1, "Trophy", "Accent", "2 310", "Ton meilleur aujourd'hui"), (1, "Flame", "Primary", "3", "Jours de suite")):
+    for side, ic, colr, val, cap in ((-1, "Trophy", "Accent", "2 310", "Meilleur du jour"), (1, "Flame", "Primary", "3", "Jours de suite")):
         cx = W / 2 + side * 215
         tb = (cx - 205, cb[1] + 700, cx + 205, cb[1] + 900)
         pill(img, tb, color=(255, 255, 255, 190))
