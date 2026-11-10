@@ -186,6 +186,7 @@ namespace Bascule.Core
 
         static void Skyline(Raster img, Theme t, Rgba color, GameRng rng, int w, int h, bool far)
         {
+            if (!far) { CityStreet(img, t, rng, w, h); return; }
             int n = far ? 14 : 8;
             float x = -w * 0.02f;
             var lit = Rgba.FromHex("#FFD66B");
@@ -226,6 +227,82 @@ namespace Bascule.Core
                     Toon.Part(img, Shape.Circle(tx, s * 1.15f, s * 0.55f), (t.Night ? Rgba.FromHex("#2F5A4A") : Rgba.FromHex("#58B56A")), s, Prop);
                 }
             }
+        }
+
+        /// <summary>
+        /// Premier plan de la ville : le bas de cette image est caché par le trottoir (environ le quart du bas). On y met
+        /// une haie de parc continue, des arbres au centre, et de hautes maisons de ville colorées sur les côtés,
+        /// assez hautes pour être vues entières au-dessus du trottoir (comme les chalets du village).
+        /// </summary>
+        static void CityStreet(Raster img, Theme t, GameRng rng, int w, int h)
+        {
+            float hidden = h * 0.27f;
+            string[] facades = { "#E9A37A", "#F2D17C", "#8FB8DE", "#E7867A", "#A7C97F", "#D9A5C9", "#F4EBDD" };
+            var hedgeC = t.Night ? Rgba.FromHex("#2F5A4A") : Rgba.FromHex("#58B56A");
+            // Maisons de ville, collées les unes aux autres, sur chaque côté.
+            int fi = 0;
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? -w * 0.01f : w * 0.7f, end = side == 0 ? w * 0.3f : w * 1.01f;
+                while (x < end)
+                {
+                    float bw = w * (0.06f + rng.NextFloat() * 0.025f);
+                    // Plus hautes vers le bord de l'écran, plus basses vers le centre.
+                    float edge = side == 0 ? 1f - x / end : (x - w * 0.7f) / (end - w * 0.7f);
+                    float bh = hidden + h * (0.24f + edge * 0.22f + rng.NextFloat() * 0.08f);
+                    var face = Rgba.FromHex(facades[fi++ % facades.Length]);
+                    if (t.Night) face = Rgba.Lerp(face, t.NearHills, 0.55f).Shade(0.7f);
+                    TownHouse(img, x + bw * 0.5f, bw, bh, hidden, face, t.Night, rng);
+                    x += bw;
+                }
+            }
+            // Haie du parc, continue, qui dépasse juste au-dessus du trottoir.
+            Shape hedge = Shape.Box(w * 0.5f, hidden * 0.5f, w * 0.6f, hidden * 0.5f + 2);
+            for (float x = 0; x <= w; x += h * 0.06f)
+                hedge = Shape.Union(hedge, Shape.Circle(x, hidden + h * 0.005f, h * (0.035f + rng.NextFloat() * 0.015f)));
+            Toon.Part(img, hedge, hedgeC, w, Flat);
+            // Arbres du parc et réverbères au centre.
+            for (int i = 0; i < 4; i++)
+            {
+                float tx = w * (0.36f + i * 0.095f), s = h * (0.13f + rng.NextFloat() * 0.03f);
+                Toon.Part(img, Shape.Box(tx, hidden + s * 0.35f, s * 0.07f, s * 0.4f), Rgba.FromHex("#5C3A21").Shade(t.Night ? 0.6f : 1f), s, Prop);
+                var crown = Shape.Union(Shape.Circle(tx, hidden + s * 1.0f, s * 0.42f), Shape.Circle(tx - s * 0.3f, hidden + s * 0.78f, s * 0.3f), Shape.Circle(tx + s * 0.3f, hidden + s * 0.78f, s * 0.3f));
+                Toon.Part(img, crown, hedgeC.Shade(0.9f), s * 2, Prop);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                float lx = w * (0.32f + i * 0.36f), top = hidden + h * 0.22f;
+                img.Fill(Shape.Box(lx, (hidden + top) * 0.5f, h * 0.005f, (top - hidden) * 0.5f + h * 0.02f), Rgba.FromHex("#3D3B5C"));
+                if (t.Night) img.Fill(Shape.Circle(lx, top, h * 0.05f), Rgba.FromHex("#FFD66B").WithAlpha(0.35f), h * 0.04f);
+                Toon.Part(img, Shape.Box(lx, top, h * 0.016f, h * 0.012f, h * 0.006f), t.Night ? Rgba.FromHex("#FFE9A3") : Rgba.FromHex("#F4F1DE"), h * 0.05f, Prop);
+            }
+        }
+
+        /// <summary>Maison de ville étroite : façade colorée, corniche ou pignon, fenêtres à volets (allumées la nuit).</summary>
+        static void TownHouse(Raster img, float cx, float bw, float bh, float hidden, Rgba face, bool night, GameRng rng)
+        {
+            var body = Shape.Box(cx, bh * 0.5f, bw * 0.5f, bh * 0.5f);
+            Toon.Part(img, body, face, bw * 2, Prop);
+            // Toit : pignon pointu ou corniche plate.
+            if (rng.NextFloat() < 0.5f)
+                Toon.Part(img, Shape.Poly(cx - bw * 0.52f, bh, cx + bw * 0.52f, bh, cx, bh + bw * 0.45f).Grow(bw * 0.01f), Rgba.FromHex("#B5533C").Shade(night ? 0.55f : 1f), bw * 2, Prop);
+            else
+                Toon.Part(img, Shape.Box(cx, bh + bw * 0.04f, bw * 0.56f, bw * 0.05f, bw * 0.01f), face.Shade(0.8f), bw, Prop);
+            // Fenêtres, seulement dans la partie visible.
+            var glassDay = Rgba.FromHex("#BDE6FF");
+            var lit = Rgba.FromHex("#FFD66B");
+            float wh = bw * 0.26f;
+            for (float wy = hidden + wh * 0.9f; wy < bh - wh * 0.8f; wy += wh * 1.7f)
+                for (int k = -1; k <= 1; k += 2)
+                {
+                    float wx = cx + k * bw * 0.22f;
+                    bool on = !night || rng.NextFloat() < 0.6f;
+                    var g = night ? (on ? lit : face.Shade(0.45f)) : glassDay;
+                    var win = Shape.Box(wx, wy, bw * 0.1f, wh * 0.45f, bw * 0.02f);
+                    Toon.Part(img, win, g, bw, new Toon.Style { Outline = 0.07f, OutlineColor = face.Shade(0.45f), Shade = 0.08f, Rim = 0f, Specular = false });
+                    img.FillClipped(win, Shape.Box(wx, wy, bw * 0.006f, wh), face.Shade(0.5f), 1f);
+                    img.Fill(Shape.Box(wx, wy - wh * 0.52f, bw * 0.13f, bw * 0.012f), Rgba.White.WithAlpha(0.8f)); // appui
+                }
         }
 
         // ------------------------------------------------------------------ Volcan
