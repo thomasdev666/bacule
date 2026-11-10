@@ -3,24 +3,77 @@ using System;
 namespace Bascule.Core
 {
     /// <summary>Ambiance du décor : le ciel avance dans la journée à mesure que le score monte.</summary>
+    /// <summary>Monde du décor : chacun a son relief, son sol et ses détails.</summary>
+    public enum Biome { Meadow, Beach, Forest, Desert, Mountains, City, Volcano, Ice, Moon }
+
     public sealed class Theme
     {
         public string Name;
         public Rgba SkyTop, SkyHorizon, Sun, FarHills, NearHills, Ground;
         public bool Night;
+        public Biome Biome;
+        /// <summary>Espace : pas de nuages, la Terre à la place du soleil.</summary>
+        public bool Space;
 
+        static Theme T(string name, Biome b, string top, string hor, string sun, string far, string near, string ground, bool night = false, bool space = false) => new Theme
+        {
+            Name = name, Biome = b, SkyTop = Rgba.FromHex(top), SkyHorizon = Rgba.FromHex(hor), Sun = Rgba.FromHex(sun),
+            FarHills = Rgba.FromHex(far), NearHills = Rgba.FromHex(near), Ground = Rgba.FromHex(ground), Night = night, Space = space,
+        };
+
+        /// <summary>
+        /// Les mondes, dans l'ordre où on les découvre en montant le score (Difficulty.ThemeScores) : la prairie au fil
+        /// de la journée, puis la plage, la forêt, le désert, la montagne, la ville (jour et nuit), le volcan, la banquise
+        /// et enfin la Lune vers 30 000. Toujours ajouter à la fin.
+        /// </summary>
         public static readonly Theme[] All =
         {
-            new Theme { Name = "Matin", SkyTop = Rgba.FromHex("#5DB8F0"), SkyHorizon = Rgba.FromHex("#DDF4FF"), Sun = Rgba.FromHex("#FFE58A"), FarHills = Rgba.FromHex("#A5DDB0"), NearHills = Rgba.FromHex("#6CC47E"), Ground = Rgba.FromHex("#5BB865") },
-            new Theme { Name = "Midi", SkyTop = Rgba.FromHex("#3B9FE8"), SkyHorizon = Rgba.FromHex("#C4ECFF"), Sun = Rgba.FromHex("#FFF4B8"), FarHills = Rgba.FromHex("#93D49A"), NearHills = Rgba.FromHex("#58B56A"), Ground = Rgba.FromHex("#4DAA58") },
-            new Theme { Name = "Doré", SkyTop = Rgba.FromHex("#F0A35A"), SkyHorizon = Rgba.FromHex("#FFE6B0"), Sun = Rgba.FromHex("#FFD36E"), FarHills = Rgba.FromHex("#D9B873"), NearHills = Rgba.FromHex("#A9AE4F"), Ground = Rgba.FromHex("#94A443") },
-            new Theme { Name = "Couchant", SkyTop = Rgba.FromHex("#5E4FC9"), SkyHorizon = Rgba.FromHex("#FF9A7A"), Sun = Rgba.FromHex("#FF7A59"), FarHills = Rgba.FromHex("#9B76C2"), NearHills = Rgba.FromHex("#6E549E"), Ground = Rgba.FromHex("#5D4A8C") },
-            new Theme { Name = "Nuit", SkyTop = Rgba.FromHex("#101A3D"), SkyHorizon = Rgba.FromHex("#3A4F8C"), Sun = Rgba.FromHex("#F4F1DE"), FarHills = Rgba.FromHex("#2F466F"), NearHills = Rgba.FromHex("#22375C"), Ground = Rgba.FromHex("#1D3050"), Night = true },
+            T("Matin", Biome.Meadow, "#5DB8F0", "#DDF4FF", "#FFE58A", "#A5DDB0", "#6CC47E", "#5BB865"),
+            T("Midi", Biome.Meadow, "#3B9FE8", "#C4ECFF", "#FFF4B8", "#93D49A", "#58B56A", "#4DAA58"),
+            T("Doré", Biome.Meadow, "#F0A35A", "#FFE6B0", "#FFD36E", "#D9B873", "#A9AE4F", "#94A443"),
+            T("Couchant", Biome.Meadow, "#5E4FC9", "#FF9A7A", "#FF7A59", "#9B76C2", "#6E549E", "#5D4A8C"),
+            T("Nuit", Biome.Meadow, "#101A3D", "#3A4F8C", "#F4F1DE", "#2F466F", "#22375C", "#1D3050", night: true),
+            T("Plage", Biome.Beach, "#2FA8E8", "#C9F2FF", "#FFF1A8", "#2EC4D6", "#F2D49B", "#F4DCA6"),
+            T("Forêt", Biome.Forest, "#7EC8C0", "#E4F6E8", "#FFF0B0", "#4E8F6A", "#2F6F4E", "#3E8A4F"),
+            T("Désert", Biome.Desert, "#F5A44A", "#FFE9B8", "#FFF3C4", "#D98E52", "#E8B06A", "#EFC27E"),
+            T("Montagne", Biome.Mountains, "#4F8FDB", "#E2F0FF", "#FFFFFF", "#8DA3C8", "#6F86AE", "#F4F8FF"),
+            T("Ville", Biome.City, "#6BB7F2", "#F4E3D0", "#FFE9A3", "#9AA8C7", "#6D7A9C", "#B9B4AE"),
+            T("Ville la nuit", Biome.City, "#140F33", "#4B2E7A", "#F4F1DE", "#3B3566", "#28244D", "#4A4660", night: true),
+            T("Volcan", Biome.Volcano, "#3A1220", "#E2563B", "#FF9F45", "#5A2A33", "#3B1E26", "#3A2A2E"),
+            T("Banquise", Biome.Ice, "#071E3D", "#1F6E8C", "#E8FFF6", "#BFE6F2", "#8CC8DF", "#E6F7FF", night: true),
+            T("Lune", Biome.Moon, "#05050F", "#1C1B3A", "#4CC9F0", "#5C5F78", "#8D90A6", "#A9ABBE", night: true, space: true),
         };
+
+        /// <summary>Premier monde réutilisé après 30 000 (la boucle reprend à la plage).</summary>
+        public const int LoopStart = 5;
+
+        /// <summary>Teintes des mondes revisités après 30 000 : le même décor, d'autres couleurs.</summary>
+        public static readonly Rgba[] Tints =
+        {
+            Rgba.FromHex("#FFC9DC"), // rose bonbon
+            Rgba.FromHex("#C9D2FF"), // lavande
+            Rgba.FromHex("#FFE2A8"), // or
+            Rgba.FromHex("#B8F2E2"), // menthe
+            Rgba.FromHex("#FFB9A8"), // corail
+            Rgba.FromHex("#E2C6FF"), // violet
+            Rgba.FromHex("#D2FFB8"), // citron vert
+        };
+        // 7 teintes et 9 mondes rejoués : 63 décors différents avant la moindre répétition (jusqu'à ~220 000 points).
+
+        /// <summary>Monde (index dans All) affiché à l'étape <paramref name="stage"/> (Difficulty.BackgroundIndex).</summary>
+        public static int ArtOf(int stage)
+        {
+            if (stage < All.Length) return Math.Max(0, stage);
+            int loop = All.Length - LoopStart;
+            return LoopStart + (stage - All.Length) % loop;
+        }
+
+        /// <summary>Teinte de l'étape : blanc (aucune) jusqu'à la Lune, puis une couleur différente à chaque passage.</summary>
+        public static Rgba TintOf(int stage) => stage < All.Length ? Rgba.White : Tints[(stage - All.Length) % Tints.Length];
     }
 
     /// <summary>Décor et planche : ciel, soleil, collines, prairie, nuages, planche en bois.</summary>
-    public static class SceneArtist
+    public static partial class SceneArtist
     {
         static readonly Rgba Wood = Rgba.FromHex("#C4834F");
         static readonly Rgba WoodDark = Rgba.FromHex("#8E5530");
@@ -41,6 +94,7 @@ namespace Bascule.Core
         /// <summary>Soleil (ou lune la nuit) avec halo.</summary>
         public static Raster Sun(Theme t, int n = 384)
         {
+            if (t.Space) return Earth(t, n);
             var img = new Raster(n, n);
             float c = n * 0.5f;
             var glow = new Raster(n, n);
@@ -71,8 +125,15 @@ namespace Bascule.Core
             return img;
         }
 
-        /// <summary>Collines (far = lointaines, plus claires et floues ; sinon proches avec arbres).</summary>
+        /// <summary>Relief du monde (far = lointain, plus clair ; sinon proche, avec ses détails). Voir SceneBiomes.cs.</summary>
         public static Raster Hills(Theme t, bool far, int w = 1024, int h = 320)
+        {
+            if (t.Biome != Biome.Meadow) return BiomeHills(t, far, w, h);
+            return MeadowHills(t, far, w, h);
+        }
+
+        /// <summary>Collines (far = lointaines, plus claires et floues ; sinon proches avec arbres).</summary>
+        static Raster MeadowHills(Theme t, bool far, int w, int h)
         {
             var img = new Raster(w, h);
             var color = far ? t.FarHills : t.NearHills;
@@ -116,6 +177,7 @@ namespace Bascule.Core
         /// <summary>Prairie au premier plan : herbe avec brins sur le bord et quelques fleurs.</summary>
         public static Raster Ground(Theme t, int w = 1024, int h = 360)
         {
+            if (t.Biome != Biome.Meadow && t.Biome != Biome.Forest) return BiomeGround(t, w, h);
             var img = new Raster(w, h);
             float top = h * 0.82f;
             var rng = new GameRng(77);
@@ -148,7 +210,20 @@ namespace Bascule.Core
                 float x = rng.NextFloat() * w, y = top * (0.25f + rng.NextFloat() * 0.6f);
                 img.Fill(Shape.Ellipse(x, y, w * 0.025f, h * 0.012f), c.Shadow(0.75f).WithAlpha(0.6f), 3f);
             }
-            if (!t.Night)
+            if (t.Biome == Biome.Forest)
+            {
+                // Champignons au pied des sapins.
+                for (int i = 0; i < 9; i++)
+                {
+                    float x = rng.NextFloat() * w, y = top * (0.35f + rng.NextFloat() * 0.5f), sz = h * (0.02f + rng.NextFloat() * 0.012f);
+                    Toon.Part(img, Shape.Box(x, y + sz * 0.5f, sz * 0.3f, sz * 0.6f, sz * 0.2f), Rgba.FromHex("#F4EBD9"), sz * 2, new Toon.Style { Outline = 0.06f, Shade = 0.15f, Rim = 0f, Specular = false });
+                    var cap = Shape.Intersect(Shape.Ellipse(x, y + sz * 1.1f, sz * 0.9f, sz * 0.7f), Shape.HalfPlane(0, -1, -(y + sz * 1.0f)));
+                    Toon.Part(img, cap, Rgba.FromHex("#E63946"), sz * 2, new Toon.Style { Outline = 0.06f, Shade = 0.2f, Rim = 0.05f, RimOpacity = 0.4f, Specular = false });
+                    img.FillClipped(cap, Shape.Circle(x - sz * 0.3f, y + sz * 1.4f, sz * 0.14f), Rgba.White, 1f);
+                    img.FillClipped(cap, Shape.Circle(x + sz * 0.3f, y + sz * 1.25f, sz * 0.12f), Rgba.White, 1f);
+                }
+            }
+            else if (!t.Night)
             {
                 var petals = new[] { Rgba.White, Rgba.FromHex("#FFC93C"), Rgba.FromHex("#F25CA2") };
                 for (int i = 0; i < 14; i++)
@@ -180,7 +255,7 @@ namespace Bascule.Core
                 float r = h * (0.18f + rng.NextFloat() * 0.14f) * (1f - Math.Abs(i / (float)(blobs - 1) - 0.5f) * 0.7f);
                 s = Shape.Union(s, Shape.Circle(x, by + r * 0.9f, r));
             }
-            var white = t.Night ? Rgba.FromHex("#6F80B0") : Rgba.White;
+            var white = t.Biome == Biome.Volcano ? Rgba.FromHex("#8C7478") : t.Night ? Rgba.FromHex("#6F80B0") : Rgba.White;
             var shade = t.Night ? Rgba.FromHex("#4C5A8A") : Rgba.Lerp(t.SkyHorizon, t.SkyTop, 0.4f).Shade(1.05f);
             img.Fill(s, white.WithAlpha(0.96f));
             img.FillClipped(s, Shape.HalfPlane(0, 1, by + h * 0.12f), shade.WithAlpha(0.55f), h * 0.12f);

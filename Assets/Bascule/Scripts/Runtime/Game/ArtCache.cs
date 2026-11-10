@@ -134,6 +134,45 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Mascotte
 
+        readonly Dictionary<string, int> _mascotUsers = new Dictionary<string, int>();
+        readonly List<string> _mascotSpare = new List<string>();
+        /// <summary>Corps gardés en mémoire sans être affichés (retour rapide à la tenue précédente).</summary>
+        const int SpareBodies = 2;
+
+        /// <summary>
+        /// Corps (tenue) affiché par une mascotte : <paramref name="previous"/> n'est plus utilisé par elle. Avec 63 tenues,
+        /// on ne garde en mémoire que les corps affichés et les deux derniers quittés ; les autres sont libérés.
+        /// </summary>
+        public Dictionary<string, Sprite> UseMascot(string bodyKey, string previous)
+        {
+            var parts = MascotParts(bodyKey);
+            _mascotUsers.TryGetValue(bodyKey, out int n);
+            _mascotUsers[bodyKey] = n + 1;
+            _mascotSpare.Remove(bodyKey);
+            if (!string.IsNullOrEmpty(previous) && previous != bodyKey && _mascotUsers.TryGetValue(previous, out int m))
+            {
+                if (m <= 1) { _mascotUsers.Remove(previous); _mascotSpare.Add(previous); }
+                else _mascotUsers[previous] = m - 1;
+            }
+            while (_mascotSpare.Count > SpareBodies)
+            {
+                var old = _mascotSpare[0];
+                _mascotSpare.RemoveAt(0);
+                if (_mascotUsers.ContainsKey(old) || !_mascot.TryGetValue(old, out var set)) continue;
+                _mascot.Remove(old);
+                foreach (var sp in set.Values)
+                {
+                    if (sp == null) continue;
+                    var tex = sp.texture;
+                    Object.Destroy(sp);
+                    if (tex == null) continue;
+                    if (tex.name.StartsWith("Bascule_")) Object.Destroy(tex); // créée par le jeu
+                    else Resources.UnloadAsset(tex);                          // chargée depuis l'ArtPack
+                }
+            }
+            return parts;
+        }
+
         /// <summary>Pièces du corps pour une couleur de peau (bras, jambes, torse…), pivot sur l'articulation.</summary>
         public Dictionary<string, Sprite> MascotParts(string skinHex)
         {
@@ -280,6 +319,19 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Décor
 
+        /// <summary>Oublie une image du décor (elle sera rechargée si on en a de nouveau besoin).</summary>
+        public void ReleaseScene(string key)
+        {
+            if (!_scene.TryGetValue(key, out var s)) return;
+            _scene.Remove(key);
+            if (s == null) return;
+            var tex = s.texture;
+            Object.Destroy(s);
+            if (tex == null) return;
+            if (tex.name.StartsWith("Bascule_")) Object.Destroy(tex);
+            else Resources.UnloadAsset(tex);
+        }
+
         public Sprite Scene(string key, System.Func<Raster> draw, float ppu, Vector2? pivot = null, Vector4? border = null)
         {
             if (_scene.TryGetValue(key, out var s)) return s;
@@ -303,7 +355,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 15;
+        public const int ArtVersion = 16;
 
         static string _cacheDir;
 

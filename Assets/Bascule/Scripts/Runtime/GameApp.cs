@@ -289,12 +289,10 @@ namespace Bascule
             }
 
             // 2. Les ambiances du décor (grosses images) : chargées hors partie, sauf la suivante si on joue déjà.
-            for (int i = 1; i < Theme.All.Length; i++)
-            {
-                while (Session.IsRunning && !Session.Paused && Difficulty.BackgroundIndex(Session.Score, Theme.All.Length) + 1 < i) yield return null;
-                yield return WaitFile("scene_t" + i + "ground");
-                yield return Session.Backdrop.Preload(i);
-            }
+            // Seulement le deuxième monde : les suivants se chargent un par un pendant la partie (GameSession), pour ne
+            // pas garder 14 décors en mémoire.
+            yield return WaitFile("scene_t1ground");
+            yield return Session.Backdrop.Preload(1);
 
             // 3. Les portraits (collection, boutique).
             foreach (var h in HeadCatalog.All)
@@ -542,7 +540,9 @@ namespace Bascule
             }
         }
 
-        public void ShowCollection() => Show(_collection);
+        public void ShowCollection() { _collection.OpenOnNews(); Show(_collection); }
+        /// <summary>Sauvegarde immédiate du profil (têtes vues, réglages).</summary>
+        public void SaveProfileNow() => SaveProfile();
 
         /// <summary>Depuis le bilan : aller acheter la tête de la boutique qu'on peut s'offrir (la partie est enregistrée).</summary>
         public void OpenShopHeads()

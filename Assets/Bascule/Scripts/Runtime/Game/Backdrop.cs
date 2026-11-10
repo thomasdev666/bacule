@@ -13,6 +13,7 @@ namespace Bascule
         ArtCache _art;
         Camera _cam;
         Layer _current, _previous;
+        /// <summary>Étape du décor (Difficulty.BackgroundIndex) : au-delà de la Lune, un monde déjà vu dans une autre teinte.</summary>
         int _theme = -1;
         float _fade, _lift;
 
@@ -30,15 +31,19 @@ namespace Bascule
             public readonly List<SpriteRenderer> Renderers = new List<SpriteRenderer>();
             public readonly List<SpriteRenderer> Clouds = new List<SpriteRenderer>();
             public SpriteRenderer Stars;
+            public int Art;
+            public Color Tint = Color.white;
 
             public void SetAlpha(float a)
             {
-                foreach (var r in Renderers)
-                {
-                    var c = r.color; c.a = a; r.color = c;
-                }
+                var c = Tint; c.a = a;
+                foreach (var r in Renderers) r.color = c;
             }
         }
+
+        static readonly List<Backdrop> Live = new List<Backdrop>();
+        void Awake() => Live.Add(this);
+        void OnDestroy() => Live.Remove(this);
 
         public void Init(ArtCache art, Camera cam)
         {
@@ -47,19 +52,47 @@ namespace Bascule
             SetTheme(0, true);
         }
 
-        public void SetTheme(int index, bool instant = false)
+        public void SetTheme(int stage, bool instant = false)
         {
-            index = Mathf.Clamp(index, 0, Theme.All.Length - 1);
-            if (index == _theme) return;
-            _theme = index;
+            stage = Mathf.Max(0, stage);
+            if (stage == _theme) return;
+            _theme = stage;
             if (_previous != null) Destroy(_previous.Root.gameObject);
             _previous = _current;
             if (_previous != null) foreach (var r in _previous.Renderers) r.sortingOrder -= 10; // l'ancien passe dessous
-            _current = Build(Theme.All[index], index);
+            int art = Theme.ArtOf(stage);
+            _current = Build(Theme.All[art], art);
+            var tint = Theme.TintOf(stage);
+            _current.Tint = new Color(tint.r / 255f, tint.g / 255f, tint.b / 255f, 1f);
             _fade = instant ? 1f : 0f;
             _current.SetAlpha(_fade);
             if (instant && _previous != null) { Destroy(_previous.Root.gameObject); _previous = null; }
             Layout();
+            ReleaseUnused();
+        }
+
+        /// <summary>
+        /// Libère les images des mondes qui ne sont ni affichés ni le prochain : avec 14 mondes, tout garder en mémoire
+        /// coûterait cher sur un petit téléphone.
+        /// </summary>
+        void ReleaseUnused()
+        {
+            if (_art == null) return;
+            // Plusieurs décors partagent les images (le sien et celui de l'adversaire en duel) : on garde tout ce que
+            // l'un d'eux affiche ou va afficher.
+            var keep = new HashSet<int>();
+            foreach (var b in Live)
+            {
+                if (b._current != null) keep.Add(b._current.Art);
+                if (b._previous != null) keep.Add(b._previous.Art);
+                if (b._theme >= 0) keep.Add(Theme.ArtOf(b._theme + 1));
+            }
+            for (int i = 0; i < Theme.All.Length; i++)
+            {
+                if (keep.Contains(i)) continue;
+                foreach (var it in SceneItems(Theme.All[i], i))
+                    if (it.Key != "stars") _art.ReleaseScene(it.Key);
+            }
         }
 
         struct SceneItem { public string Name, Key; public System.Func<Raster> Draw; public float Ppu; public Vector2? Pivot; public int Order; }
@@ -74,7 +107,7 @@ namespace Bascule
                 new SceneItem { Name = "Soleil", Key = k + "sun", Draw = () => SceneArtist.Sun(t, 512), Ppu = 512 / 3.4f, Order = 2 },
             };
             if (t.Night) list.Add(new SceneItem { Name = "Etoiles", Key = "stars", Draw = () => SceneArtist.Stars(), Ppu = 100, Order = 1 });
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 3 && !t.Space; i++)
             {
                 int ci = i;
                 list.Add(new SceneItem { Name = "Nuage", Key = k + "cloud" + i, Draw = () => SceneArtist.Cloud(ci, t, 512, 256), Ppu = 512 / (3.4f - ci * 0.5f), Order = 3 });
@@ -93,10 +126,11 @@ namespace Bascule
                     yield return new KeyValuePair<string, System.Func<Raster>>("scene_" + it.Key, it.Draw);
         }
 
-        /// <summary>Charge en mémoire les images d'une ambiance (sans l'afficher), pour qu'elle apparaisse sans à-coup.</summary>
-        public System.Collections.IEnumerator Preload(int index)
+        /// <summary>Charge en mémoire les images d'une étape du décor (sans l'afficher), pour qu'elle apparaisse sans à-coup.</summary>
+        public System.Collections.IEnumerator Preload(int stage)
         {
-            var t = Theme.All[Mathf.Clamp(index, 0, Theme.All.Length - 1)];
+            int index = Theme.ArtOf(Mathf.Max(0, stage));
+            var t = Theme.All[index];
             foreach (var it in SceneItems(t, index))
             {
                 _art.Scene(it.Key, it.Draw, it.Ppu, it.Pivot);
@@ -106,7 +140,7 @@ namespace Bascule
 
         Layer Build(Theme t, int index)
         {
-            var layer = new Layer { Root = new GameObject("Decor " + t.Name).transform };
+            var layer = new Layer { Root = new GameObject("Decor " + t.Name).transform, Art = index };
             layer.Root.SetParent(transform, false);
             // Le nouveau décor se dessine par-dessus l'ancien pendant le fondu.
             int o = Layers.Background + 10;
@@ -182,7 +216,7 @@ namespace Bascule
             {
                 _fade = Mathf.MoveTowards(_fade, 1f, dt / 1.8f);
                 _current.SetAlpha(_fade);
-                if (_fade >= 1f && _previous != null) { Destroy(_previous.Root.gameObject); _previous = null; }
+                if (_fade >= 1f && _previous != null) { Destroy(_previous.Root.gameObject); _previous = null; ReleaseUnused(); }
             }
             float hw = WorldLayout.HalfWidth(_cam) + 2.5f;
             foreach (var layer in new[] { _previous, _current })

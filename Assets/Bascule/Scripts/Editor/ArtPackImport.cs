@@ -24,6 +24,20 @@ namespace Bascule.EditorTools
             ti.maxTextureSize = 2048;
             ti.textureCompression = TextureImporterCompression.CompressedHQ;
             ti.crunchedCompression = false;
+            // Corps de la mascotte (une tenue par tête, 63 corps) : ASTC 6×6, deux fois plus léger, invisible à l'œil
+            // sur ces dessins à aplats. Le reste de l'ArtPack garde la qualité haute.
+            bool body = System.IO.Path.GetFileName(assetPath).StartsWith("mascot_");
+            foreach (var platform in new[] { "iPhone", "Android" })
+            {
+                var ps = ti.GetPlatformTextureSettings(platform);
+                ps.overridden = body;
+                if (body)
+                {
+                    ps.format = TextureImporterFormat.ASTC_6x6;
+                    ps.maxTextureSize = 2048;
+                }
+                ti.SetPlatformTextureSettings(ps);
+            }
         }
     }
 }

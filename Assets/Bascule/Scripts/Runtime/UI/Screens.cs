@@ -78,7 +78,7 @@ namespace Bascule.UI
 
     public sealed class HomeScreen : UiScreen
     {
-        Text _best, _level, _coins, _missionBadge, _shopBadge, _special;
+        Text _best, _level, _coins, _missionBadge, _shopBadge, _headBadge, _special;
         GameObject _specialGo;
         Button _resume, _daily;
         RectTransform _xpFill;
@@ -87,7 +87,7 @@ namespace Bascule.UI
         const float DockBottom = 72f, DockHeight = 168f;
         RectTransform _dock;
         readonly Vector3[] _corners = new Vector3[4];
-        GameObject _missionBadgeGo, _shopBadgeGo;
+        GameObject _missionBadgeGo, _shopBadgeGo, _headBadgeGo;
         int _shownCoins = -1;
 
         static readonly Color[] LogoColors = { Palette.Primary, Palette.Accent, Palette.Play, Palette.Secondary, Palette.Purple, Palette.Primary, Palette.Accent };
@@ -199,13 +199,14 @@ namespace Bascule.UI
                     var lt = Ui.Title(live.transform, Loc.Get("live_tag"), 30, Color.white);
                     Ui.Stretch(lt.rectTransform, 8, 0, 8, 3);
                 }
+                if (i == 0) _headBadge = MetaUi.Badge(b.transform, Art, out _headBadgeGo);
                 if (i == 1) _missionBadge = MetaUi.Badge(b.transform, Art, out _missionBadgeGo);
                 if (i == 2) _shopBadge = MetaUi.Badge(b.transform, Art, out _shopBadgeGo);
-                if (i == 1 || i == 2)
+                if (i <= 2)
                 {
                     // Pastille à l'échelle des boutons du dock.
-                    var go = i == 1 ? _missionBadgeGo : _shopBadgeGo;
-                    var t = i == 1 ? _missionBadge : _shopBadge;
+                    var go = i == 0 ? _headBadgeGo : i == 1 ? _missionBadgeGo : _shopBadgeGo;
+                    var t = i == 0 ? _headBadge : i == 1 ? _missionBadge : _shopBadge;
                     // Petite pastille posée sur le coin, presque entièrement hors du bouton : l'icône reste visible.
                     Ui.Place((RectTransform)go.transform, 1, 1, 26, 26, 50, 50, 1, 1);
                     var disc = go.GetComponent<Image>();
@@ -235,6 +236,10 @@ namespace Bascule.UI
             int left = p.missions.list.FindAll(m => !m.done).Count;
             _missionBadgeGo.SetActive(left > 0);
             _missionBadge.text = left.ToString();
+            // Têtes gagnées pas encore regardées.
+            int fresh = HeadNews.Count(p);
+            _headBadgeGo.SetActive(fresh > 0);
+            _headBadge.text = fresh > 9 ? "9+" : fresh.ToString();
             bool starter = Offers.StarterActive(p, App.Now);
             _shopBadgeGo.SetActive(starter);
             _shopBadge.text = "!";
@@ -1148,6 +1153,7 @@ namespace Bascule.UI
         string _tab = "sec_score";
         readonly Dictionary<string, Button> _tabs = new Dictionary<string, Button>();
         readonly Dictionary<string, Text> _tabCounts = new Dictionary<string, Text>();
+        readonly Dictionary<string, (GameObject go, Text text)> _tabNews = new Dictionary<string, (GameObject, Text)>();
         // Portraits pas encore en mémoire : ils apparaissent au fur et à mesure, sans bloquer l'ouverture du menu.
         readonly List<(Image image, HeadDef head, bool locked)> _pending = new List<(Image, HeadDef, bool)>();
 
@@ -1220,6 +1226,15 @@ namespace Bascule.UI
                 var cnt = Ui.Label(b.transform, "", 30, ArtCache.Hex("#D8E9FF"));
                 Ui.Place(cnt.rectTransform, 0.5f, 0, 0, 22, 180, 34, 0.5f, 0);
                 _tabCounts[tab] = cnt;
+                // Pastille rouge : têtes de cet onglet gagnées mais pas encore vues.
+                var nb = MetaUi.Badge(b.transform, Art, out var nbGo);
+                Ui.Place((RectTransform)nbGo.transform, 1, 1, 14, 14, 50, 50, 1, 1);
+                var nd = nbGo.GetComponent<Image>(); nd.sprite = Art.Circle; nd.type = Image.Type.Simple;
+                var nr = nbGo.AddComponent<Outline>(); nr.effectColor = Color.white; nr.effectDistance = new Vector2(3, -3);
+                nb.fontSize = Mathf.RoundToInt(30 * Ui.TextScale);
+                Ui.Stretch(nb.rectTransform, -4, -2, -4, 3);
+                nbGo.SetActive(false);
+                _tabNews[tab] = (nbGo, nb);
                 // Le libellé de l'onglet remonte pour laisser la place au compte.
                 var lbl = Ui.ButtonLabel(b);
                 if (lbl != null) lbl.transform.parent.GetComponent<RectTransform>().offsetMin = new Vector2(18, 46);
@@ -1234,6 +1249,20 @@ namespace Bascule.UI
 
         /// <summary>Ouvre la collection sur un onglet (« sec_shop » : les têtes de la boutique).</summary>
         public void SetTab(string tab) { if (System.Array.IndexOf(Tabs, tab) >= 0) _tab = tab; }
+
+        /// <summary>À l'ouverture : directement sur l'onglet qui contient des têtes nouvelles, s'il y en a.</summary>
+        public void OpenOnNews()
+        {
+            var p = App.Profile;
+            if (HeadNews.Count(p, h => InTab(_tab, h)) > 0) return;
+            foreach (var tab in Tabs)
+                if (HeadNews.Count(p, h => InTab(tab, h)) > 0) { _tab = tab; return; }
+        }
+
+        // Têtes nouvelles montrées pendant cette visite (étiquette « NOUVEAU ! » jusqu'à la fermeture du menu).
+        readonly HashSet<int> _shownNew = new HashSet<int>();
+
+        public override void Hide() { base.Hide(); _shownNew.Clear(); }
 
         public override void Refresh()
         {
@@ -1260,6 +1289,10 @@ namespace Bascule.UI
                 foreach (var h in HeadCatalog.All) if (InTab(tab, h)) { total++; if (p.unlockedHeads.Contains(h.Id)) owned++; }
                 _tabs[tab].GetComponent<Image>().color = tab == _tab ? Palette.Primary : Palette.Dark;
                 _tabCounts[tab].text = owned + "/" + total;
+                int fresh = HeadNews.Count(p, h => InTab(tab, h));
+                var (newGo, newText) = _tabNews[tab];
+                newGo.SetActive(fresh > 0 && tab != _tab);
+                newText.text = fresh > 9 ? "9+" : fresh.ToString();
             }
 
             var heads = new List<HeadDef>();
@@ -1279,7 +1312,12 @@ namespace Bascule.UI
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 3;
             grid.childAlignment = TextAnchor.UpperCenter;
+            // Les têtes nouvelles de l'onglet affiché sont vues maintenant (elles gardent « NOUVEAU ! » pendant cette visite).
+            foreach (var h in heads) if (HeadNews.IsNew(p, h.Id)) _shownNew.Add(h.Id);
             foreach (var h in heads) Cell(gridRt, h, h == next);
+            var seen = new List<int>();
+            foreach (var h in heads) seen.Add(h.Id);
+            if (HeadNews.MarkSeen(p, seen)) App.SaveProfileNow();
 
             // Les portraits qui manquent : dessinés tout de suite en arrière-plan, en priorité.
             var urgent = new List<KeyValuePair<string, Func<Raster>>>();
@@ -1343,6 +1381,16 @@ namespace Bascule.UI
                 Ui.Place(lockIcon.rectTransform, 0.5f, 1, 0, -140, 84, 84);
             }
             if (affordable || isNext) icon.gameObject.AddComponent<Pulse>().Amount = 0.04f;
+            if (_shownNew.Contains(h.Id) && !worn)
+            {
+                // Tête gagnée que le joueur découvre : étiquette dorée qui pulse.
+                var ntag = Ui.Image(cell.transform, Art.Pill, Palette.Accent, "Nouveau", true);
+                Ui.Place(ntag.rectTransform, 0, 1, 6, -6, 190, 58, 0, 1);
+                ntag.transform.localRotation = Quaternion.Euler(0, 0, 8);
+                ntag.gameObject.AddComponent<Pulse>().Amount = 0.08f;
+                var nt = Ui.Title(ntag.transform, Loc.Get("new_head_tag"), 34);
+                Ui.Stretch(nt.rectTransform, 10, 0, 10, 4);
+            }
             if (worn || isNext)
             {
                 var tag = Ui.Image(cell.transform, Art.Pill, worn ? Palette.Primary : Palette.Play, "Etiquette", true);

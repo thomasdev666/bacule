@@ -30,6 +30,20 @@ foreach (var kv in MascotArtist.Build(Rgba.FromHex(HeadCatalog.Get(0).Skin)))
 }
 pivots.Length--; pivots.Append("}");
 File.WriteAllText(Path.Combine(outDir, "mascot", "pivots.json"), pivots.ToString());
+// Corps habillé de chaque tête (une tenue par tête, Core/Outfits.cs) : mascot_h/<id>/.
+foreach (var h in HeadCatalog.All)
+{
+    var dir = Path.Combine(outDir, "mascot_h", h.Id.ToString());
+    Directory.CreateDirectory(dir);
+    var pv = new System.Text.StringBuilder("{");
+    foreach (var kv in MascotArtist.Build(h.BodyKey))
+    {
+        Png.Save(kv.Value.Image, Path.Combine(dir, kv.Key + ".png"));
+        pv.Append($"\"{kv.Key}\":[{kv.Value.PivotX.ToString(System.Globalization.CultureInfo.InvariantCulture)},{kv.Value.PivotY.ToString(System.Globalization.CultureInfo.InvariantCulture)},{kv.Value.Image.Width},{kv.Value.Image.Height}],");
+    }
+    pv.Length--; pv.Append("}");
+    File.WriteAllText(Path.Combine(dir, "pivots.json"), pv.ToString());
+}
 Directory.CreateDirectory(Path.Combine(outDir, "scene"));
 for (int ti = 0; ti < Theme.All.Length; ti++)
 {

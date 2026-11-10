@@ -134,27 +134,24 @@ namespace Bascule.Core
             return len < t.minLength ? t.minLength : len;
         }
 
-        /// <summary>Paliers de décor : matin, midi (300), doré (800), couchant (2 000), nuit (4 000). Des étapes plus visibles.</summary>
-        public static readonly int[] ThemeScores = { 0, 300, 800, 2000, 4000 };
-        /// <summary>Après la nuit, une nouvelle journée recommence tous les 3 000 points.</summary>
-        public const int ThemeCycle = 3000;
+        /// <summary>
+        /// Paliers de décor (Theme.All) : la prairie au fil de la journée jusqu'à 4 000, puis un nouveau monde à chaque
+        /// palier jusqu'à la Lune (27 000).
+        /// </summary>
+        public static readonly int[] ThemeScores = { 0, 300, 800, 2000, 4000, 5500, 7000, 9000, 11500, 14000, 17000, 20000, 23500, 27000 };
+        /// <summary>Après 30 000, un monde déjà vu revient tous les 3 000 points, dans d'autres couleurs.</summary>
+        public const int LoopScore = 30000, ThemeCycle = 3000;
 
         /// <summary>
-        /// Décor selon le score : il change dès 300 points, puis s'espace.
-        /// Après la nuit, on repart du matin toutes les <see cref="ThemeCycle"/> points.
+        /// Étape du décor selon le score : index dans Theme.All jusqu'à la Lune, puis au-delà (Theme.ArtOf et
+        /// Theme.TintOf disent quel monde et quelle couleur).
         /// </summary>
-        public static int BackgroundIndex(int score, int themeCount)
+        public static int BackgroundIndex(int score)
         {
-            if (themeCount <= 0) return 0;
-            int last = ThemeScores[ThemeScores.Length - 1];
-            if (score < last + ThemeCycle)
-            {
-                int i = 0;
-                for (int k = 0; k < ThemeScores.Length; k++) if (score >= ThemeScores[k]) i = k;
-                return i % themeCount;
-            }
-            int day = (score - last) / ThemeCycle; // 1 = premier matin après la nuit
-            return (day - 1) % themeCount;
+            if (score >= LoopScore) return ThemeScores.Length + (score - LoopScore) / ThemeCycle;
+            int i = 0;
+            for (int k = 0; k < ThemeScores.Length; k++) if (score >= ThemeScores[k]) i = k;
+            return i;
         }
     }
 }

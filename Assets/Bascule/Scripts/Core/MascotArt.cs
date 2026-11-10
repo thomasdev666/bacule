@@ -57,7 +57,7 @@ namespace Bascule.Core
     /// Corps de la mascotte : débardeur à l'emblème du jeu, ceinture d'haltérophile, short, chaussettes rayées,
     /// baskets, bras musclés avec bandeaux de poignet. Chaque membre est un sprite séparé articulé par MascotView.
     /// </summary>
-    public static class MascotArtist
+    public static partial class MascotArtist
     {
         public const float U = 160f; // pixels par unité monde
 
@@ -80,6 +80,9 @@ namespace Bascule.Core
             bool suit = bodyKey.EndsWith("_suit", StringComparison.OrdinalIgnoreCase);
             int cut = bodyKey.IndexOf('_');
             var skin = Rgba.FromHex(cut >= 0 ? bodyKey.Substring(0, cut) : bodyKey);
+            // « peau_h12 » : la tenue de la tête 12.
+            int h = bodyKey.IndexOf("_h", StringComparison.Ordinal);
+            if (h >= 0 && int.TryParse(bodyKey.Substring(h + 2), out int headId)) return BuildOutfit(skin, OutfitCatalog.For(headId));
             return suit ? BuildSuit(skin) : Build(skin);
         }
 
@@ -107,7 +110,10 @@ namespace Bascule.Core
             return new Part { Image = img, PivotX = cx, PivotY = cy, PixelsPerUnit = U };
         }
 
-        static Part Torso(Rgba skin)
+        static Part Torso(Rgba skin) => TankTorso(skin, Tank, Rgba.White, Emblem.B, true, Motif.None, Rgba.White);
+
+        /// <summary>Débardeur (couleur, liseré, écusson, ceinture, motif).</summary>
+        static Part TankTorso(Rgba skin, Rgba Tank, Rgba trim, Emblem emblem, bool withBelt, Motif motif, Rgba accent)
         {
             var part = Canvas(2.3f, 2.2f, out var img, out float cx, out float cy);
             float u = U;
@@ -130,7 +136,8 @@ namespace Bascule.Core
             Toon.Part(img, tank, Tank, 2 * u, Body);
             // Liseré blanc autour de l'encolure et des emmanchures.
             var collar = Shape.Subtract(Shape.Ellipse(cx, cy + 0.62f * u, 0.37f * u, 0.43f * u), Shape.Ellipse(cx, cy + 0.62f * u, 0.3f * u, 0.36f * u));
-            img.FillClipped(tank, collar, Rgba.White, 1f);
+            img.FillClipped(tank, collar, trim, 1f);
+            ApplyMotif(img, tank, motif, Tank, accent, false);
             // Plis et volume des pectoraux.
             img.FillClipped(tank, Shape.Arc(cx - 0.3f * u, cy + 0.02f * u, 0.32f * u, 200f, 330f, 0.03f * u), Tank.Shadow(0.7f).WithAlpha(0.6f), 2f);
             img.FillClipped(tank, Shape.Arc(cx + 0.3f * u, cy + 0.02f * u, 0.32f * u, 210f, 340f, 0.03f * u), Tank.Shadow(0.7f).WithAlpha(0.6f), 2f);
@@ -138,15 +145,25 @@ namespace Bascule.Core
 
             // Emblème : un « B » dans un rond blanc.
             float ey = cy - 0.18f * u;
-            Toon.Part(img, Shape.Circle(cx, ey, 0.29f * u), Rgba.White, 0.6f * u, new Toon.Style { Outline = 0.05f, OutlineColor = Tank.Outline(), Shade = 0.15f, Soft = 0.2f, Rim = 0f, Specular = false });
+            if (emblem != Emblem.B) DrawEmblem(img, emblem, cx, ey, 0.29f * u, trim, Tank);
+            if (emblem == Emblem.B) {
+            Toon.Part(img, Shape.Circle(cx, ey, 0.29f * u), trim, 0.6f * u, new Toon.Style { Outline = 0.05f, OutlineColor = Tank.Outline(), Shade = 0.15f, Soft = 0.2f, Rim = 0f, Specular = false });
             var stem = Shape.Box(cx - 0.07f * u, ey, 0.045f * u, 0.17f * u, 0.015f * u);
             var bowlTop = Shape.Subtract(Shape.Box(cx + 0.0f * u, ey + 0.08f * u, 0.12f * u, 0.09f * u, 0.08f * u), Shape.Box(cx - 0.0f * u, ey + 0.08f * u, 0.045f * u, 0.025f * u, 0.02f * u));
             var bowlBot = Shape.Subtract(Shape.Box(cx + 0.01f * u, ey - 0.075f * u, 0.135f * u, 0.095f * u, 0.085f * u), Shape.Box(cx + 0.005f * u, ey - 0.075f * u, 0.055f * u, 0.03f * u, 0.025f * u));
             var letter = Shape.Union(stem, Shape.Intersect(Shape.Union(bowlTop, bowlBot), Shape.HalfPlane(-1, 0, -(cx - 0.11f * u))));
             img.Fill(letter, Tank.Shade(0.95f));
+            }
 
-            // Ceinture d'haltérophile.
-            float by = cy - 0.84f * u;
+            if (withBelt) LifterBelt(img, cx, cy - 0.84f * u);
+            part.PivotY = cy;
+            return part;
+        }
+
+        /// <summary>Ceinture d'haltérophile en cuir, boucle dorée.</summary>
+        static void LifterBelt(Raster img, float cx, float by)
+        {
+            float u = U;
             var belt = Shape.Box(cx, by, 0.7f * u, 0.17f * u, 0.07f * u);
             Toon.Part(img, belt, Leather, u, new Toon.Style { Outline = 0.05f, Shade = 0.25f, Soft = 0.2f, Rim = 0.06f, RimOpacity = 0.5f, Specular = false });
             for (int i = -6; i <= 6; i++)
@@ -158,12 +175,11 @@ namespace Bascule.Core
             var buckle = Shape.Subtract(Shape.Box(cx, by, 0.2f * u, 0.15f * u, 0.04f * u), Shape.Box(cx, by, 0.11f * u, 0.07f * u, 0.02f * u));
             Toon.Part(img, buckle, Gold, 0.5f * u, new Toon.Style { Outline = 0.06f, Shade = 0.2f, Soft = 0.15f, Rim = 0.06f, RimOpacity = 0.6f, Specular = true, SpecSize = 0.1f });
             img.Fill(Shape.Box(cx + 0.02f * u, by, 0.12f * u, 0.02f * u, 0.01f * u), Gold.Shade(0.7f));
-
-            part.PivotY = cy;
-            return part;
         }
 
-        static Part Shorts()
+        static Part Shorts() => Shorts(ShortsColor);
+
+        static Part Shorts(Rgba ShortsColor)
         {
             var part = Canvas(1.9f, 1.2f, out var img, out float cx, out float cy);
             float u = U;
@@ -196,7 +212,9 @@ namespace Bascule.Core
             return part;
         }
 
-        static Part Shin(Rgba skin) =>
+        static Part Shin(Rgba skin) => Shin(skin, Sock, Tank);
+
+        static Part Shin(Rgba skin, Rgba Sock, Rgba Tank) =>
             Segment(MascotRig.Shin, 0.22f, 0.16f, skin, (img, limb, ax, bx) =>
             {
                 float u = U;
@@ -209,14 +227,16 @@ namespace Bascule.Core
                 }
             }, 0);
 
-        static Part Forearm(Rgba skin) =>
+        static Part Forearm(Rgba skin) => Forearm(skin, Tank, Rgba.White);
+
+        static Part Forearm(Rgba skin, Rgba Tank, Rgba stripe) =>
             Segment(MascotRig.Forearm, 0.19f, 0.15f, skin, (img, limb, ax, bx) =>
             {
                 float u = U;
                 float x0 = ax + (bx - ax) * 0.78f, x1 = ax + (bx - ax) * 0.98f;
                 var band = Shape.Intersect(limb.Grow(0.02f * u), Shape.Intersect(Shape.HalfPlane(-1, 0, -x0), Shape.HalfPlane(1, 0, x1)));
                 Toon.Part(img, band, Tank, 0.4f * u, Limb);
-                img.FillClipped(band, Shape.Box((x0 + x1) * 0.5f, 0, 0.022f * u, 10 * u), Rgba.White, 1f);
+                img.FillClipped(band, Shape.Box((x0 + x1) * 0.5f, 0, 0.022f * u, 10 * u), stripe, 1f);
             }, 0);
 
         /// <summary>Main qui agrippe la planche (vue de face, poing fermé dessus).</summary>
@@ -236,7 +256,9 @@ namespace Bascule.Core
             return part;
         }
 
-        static Part Shoe()
+        static Part Shoe() => Shoe(ShoeColor);
+
+        static Part Shoe(Rgba ShoeColor)
         {
             var part = Canvas(1.0f, 0.7f, out var img, out float cx, out float cy);
             float u = U;
@@ -271,21 +293,23 @@ namespace Bascule.Core
         {
             return new Dictionary<string, Part>
             {
-                ["torso"] = SuitTorso(skin),
-                ["shorts"] = SuitHips(),
-                ["thigh"] = Segment(MascotRig.Thigh, 0.3f, 0.25f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
-                ["shin"] = Segment(MascotRig.Shin, 0.25f, 0.21f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
-                ["upperArm"] = Segment(MascotRig.UpperArm, 0.26f, 0.2f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true), 0),
-                ["forearm"] = SuitForearm(),
+                ["torso"] = SuitTorso(skin, Navy, Pinstripe),
+                ["shorts"] = SuitHips(Navy, Pinstripe),
+                ["thigh"] = Segment(MascotRig.Thigh, 0.3f, 0.25f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true, Pinstripe), 0),
+                ["shin"] = Segment(MascotRig.Shin, 0.25f, 0.21f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true, Pinstripe), 0),
+                ["upperArm"] = Segment(MascotRig.UpperArm, 0.26f, 0.2f, Navy, (img, limb, ax, bx) => Stripes(img, limb, true, Pinstripe), 0),
+                ["forearm"] = SuitForearm(Navy, Pinstripe),
                 ["hand"] = Hand(skin),
-                ["shoe"] = DressShoes(),
+                ["shoe"] = DressShoes(DressShoe),
                 ["cushion"] = Cushion(),
             };
         }
 
         /// <summary>Fines rayures claires : verticales sur le buste, dans la longueur sur les membres (dessinés à l'horizontale).</summary>
-        static void Stripes(Raster img, Shape clip, bool alongX)
+        /// <summary>Fines rayures ; une couleur transparente (alpha 0) n'en dessine aucune.</summary>
+        static void Stripes(Raster img, Shape clip, bool alongX, Rgba Pinstripe)
         {
+            if (Pinstripe.a == 0) return;
             float u = U, gap = StripeGap * u;
             int n = (int)Math.Ceiling((alongX ? img.Height : img.Width) / gap) + 1;
             for (int i = 0; i < n; i++)
@@ -296,7 +320,7 @@ namespace Bascule.Core
             }
         }
 
-        static Part SuitTorso(Rgba skin)
+        static Part SuitTorso(Rgba skin, Rgba Navy, Rgba Pinstripe)
         {
             var part = Canvas(2.3f, 2.2f, out var img, out float cx, out float cy);
             float u = U;
@@ -328,7 +352,7 @@ namespace Bascule.Core
             var opening = Shape.Poly(cx - 0.36f * u, cy + 0.8f * u, cx + 0.36f * u, cy + 0.8f * u, cx + 0.03f * u, cy - 0.3f * u, cx - 0.03f * u, cy - 0.3f * u);
             jacket = Shape.Subtract(jacket, opening);
             Toon.Part(img, jacket, Navy, 2 * u, Body);
-            Stripes(img, jacket, false);
+            Stripes(img, jacket, false, Pinstripe);
 
             // Revers à cran pointu (« peak lapels »), un peu plus sombres, avec leur couture.
             for (int sgn = -1; sgn <= 1; sgn += 2)
@@ -342,7 +366,7 @@ namespace Bascule.Core
                     cx + sgn * 0.03f * u, cy - 0.3f * u);
                 var l = Shape.Intersect(lapel.Grow(0.01f * u), jacket.Grow(0.02f * u));
                 Toon.Part(img, l, Navy.Shade(0.86f), u, new Toon.Style { Outline = 0.03f, Shade = 0.12f, Soft = 0.2f, Rim = 0.05f, RimOpacity = 0.35f, Specular = false });
-                Stripes(img, l, false);
+                Stripes(img, l, false, Pinstripe);
             }
 
             // Plis du tissu.
@@ -374,7 +398,7 @@ namespace Bascule.Core
         }
 
         /// <summary>Haut du pantalon (à la place du short).</summary>
-        static Part SuitHips()
+        static Part SuitHips(Rgba Navy, Rgba Pinstripe)
         {
             var part = Canvas(1.9f, 1.2f, out var img, out float cx, out float cy);
             float u = U;
@@ -383,18 +407,18 @@ namespace Bascule.Core
             var legR = Shape.Box(cx + 0.36f * u, cy - 0.12f * u, 0.33f * u, 0.32f * u, 0.1f * u, 8f);
             var trousers = Shape.Smooth(waist, Shape.Union(legL, legR), 0.15f * u);
             Toon.Part(img, trousers, Navy, 1.4f * u, Body);
-            Stripes(img, trousers, false);
+            Stripes(img, trousers, false, Pinstripe);
             img.FillClipped(trousers, Shape.Capsule(cx, cy - 0.05f * u, cx, cy - 0.45f * u, 0.025f * u), Navy.Outline(), 2f);
             part.PivotY = cy;
             return part;
         }
 
         /// <summary>Manche de veste, poignet de chemise blanc qui dépasse.</summary>
-        static Part SuitForearm() =>
+        static Part SuitForearm(Rgba Navy, Rgba Pinstripe) =>
             Segment(MascotRig.Forearm, 0.21f, 0.17f, Navy, (img, limb, ax, bx) =>
             {
                 float u = U;
-                Stripes(img, limb, true);
+                Stripes(img, limb, true, Pinstripe);
                 float x0 = ax + (bx - ax) * 0.86f;
                 var cuff = Shape.Intersect(limb.Grow(0.01f * u), Shape.HalfPlane(-1, 0, -x0));
                 Toon.Part(img, cuff, Shirt, 0.4f * u, Limb);
@@ -402,7 +426,7 @@ namespace Bascule.Core
             }, 0);
 
         /// <summary>Chaussures de ville noires, bout fin et brillant.</summary>
-        static Part DressShoes()
+        static Part DressShoes(Rgba DressShoe)
         {
             var part = Canvas(1.0f, 0.7f, out var img, out float cx, out float cy);
             float u = U;

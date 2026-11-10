@@ -301,7 +301,7 @@ namespace Bascule.Core
         // ------------------------------------------------------------------ Coffre
 
         static readonly Rgba ChestWood = Rgba.FromHex("#D98A46"), ChestTrim = Rgba.FromHex("#8A4A26"),
-            ChestGold = Rgba.FromHex("#FFD447"), ChestGem = Rgba.FromHex("#FF4D6D");
+            ChestGold = Rgba.FromHex("#FFD447"), ChestGem = Rgba.FromHex("#FF4D6D"), ChestGemBlue = Rgba.FromHex("#3FB4FF");
         static readonly Toon.Style ChestFlat = new Toon.Style { Outline = 0.022f, Shade = 0.08f, Soft = 0.05f, Rim = 0.03f, Specular = false };
         static readonly Toon.Style ChestShiny = new Toon.Style { Outline = 0.022f, Shade = 0.07f, Soft = 0.04f, ShadeStrength = 0.86f, Rim = 0.05f, RimOpacity = 0.8f, SpecSize = 0.05f };
 
@@ -328,18 +328,31 @@ namespace Bascule.Core
             Toon.Part(img, Shape.Box(c, y0 + n * 0.035f, n * 0.415f, n * 0.042f, n * 0.022f), ChestTrim, size, ChestFlat);
             foreach (float x in new[] { x0 + n * 0.035f, x1 - n * 0.035f })
                 Toon.Part(img, Shape.Box(x, (y0 + y1) * 0.5f, n * 0.035f, (y1 - y0) * 0.5f - n * 0.02f, n * 0.015f), ChestTrim, size, ChestFlat);
+            // Bande d'or verticale au centre (sous la serrure), rivetée.
+            var band = Shape.Box(c, (y0 + y1) * 0.5f, n * 0.06f, (y1 - y0) * 0.5f - n * 0.01f, n * 0.012f);
+            Toon.Part(img, band, ChestGold, size, ChestShiny);
+            img.FillClipped(band, Shape.Box(c - n * 0.035f, (y0 + y1) * 0.5f, n * 0.008f, n), Rgba.White.WithAlpha(0.45f), 1.5f);
+            foreach (float y in new[] { y0 + n * 0.09f, y1 - n * 0.09f }) Rivet(img, c, y, n);
             // Coins dorés en équerre, avec rivets.
             foreach (var (cx, cy, sx, sy) in new[] { (x0, y1, 1f, -1f), (x1, y1, -1f, -1f), (x0, y0, 1f, 1f), (x1, y0, -1f, 1f) })
                 Corner(img, cx, cy, sx, sy, n, size);
+            // Pierres bleues serties sur les montants.
+            foreach (float x in new[] { x0 + n * 0.035f, x1 - n * 0.035f })
+            {
+                Toon.Part(img, Shape.Circle(x, (y0 + y1) * 0.5f, n * 0.03f), ChestGold, size, ChestShiny);
+                Toon.Part(img, Shape.Ellipse(x, (y0 + y1) * 0.5f, n * 0.02f, n * 0.024f), ChestGemBlue, size, ChestShiny);
+                img.Fill(Shape.Circle(x - n * 0.007f, (y0 + y1) * 0.5f + n * 0.009f, n * 0.006f), Rgba.White.WithAlpha(0.9f));
+            }
             // Intérieur : bord de bois foncé, fond sombre, lueur d'or.
             var rim = Shape.Ellipse(c, n * 0.555f, n * 0.39f, n * 0.07f);
             Toon.Part(img, rim, ChestTrim, size, ChestFlat);
             var hole = Shape.Ellipse(c, n * 0.56f, n * 0.355f, n * 0.05f);
-            img.Fill(hole, Paint.Radial(Rgba.FromHex("#FFF4B8"), c, n * 0.56f, Rgba.FromHex("#6A3A16"), n * 0.36f));
+            img.Fill(hole, Paint.Radial(Rgba.FromHex("#FFFBE0"), c, n * 0.56f, Rgba.FromHex("#FFB347"), n * 0.36f));
             // Serrure : écusson doré, trou de serrure, pierre rouge.
             var plate = Shape.Union(Shape.Box(c, n * 0.43f, n * 0.075f, n * 0.06f, n * 0.03f), Shape.Circle(c, n * 0.37f, n * 0.075f));
             Toon.Part(img, plate, ChestGold, size, ChestShiny);
-            Toon.Part(img, Shape.Circle(c, n * 0.445f, n * 0.03f), ChestGem, size, ChestShiny);
+            Toon.Part(img, Shape.Circle(c, n * 0.445f, n * 0.032f), ChestGem, size, ChestShiny);
+            img.Fill(Shape.Circle(c - n * 0.01f, n * 0.455f, n * 0.009f), Rgba.White.WithAlpha(0.9f));
             img.Fill(Shape.Union(Shape.Circle(c, n * 0.37f, n * 0.022f), Shape.Poly(c - n * 0.016f, n * 0.37f, c + n * 0.016f, n * 0.37f, c + n * 0.024f, n * 0.315f, c - n * 0.024f, n * 0.315f)), Rgba.FromHex("#3A2210"));
             return img;
         }
@@ -363,6 +376,16 @@ namespace Bascule.Core
                 Toon.Part(img, Shape.Intersect(lid, Shape.Box(x, n * 0.2f, n * 0.038f, n)), ChestGold, size, ChestShiny);
                 foreach (float y in new[] { n * 0.1f, n * 0.22f }) Rivet(img, x, y, n);
             }
+            // Bande d'or centrale et étoile dorée sertie d'une pierre : un coffre de trésor, pas une caisse.
+            var lband = Shape.Intersect(lid, Shape.Box(c, n * 0.2f, n * 0.06f, n));
+            Toon.Part(img, lband, ChestGold, size, ChestShiny);
+            img.FillClipped(lband, Shape.Box(c - n * 0.035f, n * 0.2f, n * 0.008f, n), Rgba.White.WithAlpha(0.45f), 1.5f);
+            float sy = n * 0.25f;
+            var star = Star(c, sy, n * 0.085f, n * 0.04f);
+            Toon.Part(img, star.Grow(n * 0.012f), ChestGold.Shade(0.6f), size, ChestFlat);
+            Toon.Part(img, star, ChestGold, size, ChestShiny);
+            Toon.Part(img, Shape.Circle(c, sy, n * 0.026f), ChestGemBlue, size, ChestShiny);
+            img.Fill(Shape.Circle(c - n * 0.008f, sy + n * 0.008f, n * 0.007f), Rgba.White.WithAlpha(0.9f));
             // Bord bas en bois foncé, et le moraillon doré qui descend sur la serrure.
             Toon.Part(img, Shape.Box(c, n * 0.065f, n * 0.415f, n * 0.038f, n * 0.02f), ChestTrim, size, ChestFlat);
             Toon.Part(img, Shape.Box(c, n * 0.07f, n * 0.045f, n * 0.07f, n * 0.022f), ChestGold, size, ChestShiny);
@@ -400,6 +423,19 @@ namespace Bascule.Core
             Rivet(img, cx + sx * t * 0.55f, cy + sy * t * 0.55f, n);
             Rivet(img, cx + sx * a * 0.75f, cy + sy * t * 0.55f, n);
             Rivet(img, cx + sx * t * 0.55f, cy + sy * a * 0.75f, n);
+        }
+
+        /// <summary>Étoile à 5 branches (rayons extérieur et intérieur).</summary>
+        static Shape Star(float cx, float cy, float ro, float ri)
+        {
+            var pts = new float[20];
+            for (int i = 0; i < 10; i++)
+            {
+                double a = Math.PI / 2 + i * Math.PI / 5;
+                float r = i % 2 == 0 ? ro : ri;
+                pts[i * 2] = cx + (float)Math.Cos(a) * r; pts[i * 2 + 1] = cy + (float)Math.Sin(a) * r;
+            }
+            return Shape.Poly(pts);
         }
 
         static void Rivet(Raster img, float x, float y, int n)

@@ -111,7 +111,7 @@ namespace Bascule.Core
             yield return new Job(k + "sky", () => SceneArtist.Sky(t, 1024));
             yield return new Job(k + "sun", () => SceneArtist.Sun(t, 512));
             if (t.Night) yield return new Job("scene_stars", () => SceneArtist.Stars());
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 3 && !t.Space; i++)
             {
                 int ci = i;
                 yield return new Job(k + "cloud" + ci, () => SceneArtist.Cloud(ci, t, 512, 256));

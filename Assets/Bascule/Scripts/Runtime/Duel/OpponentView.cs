@@ -152,7 +152,7 @@ namespace Bascule.Duel
         public void Apply(DuelSnapshot s, float dt)
         {
             if (s == null || !gameObject.activeSelf) return;
-            SetTheme(Difficulty.BackgroundIndex(s.Score, Theme.All.Length));
+            SetTheme(Difficulty.BackgroundIndex(s.Score));
             float len = Difficulty.PlankLength(s.Score, _t.plank);
             if (Mathf.Abs(len - _plankLength) > 0.01f)
             {

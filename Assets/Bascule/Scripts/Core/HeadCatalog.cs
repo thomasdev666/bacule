@@ -50,8 +50,8 @@ namespace Bascule.Core
         public string Product;
         /// <summary>Tenue du corps (débardeur par défaut).</summary>
         public Outfit Outfit;
-        /// <summary>Clé des images du corps : la peau, plus la tenue si ce n'est pas le débardeur (« #E8B48C_suit »).</summary>
-        public string BodyKey => Outfit == Outfit.Suit ? Skin + "_suit" : Skin;
+        /// <summary>Clé des images du corps : la peau et la tenue de cette tête (« #E8B48C_h12 », Core/Outfits.cs).</summary>
+        public string BodyKey => Skin + "_h" + Id;
 
         public bool IsSpecial => Unlock != UnlockKind.Score && Unlock != UnlockKind.Default && Unlock != UnlockKind.Level && Unlock != UnlockKind.Shop && Unlock != UnlockKind.Premium;
         public string Name(string lang) => lang == "en" ? NameEn : NameFr;

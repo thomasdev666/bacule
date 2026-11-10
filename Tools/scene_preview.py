@@ -91,11 +91,11 @@ def world(theme):
     """Fond : ciel, soleil, collines, nuages, prairie."""
     sky = load(f"scene/sky{theme}.png").resize((W, H), Image.BICUBIC)
     c = Canvas(sky)
-    if theme == 4:
+    if theme in (4, 10, 12, 13):
         stars = load("scene/stars.png").resize((W, W))
         c.img.alpha_composite(stars, (0, 0))
     c.sprite(load(f"scene/sun{theme}.png"), 2.4, 6.6, scale=PPU * 3.4 / 384)
-    for i, (x, y, s) in enumerate([(-3.3, 7.6, 3.4), (2.9, 3.6, 2.6), (-2.4, 1.6, 2.2)]):
+    for i, (x, y, s) in enumerate([(-3.3, 7.6, 3.4), (2.9, 3.6, 2.6), (-2.4, 1.6, 2.2)] if theme != 13 else []):  # pas de nuages sur la Lune
         c.sprite(load(f"scene/cloud{theme}_{i}.png"), x, y, scale=PPU * s / 384)
     far = load(f"scene/far{theme}.png")
     c.sprite(far, 0, GROUND_Y + 1.0, pivot=(far.width / 2, 0), scale=W / far.width)

@@ -799,13 +799,32 @@ namespace Bascule.UI
         Image _leakImg, _flashImg;
         int _taps;
         float _kick;
+        // Effets : ondes de choc, confettis, compteur de pièces, faisceau de lumière.
+        Image _catcher, _beamImg;
+        readonly List<(Image img, float age, float life, float size)> _rings = new List<(Image, float, float, float)>();
+        readonly List<(RectTransform rt, Image img, Vector2 v, float spin, float age)> _confetti = new List<(RectTransform, Image, Vector2, float, float)>();
+        int _coinsTarget, _coinsShown;
+        float _countStart = -1f;
+        /// <summary>Couleur de la lumière : elle change à chaque coup (or, orange, rose), puis explose en violet à l'ouverture.</summary>
+        static readonly Color[] TapColors = { new Color(1f, 0.85f, 0.35f), new Color(1f, 0.6f, 0.25f), new Color(1f, 0.38f, 0.62f), new Color(0.72f, 0.45f, 1f) };
+        static readonly Color[] RingColors = { new Color(1f, 0.83f, 0.28f), new Color(1f, 0.42f, 0.55f), new Color(0.45f, 0.72f, 1f), new Color(0.6f, 1f, 0.6f), new Color(0.78f, 0.5f, 1f) };
         /// <summary>Comme dans les jeux de coffres : on le tapote plusieurs fois, il s'ouvre au dernier coup.</summary>
         const int TapsToOpen = 3;
 
         protected override void Build()
         {
+            // Tout l'écran se touche : pas besoin de viser le coffre pour l'ouvrir.
+            _catcher = Ui.Image(Safe, null, new Color(0, 0, 0, 0), "ToucherPartout");
+            Ui.Stretch(_catcher.rectTransform, -400, -400, -400, -400);
+            _catcher.raycastTarget = true;
+            _catcher.gameObject.AddComponent<Button>().onClick.AddListener(Tap);
+
             _title = Ui.Title(Safe, Loc.Get("chest_won"), 84, Palette.Accent);
             Ui.Place(_title.rectTransform, 0.5f, 1, 0, -150, 980, 130);
+
+            // Faisceau de lumière qui jaillit du coffre à l'ouverture.
+            _beamImg = Ui.Image(Safe, Art.SoftDisc, new Color(1f, 0.95f, 0.75f, 0f), "Faisceau");
+            Ui.Place(_beamImg.rectTransform, 0.5f, 0.5f, 0, 620, 460, 1500);
 
             // Lumière et rayons derrière le coffre (apparaissent à l'ouverture).
             _glowImg = Ui.Image(Safe, Art.SoftDisc, new Color(1f, 0.85f, 0.35f, 0f), "Lueur");
@@ -919,6 +938,14 @@ namespace Bascule.UI
             _ok.gameObject.SetActive(false);
             foreach (var c in _coins) if (c.rt != null) UnityEngine.Object.Destroy(c.rt.gameObject);
             _coins.Clear();
+            foreach (var r in _rings) if (r.img != null) UnityEngine.Object.Destroy(r.img.gameObject);
+            _rings.Clear();
+            foreach (var c in _confetti) if (c.rt != null) UnityEngine.Object.Destroy(c.rt.gameObject);
+            _confetti.Clear();
+            _coinsTarget = coins; _coinsShown = 0; _countStart = -1f;
+            _amount.text = "+0";
+            _catcher.gameObject.SetActive(true);
+            _beamImg.color = new Color(1f, 0.95f, 0.75f, 0f);
         }
 
         /// <summary>Présente le coffre de la partie (et les autres récompenses). <paramref name="after"/> : à la fermeture.</summary>
@@ -996,6 +1023,13 @@ namespace Bascule.UI
             _kick = 1f;
             App.PlaySfx(Sfx.Pop, _taps == 1 ? 4 : _taps == 2 ? 16 : 64, 0.85f);
             App.HapticMedium();
+            if (!App.Profile.settings.reducedMotion)
+            {
+                // Onde de choc de la couleur du coup, et quelques étincelles qui jaillissent.
+                var col = TapColors[Mathf.Clamp(_taps - 1, 0, TapColors.Length - 1)];
+                Ring(col, 0.5f, 900f + 200f * _taps, new Vector2(0, 330));
+                Confetti(8 + 4 * _taps, new Vector2(0, 330), 900f, false, col);
+            }
             if (_taps >= TapsToOpen) { Open(); return; }
             _hint.text = Loc.Get(TapsToOpen - _taps == 1 ? "chest_tap_last" : "chest_tap_more");
         }
@@ -1005,6 +1039,7 @@ namespace Bascule.UI
             if (_openAt >= 0) return;
             _openAt = _t + (App.Profile.settings.reducedMotion ? 0f : 0.25f); // dernier tremblement, puis il s'ouvre
             _hint.gameObject.SetActive(false);
+            _catcher.gameObject.SetActive(false);
         }
 
         void Close()
@@ -1031,8 +1066,10 @@ namespace Bascule.UI
                 // un peu avec un éclat de lumière, comme si quelque chose bougeait dedans.
                 float charge = _taps / (float)TapsToOpen; // la lumière monte à chaque coup
                 _kick = Mathf.Max(0f, _kick - dt * 3.5f);
-                _glowImg.color = new Color(1f, 0.85f, 0.35f, 0.32f + 0.3f * charge + 0.1f * Mathf.Sin(_t * 2.4f) + 0.2f * _kick);
-                _raysImg.color = new Color(1f, 0.92f, 0.6f, 0.16f + 0.18f * charge);
+                var tc = TapColors[Mathf.Clamp(_taps, 0, TapColors.Length - 1)];
+                _glowImg.color = new Color(tc.r, tc.g, tc.b, 0.32f + 0.3f * charge + 0.1f * Mathf.Sin(_t * 2.4f) + 0.2f * _kick);
+                _raysImg.color = new Color(Mathf.Lerp(1f, tc.r, 0.5f), Mathf.Lerp(0.92f, tc.g, 0.5f), Mathf.Lerp(0.6f, tc.b, 0.5f), 0.16f + 0.18f * charge);
+                TickEffects(dt);
                 _hint.color = new Color(1, 1, 1, 0.75f + 0.25f * Mathf.Sin(_t * 4f));
                 _hintRt.localScale = Vector3.one * (1f + 0.15f * _kick);
                 if (still) { _chest.localScale = Vector3.one * (1f + 0.04f * _taps); return; }
@@ -1066,6 +1103,8 @@ namespace Bascule.UI
             float hp = Mathf.Clamp01((s - 0.6f) / 0.3f);
             float headPop = hp <= 0f ? 0.01f : hp < 1f ? Mathf.Lerp(0.2f, 1.2f, hp) : Mathf.Lerp(1.2f, 1f, Mathf.Clamp01((s - 0.9f) / 0.15f));
             _headPortrait.rectTransform.localScale = Vector3.one * headPop;
+            // La tête arrive en tournant sur elle-même.
+            _headPortrait.rectTransform.localEulerAngles = new Vector3(0, still ? 0f : (1f - Mathf.Clamp01(hp)) * 360f, 0);
             _headName.rectTransform.localScale = Vector3.one * headPop;
             if (_headPortrait.gameObject.activeSelf && hp > 0f && hp - dt / 0.3f <= 0f) { App.PlaySfx(Sfx.Chime, 8, 0.8f); if (!still) Burst(); }
             if (!_loot.gameObject.activeSelf)
@@ -1075,8 +1114,16 @@ namespace Bascule.UI
                 _list.gameObject.SetActive(true);
                 _ok.gameObject.SetActive(true);
                 App.PlaySfx(Sfx.Chime, 6, 0.9f);
+                App.PlaySfx(Sfx.Lift, 0, 0.8f);
                 App.HapticMedium();
-                if (!still) Burst();
+                _countStart = _t + 0.15f;
+                if (!still)
+                {
+                    Burst();
+                    // Grande ouverture : trois ondes de choc arc-en-ciel, une pluie de confettis.
+                    for (int k = 0; k < 3; k++) Ring(RingColors[k], 0.7f + 0.15f * k, 1700f + 500f * k, new Vector2(0, 330), -0.08f * k);
+                    Confetti(70, new Vector2(0, 360), 1700f, true, Color.white);
+                }
             }
             // Couvercle : il saute, bascule en arrière et disparaît.
             float l = Mathf.Clamp01(s / 0.55f);
@@ -1084,6 +1131,25 @@ namespace Bascule.UI
             _lid.localEulerAngles = new Vector3(0, 0, still ? 0 : l * 28f);
             _lid.localScale = new Vector3(1f, Mathf.Lerp(1f, 0.45f, l), 1f);
             _lidImg.color = new Color(1, 1, 1, 1f - Mathf.Clamp01((s - 0.25f) / 0.3f));
+            // Faisceau : un trait de lumière qui monte du coffre puis s'adoucit.
+            float beam = still ? 0f : Mathf.Clamp01(s * 5f) * Mathf.Lerp(0.85f, 0.35f, Mathf.Clamp01((s - 0.3f) / 1.2f));
+            _beamImg.color = new Color(1f, 0.95f, 0.75f, beam);
+            _beamImg.rectTransform.localScale = new Vector3(0.6f + 0.4f * Mathf.Clamp01(s * 3f) + 0.05f * Mathf.Sin(_t * 9f), 1f, 1f);
+            TickEffects(dt);
+            // Les pièces comptent jusqu'au total (petit tintement régulier), puis le nombre rebondit.
+            if (_countStart >= 0f && _coinsShown < _coinsTarget && _t >= _countStart)
+            {
+                float k = Mathf.Clamp01((_t - _countStart) / 0.9f);
+                int v = Mathf.RoundToInt(_coinsTarget * (1f - (1f - k) * (1f - k)));
+                if (v != _coinsShown)
+                {
+                    if (v / Mathf.Max(1, _coinsTarget / 8) != _coinsShown / Mathf.Max(1, _coinsTarget / 8)) App.PlaySfx(Sfx.Click, 2, 0.35f);
+                    _coinsShown = v;
+                    _amount.text = "+" + Loc.FormatScore(v);
+                    if (v >= _coinsTarget) { _amount.rectTransform.localScale = Vector3.one * 1.3f; App.PlaySfx(Sfx.Chime, 10, 0.7f); App.HapticMedium(); }
+                }
+            }
+            _amount.rectTransform.localScale = Vector3.Lerp(_amount.rectTransform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 8f));
             // Lumière, rayons, contenu.
             _glowImg.color = new Color(1f, 0.85f, 0.35f, 0.75f * Mathf.Clamp01(s * 3f));
             _raysImg.color = new Color(1f, 0.92f, 0.6f, 0.4f * Mathf.Clamp01(s * 2f));
@@ -1112,6 +1178,64 @@ namespace Bascule.UI
                 _sparks[i].color = new Color(1f, 0.95f, 0.7f, k * 0.9f);
                 _sparks[i].rectTransform.localScale = Vector3.one * (0.5f + 0.7f * k);
                 _sparks[i].rectTransform.localEulerAngles = new Vector3(0, 0, _t * 40f + i * 30f);
+            }
+        }
+
+        /// <summary>Onde de choc : un anneau de couleur qui grandit et s'efface.</summary>
+        void Ring(Color c, float life, float size, Vector2 at, float delay = 0f)
+        {
+            var img = Ui.Image(Safe, Art.Ring, new Color(c.r, c.g, c.b, 0f), "Onde");
+            Ui.Place(img.rectTransform, 0.5f, 0.5f, at.x, at.y, 100, 100);
+            img.transform.SetSiblingIndex(_chest.GetSiblingIndex());
+            _rings.Add((img, delay, life, size));
+        }
+
+        /// <summary>Confettis de couleurs : petits rectangles qui jaillissent, tournent et retombent.</summary>
+        void Confetti(int n, Vector2 at, float speed, bool rainbow, Color tint)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var col = rainbow ? RingColors[UnityEngine.Random.Range(0, RingColors.Length)] : Color.Lerp(tint, Color.white, UnityEngine.Random.Range(0f, 0.4f));
+                var img = Ui.Image(Safe, Art.Pixel, col, "Confetti");
+                var rt = img.rectTransform;
+                Ui.Place(rt, 0.5f, 0.5f, at.x + UnityEngine.Random.Range(-60f, 60f), at.y, UnityEngine.Random.Range(14f, 26f), UnityEngine.Random.Range(8f, 14f));
+                float a = UnityEngine.Random.Range(0.1f, 0.9f) * Mathf.PI;
+                float sp = UnityEngine.Random.Range(0.45f, 1f) * speed;
+                _confetti.Add((rt, img, new Vector2(Mathf.Cos(a) * sp, Mathf.Sin(a) * sp), UnityEngine.Random.Range(-720f, 720f), 0f));
+            }
+        }
+
+        void TickEffects(float dt)
+        {
+            for (int i = _rings.Count - 1; i >= 0; i--)
+            {
+                var r = _rings[i];
+                r.age += dt;
+                if (r.img == null) { _rings.RemoveAt(i); continue; }
+                float k = r.age / r.life;
+                if (k >= 1f) { UnityEngine.Object.Destroy(r.img.gameObject); _rings.RemoveAt(i); continue; }
+                if (k > 0f)
+                {
+                    float e = 1f - (1f - k) * (1f - k);
+                    r.img.rectTransform.sizeDelta = Vector2.one * Mathf.Lerp(120f, r.size, e);
+                    var c = r.img.color; c.a = 0.9f * (1f - k); r.img.color = c;
+                }
+                _rings[i] = r;
+            }
+            for (int i = _confetti.Count - 1; i >= 0; i--)
+            {
+                var c = _confetti[i];
+                c.age += dt;
+                if (c.rt == null) { _confetti.RemoveAt(i); continue; }
+                c.v.y -= 2200f * dt;
+                c.v *= 1f - 0.8f * dt;
+                c.rt.anchoredPosition += c.v * dt;
+                c.rt.localEulerAngles = new Vector3(0, 0, c.rt.localEulerAngles.z + c.spin * dt);
+                // Effet « papier qui tourne » : il s'aplatit et revient.
+                c.rt.localScale = new Vector3(1f, Mathf.Abs(Mathf.Cos(c.age * 9f + i)), 1f);
+                if (c.age > 1.8f) { var col = c.img.color; col.a = Mathf.Clamp01(1f - (c.age - 1.8f) / 0.4f); c.img.color = col; }
+                if (c.age > 2.2f) { UnityEngine.Object.Destroy(c.rt.gameObject); _confetti.RemoveAt(i); continue; }
+                _confetti[i] = c;
             }
         }
 

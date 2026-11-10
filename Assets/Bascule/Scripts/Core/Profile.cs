@@ -19,6 +19,9 @@ namespace Bascule.Core
         /// <summary>Tête au hasard : à chaque partie, Basile porte une autre tête de la collection.</summary>
         public bool randomHead;
         public List<int> unlockedHeads = new List<int> { 0 };
+        /// <summary>Têtes déjà vues dans la collection (les autres têtes débloquées font la pastille « nouveau »).</summary>
+        public List<int> seenHeads = new List<int> { 0 };
+        public bool seenHeadsInit;
         /// <summary>Planches achetées (la 0, en bois, est toujours là) et planche choisie : apparence seulement.</summary>
         public List<int> ownedPlanks = new List<int> { 0 };
         public int selectedPlank;
@@ -87,6 +90,9 @@ namespace Bascule.Core
             surprisesOpened = Math.Max(0, surprisesOpened);
             surpriseTickets = Math.Max(0, Math.Min(9, surpriseTickets));
             if (!unlockedHeads.Contains(0)) unlockedHeads.Insert(0, 0);
+            if (seenHeads == null) seenHeads = new List<int>();
+            // Mise à jour d'une ancienne sauvegarde : toutes les têtes déjà gagnées comptent comme vues (pas de pastille géante).
+            if (!seenHeadsInit) { seenHeads = new List<int>(unlockedHeads); seenHeadsInit = true; }
             if (personalTop == null) personalTop = new List<int>();
             if (pendingScores == null) pendingScores = new List<PendingScore>();
             if (daily == null) daily = new DailyState();
@@ -203,6 +209,38 @@ namespace Bascule.Core
             }
             r.NextHead = HeadCatalog.NextScoreHead(p.unlockedHeads);
             return r;
+        }
+    }
+
+    /// <summary>
+    /// Têtes gagnées que le joueur n'a pas encore regardées : une pastille rouge sur « Têtes » (et sur chaque onglet)
+    /// qui ne disparaît qu'une fois qu'il les a vues dans la collection. Il découvre ainsi chaque tête gagnée.
+    /// </summary>
+    public static class HeadNews
+    {
+        public static bool IsNew(Profile p, int id) => p.unlockedHeads.Contains(id) && !p.seenHeads.Contains(id);
+
+        public static int Count(Profile p)
+        {
+            int n = 0;
+            foreach (var id in p.unlockedHeads) if (!p.seenHeads.Contains(id)) n++;
+            return n;
+        }
+
+        public static int Count(Profile p, Func<HeadDef, bool> filter)
+        {
+            int n = 0;
+            foreach (var h in HeadCatalog.All) if (filter(h) && IsNew(p, h.Id)) n++;
+            return n;
+        }
+
+        /// <summary>Marque ces têtes comme vues ; renvoie vrai si quelque chose a changé.</summary>
+        public static bool MarkSeen(Profile p, IEnumerable<int> ids)
+        {
+            bool changed = false;
+            foreach (var id in ids)
+                if (p.unlockedHeads.Contains(id) && !p.seenHeads.Contains(id)) { p.seenHeads.Add(id); changed = true; }
+            return changed;
         }
     }
 

@@ -142,8 +142,11 @@ namespace Bascule.UI
         public Texture2D Render(BragInfo b, HeadDef head, string mascotName, Texture photo, float focusY)
         {
             if (_cam == null) Build();
-            int ti = Difficulty.BackgroundIndex(b.Score, Theme.All.Length);
+            int stage = Difficulty.BackgroundIndex(b.Score), ti = Theme.ArtOf(stage);
             var t = Theme.All[ti];
+            var tint = Theme.TintOf(stage);
+            var tc = new Color(tint.r / 255f, tint.g / 255f, tint.b / 255f, 1f);
+            _sky.color = _hills.color = _ground.color = tc;
             string k = "t" + ti;
             _sky.sprite = _art.Scene(k + "sky", () => SceneArtist.Sky(t), 100, new Vector2(0.5f, 0.5f));
             _hills.sprite = _art.Scene(k + "near", () => SceneArtist.Hills(t, false, 768, 240), 100, new Vector2(0.5f, 0f));

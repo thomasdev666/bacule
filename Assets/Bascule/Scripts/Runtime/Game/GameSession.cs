@@ -1238,11 +1238,12 @@ namespace Bascule
         void UpdateBackground(float dt)
         {
             // L'ambiance avance dans la journée avec le score (matin, midi, doré, couchant, nuit).
-            int theme = Difficulty.BackgroundIndex(Score, Theme.All.Length);
+            int theme = Difficulty.BackgroundIndex(Score);
             if (theme != _theme)
             {
                 _theme = theme;
                 _backdrop.SetTheme(theme, Current == State.Idle);
+                StartCoroutine(_backdrop.Preload(theme + 1)); // le monde suivant, prêt avant qu'on y arrive
                 // Le décor change en fondu, sans message : le changement se voit, il n'a pas besoin d'être annoncé.
             }
             if (IsRunning && !_recordAnnounced && BestToBeat > 0 && Score > BestToBeat)

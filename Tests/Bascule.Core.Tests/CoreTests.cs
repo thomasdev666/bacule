@@ -20,18 +20,28 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
-        public void SceneryChangesEarlyThenCycles()
+        public void SceneryChangesEarlyThenNewWorldsUntilTheMoon()
         {
-            Assert.AreEqual(0, Difficulty.BackgroundIndex(0, 5));
-            Assert.AreEqual(0, Difficulty.BackgroundIndex(299, 5));
-            Assert.AreEqual(1, Difficulty.BackgroundIndex(300, 5), "premier changement dès 300");
-            Assert.AreEqual(2, Difficulty.BackgroundIndex(800, 5));
-            Assert.AreEqual(3, Difficulty.BackgroundIndex(2000, 5));
-            Assert.AreEqual(4, Difficulty.BackgroundIndex(4000, 5));
-            Assert.AreEqual(4, Difficulty.BackgroundIndex(6999, 5));
-            Assert.AreEqual(0, Difficulty.BackgroundIndex(7000, 5), "une nouvelle journée après la nuit");
-            Assert.AreEqual(1, Difficulty.BackgroundIndex(10000, 5));
-            for (int sc = 0; sc < 100000; sc += 250) Assert.That(Difficulty.BackgroundIndex(sc, 5), Is.InRange(0, 4));
+            Assert.AreEqual(0, Difficulty.BackgroundIndex(0));
+            Assert.AreEqual(0, Difficulty.BackgroundIndex(299));
+            Assert.AreEqual(1, Difficulty.BackgroundIndex(300), "premier changement dès 300");
+            Assert.AreEqual(4, Difficulty.BackgroundIndex(4000));
+            Assert.AreEqual(Biome.Beach, Theme.All[Difficulty.BackgroundIndex(5500)].Biome);
+            Assert.AreEqual(Biome.Moon, Theme.All[Difficulty.BackgroundIndex(29999)].Biome, "la Lune avant 30 000");
+            Assert.AreEqual(Difficulty.ThemeScores.Length, Theme.All.Length, "un palier par monde");
+            // Chaque palier change de monde ou de teinte ; au-delà de 30 000, des mondes déjà vus, recolorés.
+            var seen = new HashSet<string>();
+            for (int sc = 0; sc < 120000; sc += 250)
+            {
+                int st = Difficulty.BackgroundIndex(sc);
+                Assert.That(Theme.ArtOf(st), Is.InRange(0, Theme.All.Length - 1));
+                seen.Add(Theme.ArtOf(st) + "/" + Theme.TintOf(st).r + "," + Theme.TintOf(st).g);
+            }
+            Assert.That(seen.Count, Is.GreaterThan(Theme.All.Length + 20));
+            int after = Difficulty.BackgroundIndex(30000);
+            Assert.AreNotEqual(Biome.Meadow, Theme.All[Theme.ArtOf(after)].Biome);
+            var tn = Theme.TintOf(after);
+            Assert.False(tn.r == 255 && tn.g == 255 && tn.b == 255, "variante colorée");
         }
 
         [Test]
@@ -1041,6 +1051,36 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void EveryHeadHasItsOwnOutfit()
+        {
+            var seen = new HashSet<string>();
+            foreach (var h in HeadCatalog.All)
+                Assert.True(seen.Add(OutfitCatalog.For(h.Id).Signature), "tenue en double : tête " + h.Id);
+            Assert.That(OutfitCatalog.For(9999), Is.Not.Null);
+        }
+
+        [Test]
+        public void EveryKindOfOutfitIsDrawnWithPivotInside()
+        {
+            // Une tête par sorte de haut, de bas et de chaussures (tout dessiner prendrait trop de temps).
+            var kinds = new HashSet<string>();
+            foreach (var h in HeadCatalog.All)
+            {
+                var o = OutfitCatalog.For(h.Id);
+                if (!kinds.Add("t" + o.Top) & !kinds.Add("b" + o.Bottom) & !kinds.Add("s" + o.Shoe) & !kinds.Add("m" + o.Motif) & !kinds.Add("e" + o.Emblem)) continue;
+                var parts = MascotArtist.Build(h.BodyKey);
+                Assert.AreEqual(9, parts.Count);
+                foreach (var kv in parts)
+                {
+                    var p = kv.Value;
+                    Assert.That(Opaque(p.Image), Is.GreaterThan(100), h.Id + " " + kv.Key);
+                    Assert.That(p.PivotX, Is.InRange(0, p.Image.Width), kv.Key);
+                    Assert.That(p.PivotY, Is.InRange(0, p.Image.Height), kv.Key);
+                }
+            }
+        }
+
+        [Test]
         public void EveryThemeAndIconIsDrawn()
         {
             foreach (var t in Theme.All)
@@ -1118,6 +1158,25 @@ namespace Bascule.Core.Tests
 {
     public class EconomyTests
     {
+        [Test]
+        public void NewHeadsBadgeUntilSeen()
+        {
+            // Ancienne sauvegarde : les têtes déjà gagnées ne font pas de pastille.
+            var old = new Profile { unlockedHeads = new List<int> { 0, 3, 5 }, seenHeadsInit = false };
+            old.Sanitize();
+            Assert.AreEqual(0, HeadNews.Count(old));
+            // Nouvelle tête gagnée : pastille 1, jusqu'à ce qu'elle soit vue.
+            old.unlockedHeads.Add(7);
+            Assert.AreEqual(1, HeadNews.Count(old));
+            Assert.True(HeadNews.IsNew(old, 7));
+            Assert.True(HeadNews.MarkSeen(old, new[] { 7 }));
+            Assert.AreEqual(0, HeadNews.Count(old));
+            Assert.False(HeadNews.MarkSeen(old, new[] { 7 }));
+            // Profil neuf : la tête de départ est déjà vue.
+            var fresh = new Profile(); fresh.Sanitize();
+            Assert.AreEqual(0, HeadNews.Count(fresh));
+        }
+
         [Test]
         public void NewMissionsProgress()
         {

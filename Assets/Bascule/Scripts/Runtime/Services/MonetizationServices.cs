@@ -473,8 +473,10 @@ namespace Bascule.Services
     }
 
     /// <summary>
-    /// Avec le paquet NativeShare (yasirkula) installé, ouvre la feuille de partage du téléphone
-    /// (WhatsApp, Snapchat, Instagram, TikTok…). Sans lui, copie le texte et indique où est l'image.
+    /// Ouvre la feuille de partage du téléphone (Messages, Snapchat, Instagram, TikTok, WhatsApp…).
+    /// iOS : petit module natif du jeu (Assets/Plugins/iOS/BasculeShare.mm), aucun paquet à installer.
+    /// Android : partage du système (texte). Avec le paquet NativeShare installé, c'est lui qui est utilisé.
+    /// Dans l'éditeur : le texte est copié et le chemin de l'image indiqué.
     /// </summary>
     public sealed class NativeShareService : IShareService
     {
@@ -482,16 +484,30 @@ namespace Bascule.Services
 
         public NativeShareService(Action<string> toast) { _toast = toast; }
 
-        public bool ShowsOwnPanel => false;
+#if UNITY_IOS && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")] static extern void BasculeShare(string text, string imagePath);
+#endif
+
+        /// <summary>Vrai quand une vraie feuille de partage s'ouvre (pas besoin du message « texte copié »).</summary>
+        public bool ShowsOwnPanel =>
+#if BASCULE_NATIVESHARE || ((UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR)
+            true;
+#else
+            false;
+#endif
 
         public void ShareImage(string imagePath, string text)
         {
 #if BASCULE_NATIVESHARE
             new NativeShare().AddFile(imagePath).SetText(text).Share();
+#elif UNITY_IOS && !UNITY_EDITOR
+            BasculeShare(text ?? "", imagePath ?? "");
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            AndroidShare(text);
 #else
             GUIUtility.systemCopyBuffer = text;
-            Debug.Log("[Bascule] Carte de score enregistrée : " + imagePath + " (installer NativeShare pour le partage natif, voir docs/INTEGRATIONS.md)");
-            _toast?.Invoke(Application.isEditor ? "Image : " + imagePath : "Texte copié !");
+            Debug.Log("[Bascule] Carte de score enregistrée : " + imagePath);
+            _toast?.Invoke(Application.isEditor ? "Image : " + imagePath : Loc.Get("share_copied"));
 #endif
         }
 
@@ -500,9 +516,34 @@ namespace Bascule.Services
             GUIUtility.systemCopyBuffer = text;
 #if BASCULE_NATIVESHARE
             new NativeShare().SetText(text).Share();
+#elif UNITY_IOS && !UNITY_EDITOR
+            BasculeShare(text ?? "", "");
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            AndroidShare(text);
 #else
             _toast?.Invoke(Loc.Get("friend_copied"));
 #endif
         }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        static void AndroidShare(string text)
+        {
+            try
+            {
+                using (var intentClass = new AndroidJavaClass("android.content.Intent"))
+                using (var intent = new AndroidJavaObject("android.content.Intent"))
+                using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    intent.Call<AndroidJavaObject>("setAction", intentClass.GetStatic<string>("ACTION_SEND"));
+                    intent.Call<AndroidJavaObject>("setType", "text/plain");
+                    intent.Call<AndroidJavaObject>("putExtra", intentClass.GetStatic<string>("EXTRA_TEXT"), text ?? "");
+                    using (var chooser = intentClass.CallStatic<AndroidJavaObject>("createChooser", intent, "Bascule"))
+                        activity.Call("startActivity", chooser);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Partage Android : " + e.Message); }
+        }
+#endif
     }
 }

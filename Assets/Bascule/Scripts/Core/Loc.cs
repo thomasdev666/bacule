@@ -347,6 +347,7 @@ namespace Bascule.Core
             ["ok"] = new[] { "OK", "OK" },
             ["duel_your_plank"] = new[] { "Ta planche", "Your plank" },
             ["live_tag"] = new[] { "Direct", "Live" },
+            ["new_head_tag"] = new[] { "NOUVEAU !", "NEW!" },
             ["duel_title"] = new[] { "Duel en direct", "Live duel" },
             ["duel_lobby_body"] = new[] { "Même partie, mêmes poids, en direct.\nLe premier qui lâche a perdu !", "Same run, same weights, live.\nFirst to drop loses!" },
             ["duel_host"] = new[] { "Défier un ami", "Challenge a friend" },
