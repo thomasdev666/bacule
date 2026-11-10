@@ -1065,7 +1065,12 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(0, p.gamesPlayed);
             Assert.AreEqual(1, p.level);
             Assert.AreEqual(0, p.personalTop.Count);
-            Assert.AreEqual(0, p.coins, "toutes les pièces repartent de zéro");
+            Assert.AreEqual(1000, p.coins, "les pièces gagnées repartent de zéro, les pièces achetées non dépensées sont rendues (App Store 3.1.1)");
+            Assert.AreEqual(1000, p.coinsBought);
+            // Pièces achetées déjà dépensées : rien à rendre. Jamais plus que le solde.
+            Assert.AreEqual(0, Seasons.Reset(new Profile { season = 0, coins = 0, coinsBought = 2200 }).coins);
+            Assert.AreEqual(300, Seasons.Reset(new Profile { season = 0, coins = 300, coinsBought = 2200 }).coins);
+            Assert.AreEqual(0, Seasons.Reset(new Profile { season = 0, coins = 5000, coinsBought = 0 }).coins);
             Assert.False(p.unlockedHeads.Contains(1) || p.unlockedHeads.Contains(40), "têtes gagnées remises à zéro");
             foreach (var h in HeadCatalog.All)
                 if (h.Unlock == UnlockKind.Premium && h.Product == Shop.Legends) Assert.True(p.unlockedHeads.Contains(h.Id), "têtes payées gardées");
@@ -1077,6 +1082,62 @@ namespace Bascule.Core.Tests
             Assert.True(p.welcomePending);
             Assert.False(Seasons.IsOld(p));
             Assert.AreEqual(0, HeadNews.Count(p), "pas de pastille « nouveau » pour les têtes rendues");
+        }
+
+        [Test]
+        public void SanitizeRepairsDamagedSaves()
+        {
+            var p = new Profile { pseudo = "Un pseudo beaucoup trop long pour le classement", selectedHead = 9999, selectedPlank = 9999, bestScore = -5 };
+            p.unlockedHeads.AddRange(new[] { 1, 1, 9999, 2 });
+            p.ownedPlanks.AddRange(new[] { 9999, 0 });
+            p.gift = null;
+            p.Sanitize();
+            CollectionAssert.AreEqual(new[] { 0, 1, 2 }, p.unlockedHeads, "doublons et têtes inconnues retirés, ordre gardé");
+            CollectionAssert.AreEqual(new[] { 0 }, p.ownedPlanks);
+            Assert.AreEqual(0, p.selectedHead);
+            Assert.AreEqual(0, p.selectedPlank);
+            Assert.AreEqual(0, p.bestScore);
+            Assert.LessOrEqual(p.pseudo.Length, PseudoFilter.MaxLength);
+            // Un pseudo valide n'est jamais modifié par la vérification.
+            var ok = new Profile { pseudo = "Toto_42" };
+            ok.Sanitize(); ok.Sanitize();
+            Assert.AreEqual("Toto_42", ok.pseudo);
+            var rude = new Profile { pseudo = "connard" };
+            rude.Sanitize();
+            Assert.AreEqual("", rude.pseudo);
+        }
+
+        [Test]
+        public void OtherPlayersNamesAreFilteredOnDisplay()
+        {
+            Assert.AreEqual("Toto", PseudoFilter.Display("Toto", "Joueur"));
+            Assert.AreEqual("Joueur", PseudoFilter.Display("gros_connard", "Joueur"));
+            Assert.AreEqual("Joueur", PseudoFilter.Display("", "Joueur"));
+            Assert.AreEqual("Joueur", PseudoFilter.Display(null, "Joueur"));
+            Assert.LessOrEqual(PseudoFilter.Display(new string('a', 200), "Joueur").Length, PseudoFilter.MaxLength + 4);
+        }
+
+        [Test]
+        public void FrenchTextsUseNonBreakingSpaces()
+        {
+            const char nb = '\u00A0';
+            Assert.AreEqual("Bravo" + nb + "!", Loc.FrenchTypography("Bravo !"));
+            Assert.AreEqual("Record" + nb + ": {0}", Loc.FrenchTypography("Record : {0}"));
+            Assert.AreEqual("«" + nb + "{0}" + nb + "»", Loc.FrenchTypography("« {0} »"));
+            Assert.AreEqual("penche à {1}" + nb + "%" + nb + "!", Loc.FrenchTypography("penche à {1} % !"));
+            Assert.AreEqual("https://orpheex.fr 0:08", Loc.FrenchTypography("https://orpheex.fr 0:08"), "liens et durées intacts");
+            // Tous les textes français du jeu sont passés par là : plus aucun signe double précédé d'un espace sécable.
+            string old = Loc.Language;
+            Loc.Language = "fr";
+            try
+            {
+                foreach (var key in new[] { "new_best", "best", "title_label", "chest_open", "welcome_title", "duel_leans" })
+                {
+                    string s = Loc.Get(key);
+                    Assert.False(s.Contains(" !") || s.Contains(" :") || s.Contains(" »") || s.Contains("« ") || s.Contains(" %"), key + " : " + s);
+                }
+            }
+            finally { Loc.Language = old; }
         }
 
         [Test]

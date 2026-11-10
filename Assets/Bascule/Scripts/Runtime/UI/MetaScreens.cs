@@ -343,7 +343,9 @@ namespace Bascule.UI
             Feature(card.transform, 0, Icon.Star, Palette.Secondary, Loc.Get("welcome_f1"));
             Feature(card.transform, 1, Icon.Face, Palette.Purple, Loc.Get("welcome_f2"));
             Feature(card.transform, 2, Icon.Calendar, Palette.Accent, Loc.Get("welcome_f3"));
-            Feature(card.transform, 3, Icon.Swords, Palette.Primary, Loc.Get("welcome_f4"));
+            // Le duel n'est annoncé que s'il fonctionne dans cette version (jamais de fonction promise mais absente).
+            if (App.DuelAvailable) Feature(card.transform, 3, Icon.Swords, Palette.Primary, Loc.Get("welcome_f4"));
+            else Feature(card.transform, 3, Icon.Trophy, Palette.Primary, Loc.Get("welcome_f4_solo"));
 
             var note = Ui.Label(card.transform, Loc.Get("welcome_note"), 36, Palette.Muted);
             Ui.Place(note.rectTransform, 0.5f, 1, 0, -1178, 840, 100);
@@ -987,6 +989,8 @@ namespace Bascule.UI
 
         protected override void Build()
         {
+            // Tout bouge sur cet écran : dans son propre sous-canvas, le bilan affiché derrière n'est pas recalculé.
+            Ui.Isolate(Safe.gameObject);
             // Tout l'écran se touche : pas besoin de viser le coffre pour l'ouvrir.
             _catcher = Ui.Image(Safe, null, new Color(0, 0, 0, 0), "ToucherPartout");
             Ui.Stretch(_catcher.rectTransform, -400, -400, -400, -400);
@@ -1253,7 +1257,8 @@ namespace Bascule.UI
                     _lastBurst = burst;
                     // Petites étincelles qui s'échappent du couvercle à chaque secousse.
                     Confetti(3 + _taps, new Vector2(0, 360), 520f, false, new Color(1f, 0.85f, 0.35f));
-                    App.HapticLight();
+                    // Vibration seulement pendant les premières secousses : un téléphone posé sur cet écran ne vibre pas sans fin.
+                    if (burst < 8) App.HapticLight();
                 }
                 float env = Mathf.Max(c < period * 0.55f ? Mathf.Sin(c / (period * 0.55f) * Mathf.PI) : 0f, _kick);
                 float shake = 9f + 4f * charge + 8f * _kick;

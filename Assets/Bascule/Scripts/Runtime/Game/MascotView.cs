@@ -210,11 +210,10 @@ namespace Bascule
             if (_mood == Mood.Defeated) headTilt = Mathf.Sin(_time * 2f) * 4f;
             var headPos = new Vector2(0, MascotRig.HeadY) + bodyOffset;
             var rot = Quaternion.Euler(0, 0, headTilt);
-            foreach (var sr in new[] { _headBack, _face, _headFront })
-            {
-                sr.transform.localPosition = headPos;
-                sr.transform.localRotation = rot;
-            }
+            // Pas de tableau créé à chaque image.
+            _headBack.transform.localPosition = headPos; _headBack.transform.localRotation = rot;
+            _face.transform.localPosition = headPos; _face.transform.localRotation = rot;
+            _headFront.transform.localPosition = headPos; _headFront.transform.localRotation = rot;
 
             // Serviette et bras : les mains tiennent la planche (ou retombent à la défaite).
             _defeatBlend = Mathf.MoveTowards(_defeatBlend, _defeated ? 1f : 0f, dt * 3f);

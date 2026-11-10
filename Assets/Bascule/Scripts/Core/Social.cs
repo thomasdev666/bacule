@@ -44,6 +44,18 @@ namespace Bascule.Core
             return IsAllowed(s) ? s : null;
         }
 
+        /// <summary>
+        /// Pseudo d'un autre joueur tel qu'on l'affiche (classement) : le filtre est appliqué aussi à la lecture, car un
+        /// pseudo peut venir d'une ancienne version ou d'un appareil modifié. Refusé ou vide : <paramref name="fallback"/>.
+        /// </summary>
+        public static string Display(string pseudo, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(pseudo)) return fallback;
+            string s = pseudo.Trim();
+            if (s.Length > MaxLength + 4) s = s.Substring(0, MaxLength + 4); // jamais de nom interminable dans une ligne
+            return IsAllowed(s) ? s : fallback;
+        }
+
         public static bool IsAllowed(string pseudo)
         {
             string all = Normalize(pseudo);

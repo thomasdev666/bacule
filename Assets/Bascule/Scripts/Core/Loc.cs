@@ -195,6 +195,7 @@ namespace Bascule.Core
             ["lb_offline"] = new[] { "Hors ligne : le classement se synchronisera plus tard.", "Offline: the leaderboard will sync later." },
             ["lb_empty"] = new[] { "Pas encore de score.", "No scores yet." },
             ["lb_daily_empty"] = new[] { "Le classement du jour se remplit avec le défi du jour.\nJoue-le depuis l'accueil pour y entrer : le premier score du jour peut être le tien !", "Today's ranking fills up with the daily challenge.\nPlay it from the home screen to get in: the first score of the day could be yours!" },
+            ["lb_player"] = new[] { "Joueur", "Player" },
             ["lb_loading"] = new[] { "Chargement…", "Loading…" },
             ["pseudo_title"] = new[] { "Ton pseudo pour le classement", "Your name for the leaderboard" },
             ["pseudo_ok"] = new[] { "Valider", "OK" },
@@ -342,6 +343,7 @@ namespace Bascule.Core
             ["welcome_f2"] = new[] { "63 têtes à gagner, chacune avec sa tenue", "63 heads to win, each with its own outfit" },
             ["welcome_f3"] = new[] { "Un nouveau défi chaque jour", "A new challenge every day" },
             ["welcome_f4"] = new[] { "Défie tes amis en duel, en direct", "Challenge your friends in live duels" },
+            ["welcome_f4_solo"] = new[] { "Grimpe dans le classement mondial", "Climb the world leaderboard" },
             ["welcome_note"] = new[] { "Les classements sont tout neufs : le premier record du monde peut être le tien !", "The rankings are brand new: the first world record could be yours!" },
             ["welcome_ok"] = new[] { "C'est parti !", "Let's go!" },
             ["daily_progress"] = new[] { "{0} / {1}", "{0} / {1}" },
@@ -543,6 +545,37 @@ namespace Bascule.Core
             ["stat_days"] = new[] { "Jours joués : {0}", "Days played: {0}" },
 
         };
+
+        /// <summary>
+        /// Typographie française, appliquée une fois à tous les textes français : espace insécable avant « ! ? : ; » et
+        /// « % », et à l'intérieur des guillemets. Un texte qui passe à la ligne ne laisse donc jamais un « ! » ou un
+        /// « : » tout seul au début de la ligne suivante.
+        /// </summary>
+        static Loc()
+        {
+            foreach (var row in Table.Values) row[0] = FrenchTypography(row[0]);
+        }
+
+        public static string FrenchTypography(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.IndexOf(' ') < 0) return s;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == ' ')
+                {
+                    char next = i + 1 < s.Length ? s[i + 1] : '\0';
+                    char prev = i > 0 ? s[i - 1] : '\0';
+                    // « ?! » compte comme un seul signe ; un espace suivi d'un autre espace reste un espace normal.
+                    bool before = next == '!' || next == '?' || next == ';' || next == '%' || next == '»'
+                        || (next == ':' && (i + 2 >= s.Length || s[i + 2] == ' ' || s[i + 2] == '\n'));
+                    if (before || prev == '«') c = '\u00A0';
+                }
+                sb.Append(c);
+            }
+            return sb.ToString();
+        }
 
         public static string Get(string key)
         {

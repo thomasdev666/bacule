@@ -35,6 +35,12 @@ namespace Bascule.Core
             new PlankSkin { Id = 6, Fr = "Or massif", En = "Solid gold", Price = 5000, Base = Rgba.FromHex("#FFCC3D"), Dark = Rgba.FromHex("#B07A12"), Pattern = PlankPattern.Gold },
         };
 
+        public static bool Exists(int id)
+        {
+            foreach (var s in All) if (s.Id == id) return true;
+            return false;
+        }
+
         public static PlankSkin Get(int id)
         {
             foreach (var s in All) if (s.Id == id) return s;

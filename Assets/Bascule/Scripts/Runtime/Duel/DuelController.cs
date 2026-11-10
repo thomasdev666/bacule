@@ -253,6 +253,14 @@ namespace Bascule.Duel
 
         void OnReceived(byte[] data)
         {
+            // Un paquet abîmé ou venu d'une autre version ne doit jamais interrompre le duel : on l'ignore.
+            if (data == null || data.Length == 0) return;
+            try { Handle(data); }
+            catch (System.Exception e) { Debug.LogWarning("[Bascule] Duel : paquet ignoré (" + e.Message + ")"); }
+        }
+
+        void Handle(byte[] data)
+        {
             _lastHeard = Time.unscaledTime;
             switch (DuelProtocol.Kind(data))
             {

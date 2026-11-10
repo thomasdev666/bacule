@@ -25,7 +25,18 @@ namespace Bascule.Services
             {
                 if (File.Exists(ProfilePath)) p = JsonUtility.FromJson<Profile>(File.ReadAllText(ProfilePath));
             }
-            catch (Exception e) { Debug.LogWarning("[Bascule] Profil illisible, on repart à zéro : " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Profil illisible : " + e.Message); }
+            // Application fermée au milieu d'une écriture (entre l'effacement de l'ancien fichier et le renommage du
+            // nouveau), ou fichier abîmé : la copie temporaire, complète, sert de secours au lieu de tout perdre.
+            if (p == null)
+            {
+                try
+                {
+                    string tmp = ProfilePath + ".tmp";
+                    if (File.Exists(tmp)) p = JsonUtility.FromJson<Profile>(File.ReadAllText(tmp));
+                }
+                catch (Exception e) { Debug.LogWarning("[Bascule] Copie de secours illisible, on repart à zéro : " + e.Message); }
+            }
             bool existed = p != null;
             p = p ?? new Profile();
             p.Sanitize();

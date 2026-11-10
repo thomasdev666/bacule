@@ -103,9 +103,15 @@ namespace Bascule.UI
             float total = 2 * sw + 2 * sh + 4 * arc;
             float d = Mathf.Repeat(t, 1f) * total;
             // Parcours dans le sens horaire depuis le haut gauche : haut, coin, droite, coin, bas, coin, gauche, coin.
-            float[] lens = { sw, arc, sh, arc, sw, arc, sh, arc };
+            // Longueurs : côtés pairs (haut, droite, bas, gauche), coins impairs. Sans tableau : cette fonction est
+            // appelée 181 fois par image tant que le néon est allumé.
             int seg = 0;
-            while (seg < 7 && d > lens[seg]) { d -= lens[seg]; seg++; }
+            while (seg < 7)
+            {
+                float len = (seg & 1) == 1 ? arc : (seg & 2) == 0 ? sw : sh;
+                if (d <= len) break;
+                d -= len; seg++;
+            }
             float xMin = r.xMin, xMax = r.xMax, yMin = r.yMin, yMax = r.yMax;
             switch (seg)
             {

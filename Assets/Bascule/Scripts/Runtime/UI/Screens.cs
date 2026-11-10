@@ -358,6 +358,8 @@ namespace Bascule.UI
             var bubble = Ui.Image(tube.transform, Art.Bubble, Color.white, "Bulle");
             _bubble = bubble.rectTransform;
             Ui.Place(_bubble, 0.5f, 0.5f, 0, 0, 74, 74);
+            // La bulle bouge à chaque image : dans son propre sous-canvas, le reste du HUD n'est pas recalculé.
+            Ui.Isolate(tube.gameObject);
 
             // Progression vers la prochaine tête.
             // Une vraie jauge : rail sombre cerné, remplissage doré avec reflet, bouts bien ronds (CapsuleSlice),
@@ -397,6 +399,7 @@ namespace Bascule.UI
             // Conseil : un texte cerné qui flotte au-dessus de la planche, sans panneau (plus léger, ne cache rien).
             var hintRt = Ui.Rect("Conseil", Safe);
             Ui.Place(hintRt, 0.5f, 0.5f, 0, 330, 900, 150);
+            _hintRt = hintRt;
             _hintGroup = hintRt.gameObject.AddComponent<CanvasGroup>();
             _hintGroup.blocksRaycasts = false; _hintGroup.interactable = false;
             _hint = Ui.Title(hintRt, Loc.Get("hint"), 48);
@@ -444,7 +447,8 @@ namespace Bascule.UI
             }
         }
 
-        GameObject HintRoot => _hint.transform.parent.gameObject;
+        GameObject HintRoot => _hintGroup.gameObject;
+        RectTransform _hintRt;
 
         int _hintPriority;
 
@@ -458,7 +462,7 @@ namespace Bascule.UI
             _hintPriority = priority;
             _hint.text = Loc.Get(key);
             _hintTimer = seconds;
-            HintRoot.GetComponent<RectTransform>().localScale = Vector3.one * 1.08f;
+            _hintRt.localScale = Vector3.one * 1.08f;
         }
 
         public void OnDropped()
@@ -512,6 +516,10 @@ namespace Bascule.UI
             UpdateGoal(s);
             _gust.Hide();
             _neon.Off();
+            _flashA = 0f; _flash.gameObject.SetActive(false); // pas d'éclair resté de la partie précédente
+            // La barre du défi du jour repart cachée : elle se replace (avec le repère du poids tenu) à la première image.
+            _dailyBar.gameObject.SetActive(false);
+            _dailyShown = int.MinValue;
             SetDuelLayout(App.Duel != null && App.Duel.InMatch);
         }
 
@@ -674,7 +682,7 @@ namespace Bascule.UI
             UpdateDailyBar(s);
             _goalPunch = Mathf.MoveTowards(_goalPunch, 0, dt * 2.5f);
             _goal.rectTransform.localScale = Vector3.one * (1f + _goalPunch * 0.25f);
-            var hr = HintRoot.GetComponent<RectTransform>();
+            var hr = _hintRt;
             hr.localScale = Vector3.Lerp(hr.localScale, Vector3.one, dt * 8f);
             // Main qui montre le geste : glisser de gauche à droite, puis lâcher.
             bool hand = _tuto == Tuto.Aim;
@@ -1603,7 +1611,8 @@ namespace Bascule.UI
             {
                 // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas).
                 if (!e.IsMe && Moderation.IsBlocked(App.Profile, e.PlayerId)) continue;
-                Row(e.Rank, e.Name, e.Score, e.Head, e.IsMe, e.PlayerId);
+                // Pseudo des autres joueurs : filtré aussi à l'affichage (ancienne version, appareil modifié).
+                Row(e.Rank, e.IsMe ? e.Name : PseudoFilter.Display(e.Name, Loc.Get("lb_player")), e.Score, e.Head, e.IsMe, e.PlayerId);
             }
             if (!friends && page.Me != null && !page.Entries.Exists(e => e.IsMe)) Row(page.Me.Rank, page.Me.Name, page.Me.Score, App.Profile.selectedHead, true);
         }

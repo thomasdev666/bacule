@@ -94,6 +94,10 @@ namespace Bascule.Core
             surprisesOpened = Math.Max(0, surprisesOpened);
             surpriseTickets = Math.Max(0, Math.Min(9, surpriseTickets));
             if (!unlockedHeads.Contains(0)) unlockedHeads.Insert(0, 0);
+            // Sauvegarde abîmée ou venue d'une version plus récente : têtes en double ou inconnues retirées.
+            Clean(unlockedHeads, HeadCatalog.Exists);
+            Clean(ownedPlanks, PlankCatalog.Exists);
+            if (!ownedPlanks.Contains(selectedPlank)) selectedPlank = 0;
             if (seenHeads == null) seenHeads = new List<int>();
             // Mise à jour d'une ancienne sauvegarde : toutes les têtes déjà gagnées comptent comme vues (pas de pastille géante).
             if (!seenHeadsInit) { seenHeads = new List<int>(unlockedHeads); seenHeadsInit = true; }
@@ -104,6 +108,17 @@ namespace Bascule.Core
             if (ownedProducts == null) ownedProducts = new List<string>();
             if (!unlockedHeads.Contains(selectedHead)) selectedHead = 0;
             if (string.IsNullOrEmpty(playerId)) playerId = Guid.NewGuid().ToString("N");
+            // Pseudo : toujours conforme aux règles actuelles (longueur, filtre), même s'il date d'une ancienne version.
+            if (pseudo == null) pseudo = "";
+            if (pseudo.Length > 0) pseudo = PseudoFilter.Clean(pseudo) ?? "";
+            if (friendCode == null) friendCode = "";
+            if (firstDay == null) firstDay = "";
+            if (lastDay == null) lastDay = "";
+            if (bestScore < 0) bestScore = 0;
+            if (gamesPlayed < 0) gamesPlayed = 0;
+            if (daily.streak < 0) daily.streak = 0;
+            if (duelWins < 0) duelWins = 0;
+            if (duelsPlayed < duelWins) duelsPlayed = duelWins;
             settings.textScale = settings.textScale < 1f ? 1f : (settings.textScale > 1.6f ? 1.6f : settings.textScale);
             if (friends == null) friends = new List<string>();
             if (blocked == null) blocked = new List<string>();
@@ -112,11 +127,19 @@ namespace Bascule.Core
             if (gift == null) gift = new GiftState();
             if (ads == null) ads = new AdState();
             if (offers == null) offers = new OfferState();
+            if (gift.streak < 0) gift.streak = 0;
             if (level < 1) level = 1;
             if (xp < 0) xp = 0;
             if (coins < 0) coins = 0;
             // Anciennes sauvegardes : les achats définitifs déjà faits gardent leurs effets.
             if (ownedProducts.Contains(Shop.RemoveAds) || ownedProducts.Contains(Shop.Starter)) adsRemoved = true;
+        }
+
+        /// <summary>Retire les doublons et les identifiants inconnus, sans changer l'ordre.</summary>
+        static void Clean(List<int> ids, Func<int, bool> exists)
+        {
+            var seen = new HashSet<int>();
+            ids.RemoveAll(id => !exists(id) || !seen.Add(id));
         }
     }
 
@@ -133,6 +156,12 @@ namespace Bascule.Core
 
         /// <summary>Vrai si la sauvegarde date d'une saison précédente (elle doit repartir à zéro).</summary>
         public static bool IsOld(Profile p) => p != null && p.season < Current;
+
+        /// <summary>
+        /// Pièces achetées avec de l'argent et encore en poche : au plus le total acheté, au plus le solde actuel
+        /// (ce qui a été dépensé l'a été, quelle que soit l'origine des pièces).
+        /// </summary>
+        public static int UnspentBoughtCoins(Profile old) => Math.Max(0, Math.Min(old.coins, old.coinsBought));
 
         /// <summary>Nouvelle sauvegarde de la saison en cours, qui garde de l'ancienne ce qui n'est pas de la progression.</summary>
         public static Profile Reset(Profile old)
@@ -154,8 +183,10 @@ namespace Bascule.Core
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
             if (old.adsRemoved) fresh.adsRemoved = true;
-            fresh.coins = 0;
-            fresh.coinsBought = 0;
+            // Les pièces gagnées en jouant repartent de zéro. Les pièces achetées et pas encore dépensées sont rendues :
+            // Apple interdit de faire expirer une monnaie achetée (règle 3.1.1 de l'App Store).
+            fresh.coins = UnspentBoughtCoins(old);
+            fresh.coinsBought = fresh.coins;
             fresh.season = Current;
             fresh.welcomePending = true;
             fresh.Sanitize();

@@ -230,8 +230,11 @@ namespace Bascule
             _plankSkin = skin.Id;
             var raster = SceneArtist.Plank(_t.plank.startLength, _t.plank.thickness, PlankPpu, out int border, skin);
             var size = _plankSr.size;
+            var old = _plankSr.sprite;
             _plankSr.sprite = ArtCache.ToSprite(raster, PlankPpu, new Vector4(border, 0, border, 0));
             _plankSr.size = size;
+            // L'ancienne planche (image créée par le jeu) est libérée : sinon chaque changement gardait une texture de plus.
+            if (old != null) { var tex = old.texture; Destroy(old); if (tex != null) Destroy(tex); }
             ApplyLipArt(skin);
             SetPlankLength(_plankLength); // le rebord se replace (l'arrondi du bout dépend de la planche)
         }
@@ -338,6 +341,8 @@ namespace Bascule
             var raster = SceneArtist.PlankLip(skin, lw, lh, LipPpu);
             var pivot = new Vector2(SceneArtist.LipPad / SceneArtist.LipImageW, SceneArtist.LipPad / SceneArtist.LipImageH);
             var sprite = ArtCache.ToSprite(raster, LipPpu, Vector4.zero, pivot);
+            var oldLip = _lipSr[0] != null ? _lipSr[0].sprite : null;
+            if (oldLip != null) { var tex = oldLip.texture; Destroy(oldLip); if (tex != null) Destroy(tex); }
             foreach (var sr in _lipSr)
             {
                 if (sr == null) continue;

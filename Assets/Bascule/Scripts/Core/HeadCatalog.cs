@@ -84,6 +84,12 @@ namespace Bascule.Core
 
         public static readonly IReadOnlyList<HeadDef> All = Build();
 
+        public static bool Exists(int id)
+        {
+            foreach (var h in All) if (h.Id == id) return true;
+            return false;
+        }
+
         public static HeadDef Get(int id)
         {
             foreach (var h in All) if (h.Id == id) return h;

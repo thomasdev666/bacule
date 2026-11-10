@@ -4,6 +4,16 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
 - **Lancement : tout le monde repart à zéro** (`Core.Seasons`, saison 2). Au premier lancement de cette version, record, têtes gagnées, **toutes les pièces**, niveau, planches, missions, séries, coffres, duels et statistiques repartent de zéro, et la partie en cours est oubliée. On garde le pseudo, le code ami, les amis, les joueurs bloqués, les réglages et les achats définitifs (sans pubs, têtes premium : Apple impose de ne jamais les faire perdre). Les tutoriels déjà vus ne reviennent pas. Classements en ligne neufs : `bascule_monde_s2` et `bascule_jour_s2` (à créer dans le tableau de bord Unity, voir `docs/INTEGRATIONS.md`).
+- **Relecture (robustesse et validation Apple)** :
+  - partage iOS : correction d'une erreur d'édition de liens du plugin (`extern "C"`), plus de double feuille de partage ; texte `NSPhotoLibraryAddUsageDescription` ajouté (sans lui, « Enregistrer l'image » fermait l'app et Apple refuse le build) ;
+  - pièces **achetées** et pas encore dépensées rendues lors de la remise à zéro (règle Apple 3.1.1 : une monnaie payée ne peut pas expirer) ; les pièces gagnées en jouant repartent bien de zéro ;
+  - application fermée sur l'écran de fin : la partie est enregistrée sans être comptée deux fois si le joueur revient et prend sa seconde chance ; copie de secours de la sauvegarde si l'app est coupée pendant une écriture ;
+  - seconde chance : le bouton reste proposé si la pub n'est pas disponible ; une seule pub à la fois (double toucher) ; « Restaurer mes achats » répond toujours ;
+  - lien d'invitation au duel reçu pendant le coffre, la machine à surprises ou une pub : il attend le retour à l'accueil ;
+  - sauvegarde abîmée : têtes ou planches inconnues retirées, pseudo refiltré ; pseudos des autres joueurs filtrés aussi à l'affichage ;
+  - mémoire : anciennes textures de planche libérées, décor de l'adversaire libéré à la fin d'un duel, moins d'allocations à chaque image (néon, décor, mascotte, HUD) ;
+  - typographie française : espace insécable avant « ! ? : ; % » (plus de « ! » seul en début de ligne) ;
+  - écran de bienvenue : le duel n'est annoncé que s'il est disponible dans la version.
 - **Défi du jour suivi en direct** : pendant la partie, une barre sous l'objectif avance avec le défi (« 32 / 60 » fusions, « 1:30 / 3:00 » de tenue…), devient verte « Défi réussi ! » ou rouge « Raté : un poids est tombé » pour les défis sans perte (`DailyChallenge.Track`).
 - **Têtes gagnées dans le bilan** : halo doré et étiquette rouge « NOUVEAU ! » sur chaque tête débloquée par la partie.
 - **Coffre** : il ne montre plus que son contenu (les pièces de niveau, missions et objectif sont déjà dans le bilan) ; en attendant d'être ouvert, il tremble beaucoup plus, saute, respire, lâche des étincelles à chaque secousse (avec une petite vibration), et les secousses se rapprochent à chaque tap.

@@ -655,6 +655,8 @@ namespace Bascule
             if (code == null) return;
             Stats.Event("duel_link");
             if (Duel.InMatch) return; // déjà en duel : on ne coupe pas la partie en cours
+            // Coffre, machine à surprises ou pub à l'écran : l'invitation attend le retour à l'accueil.
+            if (_chest.Visible || _surprise.Visible || AdBusy) { _pendingDuelCode = code; return; }
             if (Duel.InDuel) Duel.Leave();
             JoinDuel(code);
         }
@@ -856,6 +858,16 @@ namespace Bascule
             _gainDoubled = false;
             _leavingGameOver = false;
             _chestOpened = false;
+            // Le joueur a quitté l'écran de jeu pendant la chute (lien d'invitation à un duel) : la partie est
+            // enregistrée sans bilan, pour ne pas afficher l'écran de fin par-dessus un autre écran.
+            if (_current != _hud)
+            {
+                _pendingGain = null;
+                Leaderboard.Enqueue(result.Mode == GameMode.Daily ? Boards.Daily : Boards.World, result.Score, Profile.selectedHead, result.Mode == GameMode.Daily ? result.DayKey : "");
+                FinalizeRun();
+                Session.GoIdle();
+                return;
+            }
 
             // Aperçu des récompenses sans rien enregistrer : le joueur peut encore revivre.
             var preview = JsonUtility.FromJson<Profile>(JsonUtility.ToJson(Profile));
@@ -887,16 +899,11 @@ namespace Bascule
             _pendingFinalized = true;
             var r = _pendingResult;
             int levelBefore = Profile.level;
-            var rewards = Progress.ApplyRun(Profile, r.Mode, r.Achievements, TodayKey);
-            var gain = EconomyRun.Apply(Tuning.economy, Profile, r.Stats, LocalDay);
-            Profile.totalScore += r.Score;
-            Profile.totalMerges += r.Merges;
-            Profile.totalBalloons += r.Balloons;
-            Profile.totalSeconds += r.Seconds;
-            AdPolicy.OnRunEnded(Profile.ads);
-            if (Offers.CheckStarter(Tuning.ads, Profile, Now)) _starterPopupPending = true;
+            bool tutorial = !Profile.tutorialDone;
+            ApplyRunTo(Profile, r, out var rewards, out var gain, out bool starter);
+            if (starter) _starterPopupPending = true;
             if (rewards.NewBest) _ratePending = true;
-            if (!Profile.tutorialDone) { Profile.tutorialDone = true; Stats.Event("tutorial_done", ("score", r.Score)); }
+            if (tutorial) Stats.Event("tutorial_done", ("score", r.Score));
             SaveProfile();
             Leaderboard.Flush(TodayKey);
             if (rewards.NewHeads.Count > 0 || gain.LevelHeads.Count > 0) Session.SetHead(HeadCatalog.Get(Profile.selectedHead));
@@ -909,10 +916,39 @@ namespace Bascule
             if (gain.MissionsBonus) Stats.Event("missions_all");
         }
 
+        /// <summary>Tout ce qu'une partie terminée change dans une sauvegarde (la vraie, ou une copie).</summary>
+        void ApplyRunTo(Profile p, RunResult r, out RunRewards rewards, out EconomyGain gain, out bool starterStarted)
+        {
+            rewards = Progress.ApplyRun(p, r.Mode, r.Achievements, TodayKey);
+            gain = EconomyRun.Apply(Tuning.economy, p, r.Stats, LocalDay);
+            p.totalScore += r.Score;
+            p.totalMerges += r.Merges;
+            p.totalBalloons += r.Balloons;
+            p.totalSeconds += r.Seconds;
+            AdPolicy.OnRunEnded(p.ads);
+            starterStarted = Offers.CheckStarter(Tuning.ads, p, Now);
+            p.tutorialDone = true;
+        }
+
         /// <summary>
-        /// Le joueur quitte l'écran de fin (Rejouer ou Accueil) : c'est le seul moment où une pub imposée peut passer,
-        /// et seulement si Core.AdPolicy l'autorise.
+        /// L'application passe en arrière-plan sur l'écran de fin, alors que la partie n'est pas encore enregistrée
+        /// (le joueur peut encore revivre) : on écrit sur le disque une copie de la sauvegarde avec la partie comptée.
+        /// Si iOS ferme l'application, rien n'est perdu ; si le joueur revient, il peut toujours revivre, et la partie
+        /// n'est comptée qu'une fois (avant : une pub « revivre » faisait compter la partie deux fois).
         /// </summary>
+        void SaveProfileWithPendingRun()
+        {
+            if (_pendingFinalized || _pendingResult == null) { SaveProfile(); return; }
+            try
+            {
+                var copy = JsonUtility.FromJson<Profile>(JsonUtility.ToJson(Profile));
+                copy.Sanitize();
+                ApplyRunTo(copy, _pendingResult, out _, out _, out _);
+                _save.SaveProfile(copy);
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Sauvegarde de la partie en attente : " + e.Message); SaveProfile(); }
+        }
+
         /// <summary>Un coffre gagné à cette partie attend d'être ouvert.</summary>
         public bool ChestWaiting => _pendingGain?.Chest != null && !_chestOpened && _pendingResult != null;
 
@@ -942,8 +978,10 @@ namespace Bascule
             if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay))
             {
                 Stats.Event("ad_interstitial", ("games", Profile.gamesPlayed), ("today", Profile.ads.interstitialsToday + 1));
+                _adStarted = Time.realtimeSinceStartup;
                 _ads.ShowInterstitial(() =>
                 {
+                    _adStarted = -1f;
                     AdPolicy.OnInterstitialShown(Profile.ads, Now, LocalDay);
                     SaveProfile();
                     next();
@@ -955,13 +993,20 @@ namespace Bascule
             _leavingGameOver = false;
         }
 
+        /// <summary>Une pub est à l'écran (ou va l'être). Garde-fou de 5 minutes si la régie ne répond jamais.</summary>
+        bool AdBusy => _adStarted >= 0f && Time.realtimeSinceStartup - _adStarted < 300f;
+        float _adStarted = -1f;
+
         /// <summary>Pub récompensée choisie par le joueur, avec plafond quotidien.</summary>
         public void WatchRewarded(string placement, Action onReward)
         {
             if (!AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay)) { _toast.Say(Loc.Get("free_coins_none")); return; }
             if (!_ads.CanShowRewarded) { _toast.Say(Loc.Get("ad_unavailable")); Stats.Event("ad_unavailable", ("placement", placement)); return; }
+            if (AdBusy) return; // double toucher : une seule pub à la fois
+            _adStarted = Time.realtimeSinceStartup;
             _ads.ShowRewarded(placement, ok =>
             {
+                _adStarted = -1f;
                 if (!ok) { _toast.Say(Loc.Get("ad_unavailable")); return; }
                 AdPolicy.OnRewardedWatched(Profile.ads, Now, LocalDay);
                 Stats.Event("ad_rewarded", ("placement", placement), ("today", Profile.ads.rewardedToday));
@@ -972,10 +1017,12 @@ namespace Bascule
 
         public void ReviveWithAd()
         {
-            if (!Session.CanRevive) return;
-            _gameOver.HideRevive();
+            // Partie déjà enregistrée (coffre ouvert, écran de fin quitté) : on ne peut plus la reprendre.
+            if (!Session.CanRevive || _pendingFinalized || _pendingResult == null || _current != _gameOver) { _gameOver.HideRevive(); return; }
             void Revive()
             {
+                // Le bouton ne disparaît qu'ici : si la pub n'est pas disponible, la seconde chance reste proposée.
+                _gameOver.HideRevive();
                 _pendingFinalized = true; // la partie continue : on enregistrera à la vraie fin
                 _pendingResult = null;
                 Session.Revive();
@@ -1450,6 +1497,7 @@ namespace Bascule
                 bool ok = await Leaderboard.Service.DeleteAccountAsync();
                 if (!ok) { _toast.Say(Loc.Get("delete_offline")); return; }
                 Profile.pseudo = "";
+                Profile.friendCode = ""; // le code ami publié en ligne est effacé avec le compte
                 Profile.friends.Clear();
                 Profile.pendingScores.Clear();
                 SaveProfile();
@@ -1515,7 +1563,8 @@ namespace Bascule
             if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("store_unavailable")); return; }
             _purchases.Restore(ok =>
             {
-                if (ok) _toast.Say(Loc.Get("restored"));
+                // Toujours une réponse visible : réussi, ou boutique injoignable.
+                _toast.Say(Loc.Get(ok ? "restored" : "store_unavailable"));
                 if (_settings.Visible) _settings.Refresh();
                 if (_shop.Visible) _shop.Refresh();
             });
@@ -1632,6 +1681,8 @@ namespace Bascule
                 else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
+                else if (_welcome.Visible) _welcome.Hide();
+                else if (_daily.Visible) _daily.Hide();
                 else if (_current == _hud && Session.Mode == GameMode.Duel && Duel.InMatch) DuelAskQuit();
                 else if (_current == _duelLobby) DuelCancel();
                 else if (_current == _duelResult) DuelHome();
@@ -1681,8 +1732,9 @@ namespace Bascule
                 SaveRunSnapshot();
                 if (!Session.Paused) PauseGame();
             }
-            FinalizeRun();
-            SaveProfile();
+            // Écran de fin : la partie reste « en attente » en mémoire (seconde chance encore possible, et une pub
+            // en plein écran met aussi le jeu en pause), mais elle est déjà comptée dans la sauvegarde sur le disque.
+            SaveProfileWithPendingRun();
             ScheduleNotifications();
             Stats.Event("app_pause", ("games", Profile.gamesPlayed));
             SaveService.Flush();

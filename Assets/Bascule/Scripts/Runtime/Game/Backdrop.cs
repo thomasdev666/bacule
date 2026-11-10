@@ -80,7 +80,11 @@ namespace Bascule
             if (_art == null) return;
             // Plusieurs décors partagent les images (le sien et celui de l'adversaire en duel) : on garde tout ce que
             // l'un d'eux affiche ou va afficher.
-            var keep = new HashSet<int>();
+            var keep = KeepBuffer;
+            keep.Clear();
+            // Le premier monde (prairie du matin) reste toujours chargé : c'est celui de l'accueil et du début de chaque
+            // partie. Sans cela, il était relu sur le disque d'un seul coup à chaque retour d'un monde lointain (à-coup).
+            keep.Add(0);
             foreach (var b in Live)
             {
                 if (b._current != null) keep.Add(b._current.Art);
@@ -94,6 +98,8 @@ namespace Bascule
                     if (it.Key != "stars") _art.ReleaseScene(it.Key);
             }
         }
+
+        static readonly HashSet<int> KeepBuffer = new HashSet<int>();
 
         struct SceneItem { public string Name, Key; public System.Func<Raster> Draw; public float Ppu; public Vector2? Pivot; public int Order; }
 
@@ -164,8 +170,9 @@ namespace Bascule
         /// <summary>Adapte le décor à la taille de l'écran.</summary>
         public void Layout()
         {
-            foreach (var layer in new[] { _previous, _current })
+            for (int pass = 0; pass < 2; pass++)
             {
+                var layer = pass == 0 ? _previous : _current;
                 if (layer == null) continue;
                 float hw = WorldLayout.HalfWidth(_cam), size = _cam.orthographicSize, ground = WorldLayout.GroundY(_cam);
                 foreach (var r in layer.Renderers)
@@ -219,8 +226,10 @@ namespace Bascule
                 if (_fade >= 1f && _previous != null) { Destroy(_previous.Root.gameObject); _previous = null; ReleaseUnused(); }
             }
             float hw = WorldLayout.HalfWidth(_cam) + 2.5f;
-            foreach (var layer in new[] { _previous, _current })
+            // Pas de tableau créé à chaque image (deux décors tournent pendant un duel).
+            for (int pass = 0; pass < 2; pass++)
             {
+                var layer = pass == 0 ? _previous : _current;
                 if (layer == null) continue;
                 for (int i = 0; i < layer.Clouds.Count; i++)
                 {

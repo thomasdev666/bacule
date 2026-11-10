@@ -98,6 +98,10 @@ namespace Bascule.Duel
         public void End()
         {
             Clear();
+            // Retour au premier monde : sinon le décor atteint par l'adversaire (et le suivant) restait en mémoire
+            // jusqu'au prochain duel.
+            _theme = 0;
+            _backdrop.SetTheme(0, true);
             gameObject.SetActive(false);
         }
 
@@ -127,6 +131,8 @@ namespace Bascule.Duel
             _plankSkin = id;
             const float ppu = 160f;
             var raster = SceneArtist.Plank(_t.plank.startLength, _t.plank.thickness, ppu, out int border, PlankCatalog.Get(id));
+            var old = _plank.sprite;
+            if (old != null) { var tex = old.texture; Destroy(old); if (tex != null) Destroy(tex); }
             _plank.sprite = ArtCache.ToSprite(raster, ppu, new Vector4(border, 0, border, 0));
             _plankLength = -1f;
         }
@@ -137,6 +143,8 @@ namespace Bascule.Duel
             bool first = _theme < 0;
             _theme = index;
             _backdrop.SetTheme(index, first);
+            // Le monde suivant se charge image par image, pour qu'il apparaisse sans à-coup en plein duel.
+            if (isActiveAndEnabled) StartCoroutine(_backdrop.Preload(index + 1));
         }
 
         static WeightBody MakeWeight(Transform parent, int value, ArtCache art, Font font, Tuning t)
