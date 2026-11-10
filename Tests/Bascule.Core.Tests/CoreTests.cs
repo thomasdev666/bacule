@@ -1051,6 +1051,35 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void NewSeasonResetsProgressButKeepsPurchasesAndIdentity()
+        {
+            var old = new Profile { season = 0, playerId = "abc", pseudo = "Toto", bestScore = 8850, gamesPlayed = 300, coins = 9204, coinsBought = 1000, level = 19, xp = 50, adsRemoved = true };
+            old.unlockedHeads.AddRange(new[] { 1, 2, 3, 40 });
+            old.ownedProducts.Add(Shop.Legends);
+            old.settings.sound = false;
+            old.friends.Add("ami");
+            old.personalTop.Add(8850);
+            Assert.True(Seasons.IsOld(old));
+            var p = Seasons.Reset(old);
+            Assert.AreEqual(0, p.bestScore);
+            Assert.AreEqual(0, p.gamesPlayed);
+            Assert.AreEqual(1, p.level);
+            Assert.AreEqual(0, p.personalTop.Count);
+            Assert.AreEqual(1000, p.coins, "seules les pièces achetées encore en poche restent");
+            Assert.False(p.unlockedHeads.Contains(1) || p.unlockedHeads.Contains(40), "têtes gagnées remises à zéro");
+            foreach (var h in HeadCatalog.All)
+                if (h.Unlock == UnlockKind.Premium && h.Product == Shop.Legends) Assert.True(p.unlockedHeads.Contains(h.Id), "têtes payées gardées");
+            Assert.True(p.adsRemoved);
+            Assert.AreEqual("abc", p.playerId);
+            Assert.AreEqual("Toto", p.pseudo);
+            Assert.False(p.settings.sound);
+            Assert.AreEqual(1, p.friends.Count);
+            Assert.True(p.seasonNotice);
+            Assert.False(Seasons.IsOld(p));
+            Assert.AreEqual(0, HeadNews.Count(p), "pas de pastille « nouveau » pour les têtes rendues");
+        }
+
+        [Test]
         public void EveryHeadHasItsOwnOutfit()
         {
             var seen = new HashSet<string>();

@@ -26,10 +26,21 @@ namespace Bascule.Services
                 if (File.Exists(ProfilePath)) p = JsonUtility.FromJson<Profile>(File.ReadAllText(ProfilePath));
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Profil illisible, on repart à zéro : " + e.Message); }
+            bool existed = p != null;
             p = p ?? new Profile();
             p.Sanitize();
+            // Nouvelle saison : une ancienne sauvegarde repart à zéro (Core.Seasons), une nouvelle est marquée tout de suite.
+            if (!existed || Seasons.IsOld(p))
+            {
+                if (existed) { p = Seasons.Reset(p); SeasonReset = true; }
+                p.season = Seasons.Current;
+                SaveProfile(p);
+            }
             return p;
         }
+
+        /// <summary>La sauvegarde vient d'être remise à zéro pour la nouvelle saison (la partie en cours est alors oubliée).</summary>
+        public bool SeasonReset { get; private set; }
 
         public void SaveProfile(Profile p) => Write(ProfilePath, JsonUtility.ToJson(p));
 

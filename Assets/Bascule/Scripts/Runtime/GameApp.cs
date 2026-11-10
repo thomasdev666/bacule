@@ -148,6 +148,7 @@ namespace Bascule
 
             _save = new SaveService();
             Profile = _save.LoadProfile();
+            if (_save.SeasonReset) _save.ClearRun(); // la partie en cours datait de l'ancienne saison
             Stats = new Analytics();
             Tuning = TuningLoader.Load();
             _tiltFromFile = Tuning.plank.tiltDirection;
@@ -503,6 +504,14 @@ namespace Bascule
         /// </summary>
         void HomePopups()
         {
+            // Nouvelle saison : on explique pourquoi tout repart à zéro (une seule fois).
+            if (Profile.seasonNotice)
+            {
+                Profile.seasonNotice = false;
+                SaveProfile();
+                _confirm.Ask(Loc.Get("season_title"), Loc.Get("season_body"), Art.IconSprite(Icon.Star), Loc.Get("season_ok"), null, null, null);
+                return;
+            }
             // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.
             if (Profile.gamesPlayed >= 1 && DailyGift.Available(Profile.gift, LocalDay)) { _gift.Show(); return; }
             if (_starterPopupPending && Offers.StarterActive(Profile, Now))
