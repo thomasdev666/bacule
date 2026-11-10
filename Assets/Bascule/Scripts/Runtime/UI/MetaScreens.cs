@@ -971,6 +971,7 @@ namespace Bascule.UI
         readonly Image[] _sparks = new Image[7];
         Image _leakImg, _flashImg;
         int _taps;
+        int _lastBurst = -1;
         float _kick;
         // Effets : ondes de choc, confettis, compteur de pièces, faisceau de lumière.
         Image _catcher, _beamImg;
@@ -1080,7 +1081,7 @@ namespace Bascule.UI
 
         void Reset(int coins, HeadDef head, string title)
         {
-            _t = 0; _openAt = -1f; _closing = false; _taps = 0; _kick = 0f;
+            _t = 0; _openAt = -1f; _closing = false; _taps = 0; _kick = 0f; _lastBurst = -1;
             _title.text = title;
             _amount.text = "+" + Loc.FormatScore(coins);
             bool hasHead = head != null;
@@ -1129,12 +1130,9 @@ namespace Bascule.UI
             var loot = gain.Chest;
             Reset(loot?.Coins ?? 0, loot?.Head, Loc.Get("chest_won"));
 
+            // Le coffre ne montre que ce qu'il contient : les autres gains (niveau, missions, objectif) sont déjà
+            // affichés dans le bilan de la partie, les répéter ici embrouillait (« Niveau 6 +120 » sous le coffre).
             Ui.Clear(_list);
-            int i = 0;
-            if (gain.GoalReached) Row(i++, Icon.Target, Palette.Success, Loc.Get("goal_reached"), Loc.Format("goal_label", Loc.FormatScore(goal)), gain.GoalCoins);
-            foreach (var m in gain.MissionsDone) Row(i++, MetaUi.MissionIcon(m.kind), MetaUi.MissionColor(m.kind), Loc.Get("mission_title"), Loc.MissionText(m), m.reward);
-            if (gain.MissionsBonus) Row(i++, Icon.Gift, Palette.Accent, Loc.Get("missions_bonus_done"), null, gain.BonusCoins);
-            if (gain.LevelsGained > 0) Row(i++, Icon.Star, Palette.Secondary, Loc.Format("level_title", gain.LevelAfter), null, gain.LevelCoins);
             _list.gameObject.SetActive(false);
         }
 
@@ -1246,12 +1244,23 @@ namespace Bascule.UI
                 _hint.color = new Color(1, 1, 1, 0.75f + 0.25f * Mathf.Sin(_t * 4f));
                 _hintRt.localScale = Vector3.one * (1f + 0.15f * _kick);
                 if (still) { _chest.localScale = Vector3.one * (1f + 0.04f * _taps); return; }
-                float c = Mathf.Repeat(_t, 1.5f);
-                float env = Mathf.Max(c < 0.6f ? Mathf.Sin(c / 0.6f * Mathf.PI) : 0f, _kick);
-                float shake = 4.5f + 6f * _kick;
-                _chest.localEulerAngles = new Vector3(0, 0, Mathf.Sin(_t * (38f + 30f * _kick)) * shake * env);
-                _chest.anchoredPosition = new Vector2(Mathf.Sin(_t * 52f) * 6f * env, 180f + Mathf.Abs(Mathf.Sin(_t * 13f)) * 18f * env + 40f * _kick * _kick);
-                _chest.localScale = new Vector3(1f + 0.04f * _taps + 0.08f * _kick, 1f + 0.04f * _taps - 0.05f * _kick, 1f);
+                // Secousses de plus en plus rapprochées à chaque coup : le coffre a vraiment envie de s'ouvrir.
+                float period = Mathf.Lerp(1.05f, 0.55f, charge);
+                float c = Mathf.Repeat(_t, period);
+                int burst = Mathf.FloorToInt(_t / period);
+                if (burst != _lastBurst)
+                {
+                    _lastBurst = burst;
+                    // Petites étincelles qui s'échappent du couvercle à chaque secousse.
+                    Confetti(3 + _taps, new Vector2(0, 360), 520f, false, new Color(1f, 0.85f, 0.35f));
+                    App.HapticLight();
+                }
+                float env = Mathf.Max(c < period * 0.55f ? Mathf.Sin(c / (period * 0.55f) * Mathf.PI) : 0f, _kick);
+                float shake = 9f + 4f * charge + 8f * _kick;
+                float breathe = 0.035f * Mathf.Sin(_t * 3.2f);
+                _chest.localEulerAngles = new Vector3(0, 0, Mathf.Sin(_t * (42f + 30f * _kick)) * shake * env);
+                _chest.anchoredPosition = new Vector2(Mathf.Sin(_t * 55f) * 10f * env, 180f + Mathf.Abs(Mathf.Sin(c / period * Mathf.PI)) * 46f * env + 40f * _kick * _kick);
+                _chest.localScale = new Vector3(1f + breathe + 0.05f * _taps + 0.1f * _kick + 0.04f * env, 1f + breathe * 0.6f + 0.05f * _taps - 0.06f * _kick - 0.03f * env, 1f);
                 float peek = Mathf.Max(env * Mathf.Abs(Mathf.Sin(_t * 17f)), _kick);
                 _lid.anchoredPosition = new Vector2(0, ChestW * 0.53f + peek * (16f + 22f * charge));
                 _lid.localEulerAngles = new Vector3(0, 0, -peek * (3f + 4f * charge));

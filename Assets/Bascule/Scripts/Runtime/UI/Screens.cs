@@ -275,6 +275,11 @@ namespace Bascule.UI
         CanvasGroup _hintGroup;
         int _shownGoal = -2;
         float _goalPunch;
+        // Barre d'avancement du défi du jour (« 32 / 60 »).
+        RectTransform _dailyBar, _dailyFill;
+        Image _dailyFillImg;
+        Text _dailyText;
+        int _dailyShown = int.MinValue;
         Image _hand;
         // Tutoriel de la première partie : viser, fusionner, équilibrer ; puis les cœurs.
         enum Tuto { Off, Aim, Merge, Good, Watch }
@@ -403,6 +408,20 @@ namespace Bascule.UI
             _goal = Ui.Title(Safe, "...", 40, ArtCache.Hex("#BFE0FF"), "Objectif");
             Ui.Place(_goal.rectTransform, 0.5f, 1, 0, -470, 700, 56);
             _goal.horizontalOverflow = HorizontalWrapMode.Overflow;
+            // Défi du jour : barre d'avancement sous l'objectif.
+            var barBg = Ui.Image(Safe, Art.Pill, new Color(0.1f, 0.08f, 0.22f, 0.55f), "AvancementDefi", true);
+            _dailyBar = barBg.rectTransform;
+            Ui.Place(_dailyBar, 0.5f, 1, 0, -522, 560, 40);
+            var fill = Ui.Image(_dailyBar, Art.Pill, Palette.Accent, "Remplissage", true);
+            _dailyFillImg = fill;
+            _dailyFill = fill.rectTransform;
+            _dailyFill.anchorMin = new Vector2(0, 0); _dailyFill.anchorMax = new Vector2(0, 1);
+            _dailyFill.pivot = new Vector2(0, 0.5f);
+            _dailyFill.offsetMin = new Vector2(4, 4); _dailyFill.offsetMax = new Vector2(40, -4);
+            _dailyText = Ui.Title(_dailyBar, "", 30, Color.white);
+            Ui.Stretch(_dailyText.rectTransform, 10, 0, 10, 2);
+            Ui.Isolate(_dailyBar.gameObject);
+            _dailyBar.gameObject.SetActive(false);
             // Repère invisible au bas de l'interface du haut (bas de la ligne « Objectif ») : le poids tenu se place dessous.
             _hudBottom = Ui.Rect("BasInterface", Safe);
             Ui.Place(_hudBottom, 0.5f, 1, 0, -498, 10, 2, 0.5f, 0.5f);
@@ -528,6 +547,31 @@ namespace Bascule.UI
             }
         }
 
+        /// <summary>Barre « 32 / 60 » du défi du jour : avance en direct, verte une fois réussi, rouge si c'est raté.</summary>
+        void UpdateDailyBar(GameSession s)
+        {
+            bool on = s.Mode == GameMode.Daily && !(App.Duel != null && App.Duel.InMatch) && !DailyChallenge.DoneToday(App.Profile, s.DayKey);
+            if (_dailyBar.gameObject.activeSelf != on)
+            {
+                _dailyBar.gameObject.SetActive(on);
+                // Le poids tenu se place sous la barre.
+                Ui.Place(_hudBottom, 0.5f, 1, 0, on ? -548 : -498, 10, 2, 0.5f, 0.5f);
+                _dailyShown = int.MinValue;
+            }
+            if (!on) return;
+            var p = DailyChallenge.Track(DailyChallenge.For(s.DayKey), s.LiveStats);
+            int key = p.Done ? -1 : p.Failed ? -2 : p.Current;
+            if (key == _dailyShown) return; // texte et barre seulement quand ça change (pas d'allocation à chaque image)
+            if (_dailyShown >= 0 && key == -1) _goalPunch = 1f;
+            _dailyShown = key;
+            float w = _dailyBar.rect.width > 1 ? _dailyBar.rect.width : 560f;
+            _dailyFill.sizeDelta = new Vector2(Mathf.Max(32f, (w - 8f) * (p.Failed ? 1f : p.Fraction)), _dailyFill.sizeDelta.y);
+            _dailyFillImg.color = p.Done ? Palette.Play : p.Failed ? Palette.Primary : Palette.Accent;
+            _dailyText.text = p.Done ? Loc.Get("daily_progress_done") : p.Failed ? Loc.Get("daily_progress_failed")
+                : p.Time ? Loc.Format("daily_progress", Loc.FormatDuration(p.Current), Loc.FormatDuration(p.Target))
+                : Loc.Format("daily_progress", Loc.FormatScore(p.Current), Loc.FormatScore(p.Target));
+        }
+
         void UpdateGoal(GameSession s)
         {
             // Défi du jour : son objectif reste affiché sous le niveau pendant la partie.
@@ -627,6 +671,7 @@ namespace Bascule.UI
             bool hintOn = _hintTimer > 0 || _hintGroup.alpha > 0.01f;
             if (HintRoot.activeSelf != hintOn) HintRoot.SetActive(hintOn);
             UpdateGoal(s);
+            UpdateDailyBar(s);
             _goalPunch = Mathf.MoveTowards(_goalPunch, 0, dt * 2.5f);
             _goal.rectTransform.localScale = Vector3.one * (1f + _goalPunch * 0.25f);
             var hr = HintRoot.GetComponent<RectTransform>();
@@ -892,8 +937,19 @@ namespace Bascule.UI
             {
                 var cell = Ui.Rect("Tete", _heads);
                 cell.sizeDelta = new Vector2(250, 230);
+                // Halo doré derrière la tête gagnée.
+                var halo = Ui.Image(cell, Art.SoftDisc, new Color(1f, 0.82f, 0.3f, 0.75f), "Halo");
+                Ui.Place(halo.rectTransform, 0.5f, 1, 0, 30, 250, 250, 0.5f, 1);
+                halo.raycastTarget = false;
                 var icon = Ui.Icon(cell, Art.Portrait(newHeads[i]));
                 Ui.Place(icon.rectTransform, 0.5f, 1, 0, 0, 176, 176, 0.5f, 1);
+                // Étiquette « NOUVEAU ! » : on voit tout de suite que la tête vient d'être débloquée.
+                var ntag = Ui.Image(cell, Art.Pill, Palette.Primary, "Nouveau", true);
+                Ui.Place(ntag.rectTransform, 1, 1, 6, 10, 168, 50, 1, 1);
+                ntag.transform.localRotation = Quaternion.Euler(0, 0, -10);
+                ntag.gameObject.AddComponent<Pulse>().Amount = 0.08f;
+                var nt = Ui.Title(ntag.transform, Loc.Get("new_head_tag"), 30);
+                Ui.Stretch(nt.rectTransform, 8, 0, 8, 3);
                 // Le nom posé sous la tête, dans la case (pivot en bas) : il ne déborde plus de la carte.
                 var name = Ui.Title(cell, newHeads[i].Name(Loc.Language), 36);
                 Ui.Place(name.rectTransform, 0.5f, 0, 0, 2, 250, 50, 0.5f, 0);
@@ -1453,7 +1509,7 @@ namespace Bascule.UI
                 _tabs[board] = tab;
             }
             _status = Ui.Title(Safe, "", 44);
-            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -380, 960, 80);
+            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -440, 920, 200); // assez haut pour un message sur trois lignes
             _status.resizeTextForBestFit = true; _status.resizeTextMinSize = 36; _status.resizeTextMaxSize = 44;
 
             _area = Ui.Rect("Liste", Safe);
@@ -1541,7 +1597,8 @@ namespace Bascule.UI
             }
             else page = await service.GetTopAsync(_board, 50);
             if (request != _request || !Visible) return;
-            _status.text = page.Entries.Count == 0 ? Loc.Get(friends ? "friends_empty" : "lb_empty") : "";
+            // Classement du jour vide : on explique qu'il se remplit avec les parties du défi du jour (pas les parties normales).
+            _status.text = page.Entries.Count == 0 ? Loc.Get(friends ? "friends_empty" : _board == Boards.Daily ? "lb_daily_empty" : "lb_empty") : "";
             foreach (var e in page.Entries)
             {
                 // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas).

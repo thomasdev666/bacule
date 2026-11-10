@@ -932,6 +932,7 @@ namespace Bascule
 
         public void PlaySfx(Sfx s, int step = 0, float volume = 1f) => _audio.Play(s, step, volume);
         public void HapticMedium() => _haptics.Medium();
+        public void HapticLight() => _haptics.Light();
 
         void LeaveGameOver(Action next)
         {

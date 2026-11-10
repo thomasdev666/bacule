@@ -1080,6 +1080,24 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void DailyChallengeProgressIsTrackedLive()
+        {
+            var merges = new DailyChallenge.Def { Key = "merges", A = 60, Met = r => r.Merges >= 60 };
+            var p = DailyChallenge.Track(merges, new RunStats { Merges = 32 });
+            Assert.AreEqual(32, p.Current); Assert.AreEqual(60, p.Target); Assert.False(p.Done);
+            Assert.That(p.Fraction, Is.EqualTo(32f / 60f).Within(1e-4));
+            Assert.True(DailyChallenge.Track(merges, new RunStats { Merges = 75 }).Done);
+            Assert.AreEqual(60, DailyChallenge.Track(merges, new RunStats { Merges = 75 }).Current, "plafonné à l'objectif");
+            var clean = new DailyChallenge.Def { Key = "clean_score", A = 3000, Met = r => r.Score >= 3000 && r.LostWeights == 0 };
+            Assert.True(DailyChallenge.Track(clean, new RunStats { Score = 1200, LostWeights = 1 }).Failed);
+            var hold = DailyChallenge.Track(new DailyChallenge.Def { Key = "hold", A = 180, Met = r => r.Seconds >= 180 }, new RunStats { Seconds = 90.6f });
+            Assert.True(hold.Time); Assert.AreEqual(90, hold.Current);
+            // Chacun des 28 défis a une valeur à suivre.
+            foreach (var d in DailyChallenge.All)
+                Assert.AreEqual(d.A, DailyChallenge.Track(d, new RunStats { Score = 99999, Merges = 999, Seconds = 999, MaxValue = 999, Drops = 999, Balloons = 9, Gusts = 9, BestSave = 1f, BestChain = 9 }).Current, d.Key);
+        }
+
+        [Test]
         public void EveryHeadHasItsOwnOutfit()
         {
             var seen = new HashSet<string>();

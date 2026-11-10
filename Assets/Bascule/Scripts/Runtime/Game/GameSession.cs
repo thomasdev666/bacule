@@ -553,6 +553,14 @@ namespace Bascule
             Tension = new List<float>(_tension),
         };
 
+        /// <summary>Chiffres de la partie en cours (sans allocation), pour suivre le défi du jour en direct.</summary>
+        public RunStats LiveStats => new RunStats
+        {
+            Score = Score, Merges = _score?.Merges ?? 0, MaxValue = _score?.MaxValue ?? 0, Balloons = _score?.Balloons ?? 0,
+            BestChain = _score?.BestChain ?? 0, BestSave = _nearMiss?.BestSave ?? 0, Daily = Mode == GameMode.Daily, DayKey = DayKey,
+            Gusts = _gustsSurvived, Seconds = _runTime, LostWeights = _score?.LostWeights ?? 0, Drops = Drops,
+        };
+
         /// <summary>Retour à l'accueil : planche vide, mascotte détendue.</summary>
         // ------------------------------------------------------------------ Arrivée au lancement
 

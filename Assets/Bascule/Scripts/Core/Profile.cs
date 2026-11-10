@@ -367,6 +367,39 @@ namespace Bascule.Core
 
         public static bool Met(Def d, RunStats r) => d != null && d.Met(r);
 
+        /// <summary>Avancement d'un défi pendant la partie (barre « 32 / 60 » du HUD).</summary>
+        public struct Progress
+        {
+            public int Current, Target;
+            /// <summary>Valeurs en secondes (afficher en durée).</summary>
+            public bool Time;
+            /// <summary>Défi « sans perdre un poids » : un poids est tombé, c'est raté pour cette partie.</summary>
+            public bool Failed;
+            public bool Done;
+            public float Fraction => Done ? 1f : Target <= 0 ? 0f : Math.Min(1f, Current / (float)Target);
+        }
+
+        /// <summary>Où en est la partie <paramref name="r"/> pour le défi <paramref name="d"/> (première condition du défi).</summary>
+        public static Progress Track(Def d, RunStats r)
+        {
+            var p = new Progress { Target = d.A };
+            string k = d.Key;
+            if (k.Contains("score")) p.Current = r.Score;
+            else if (k.Contains("hold")) { p.Current = (int)r.Seconds; p.Time = true; }
+            else if (k.Contains("value")) p.Current = r.MaxValue;
+            else if (k.Contains("drops")) p.Current = r.Drops;
+            else if (k.Contains("merges")) p.Current = r.Merges;
+            else if (k.Contains("balloon")) p.Current = r.Balloons;
+            else if (k.Contains("gust")) p.Current = r.Gusts;
+            else if (k.Contains("save")) p.Current = (int)(r.BestSave * 100f);
+            else if (k.Contains("combo")) p.Current = r.BestChain;
+            p.Current = Math.Min(p.Current, p.Target);
+            p.Failed = k.Contains("clean") && r.LostWeights > 0;
+            p.Done = Met(d, r);
+            if (p.Done) p.Failed = false;
+            return p;
+        }
+
         public static bool DoneToday(Profile p, string dayKey) => p.daily.objectiveDate == dayKey;
     }
 
