@@ -52,24 +52,20 @@ HOW TO PLAY: drag to aim, release to drop a weight on Basile's plank. Equal weig
 ONLINE FEATURES (internet required):
 - Leaderboards (anonymous player, optional nickname). Nicknames are filtered. Any player can be reported (flag icon) or blocked from the leaderboard. Reports are handled within 24h at contact@orpheex.fr.
 - Live duel between two friends (Home > Duel). It needs TWO devices: on device A tap "Défier un ami" to get a 6-character code, on device B tap "Rejoindre un duel" and enter the code (or open the invite link). Both players get the same weights; the first one whose plank falls loses. Only nickname, head and game state are exchanged; there is no chat.
-  Demo video of a duel: [LIEN DE LA VIDÉO]
+  (If you have a demo video link of a duel, add it on this line; otherwise delete this line.)
 
 IN-APP PURCHASES: cosmetic items and "No ads" only; coins never change the score. "Restore purchases" is in Settings and in the Shop.
 
 ADS: non-personalized ads via Unity LevelPlay. No App Tracking Transparency prompt because the app does not track users. Interstitials only appear between two games, never during a game.
 
 Data deletion: Settings > "Supprimer mes données en ligne".
+
+FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !". This version is the official launch: all progress and leaderboards start from zero for everyone; paid items (No ads, premium heads) are always kept and can be restored.
 ```
 
-### Nouveautés de la version 1.3
+### Nouveautés de la version
 
-```
-Nouveau : le DUEL EN DIRECT !
-Défie un ami : même partie, mêmes poids, et tu vois sa planche en direct. Le premier qui lâche a perdu.
-Envoie l'invitation par message ou sur Snap, ton ami rejoint en un toucher.
-15 victoires = la tête Challenger.
-Et les rafales de vent s'annoncent maintenant en grand : prépare-toi à réagir !
-```
+Voir plus bas « Nouveautés de cette version » (texte à jour, avec le duel en direct).
 
 ### Confidentialité de l'app (App Privacy)
 
@@ -136,6 +132,7 @@ Bascule fait peau neuve !
 • Un petit village en bois dès les premiers points.
 • Une tenue différente pour chacune des 63 têtes.
 • Défi du jour : un vrai défi chaque jour, avec sa barre de progression en direct.
+• Nouveau : le DUEL EN DIRECT ! Défie un ami avec les mêmes poids et vois sa planche en direct. Invitation par message ou sur Snap.
 • Coffres plus vivants, partage de ton score en un geste, pastille sur les nouvelles têtes.
 • C'est le lancement : records, têtes, pièces et classements repartent de zéro pour tout le monde. Tes achats sont conservés.
 ```
