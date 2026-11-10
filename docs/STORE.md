@@ -49,3 +49,10 @@ Bascule est gratuit. Il contient des publicités non personnalisées entre les p
 3. Les images sont dans `Builds/Captures`. Google Play accepte les mêmes (1080 × 1920 minimum).
 
 Conseil : 5 captures, avec la plus spectaculaire en premier (une planche bien chargée qui penche, avec « COMBO » à l'écran).
+
+## Fichier pour Google Play (.aab)
+
+1. Unity : **Bascule → Android : construire le fichier Google Play (.aab)**.
+2. La première fois, il demande une **clé d'envoi** (keystore) : Edit → Project Settings → Player → Android → Publishing Settings → Keystore Manager → Create New. Enregistrer le fichier `.keystore` **hors du projet** (et en sauvegarde : clé USB, Drive privé), noter le mot de passe. Sans cette clé, plus aucune mise à jour possible. Unity oublie les mots de passe à chaque redémarrage : les retaper avant chaque construction.
+3. Le fichier sort dans `Builds/Bascule_<version>_<versionCode>.aab` (IL2CPP + ARM64, API Android la plus récente installée ; versionCode augmenté tout seul).
+4. Play Console → l'app → Tests → Test interne (ou Production) → Créer une release → importer le `.aab`. Accepter la **signature d'application par Google Play** (Google garde la clé finale, la tienne sert à envoyer).

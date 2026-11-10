@@ -42,6 +42,9 @@ namespace Bascule.EditorTools
         [MenuItem("Bascule/Configurer le projet", priority = 0)]
         public static void ConfigureMenu() => Configure(true);
 
+        /// <summary>Même configuration, sans fenêtre (avant une construction).</summary>
+        public static void ConfigureMenuSilent() => Configure(false);
+
         static void Configure(bool verbose)
         {
             PlayerSettings.productName = "Bascule";
