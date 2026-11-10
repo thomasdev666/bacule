@@ -150,14 +150,18 @@ namespace Bascule.Core
             var st = new Toon.Style { Outline = 0f, Shade = far ? 0.03f : 0.05f, Soft = 0.06f, ShadeStrength = 0.88f, Rim = 0.01f, RimOpacity = 0.35f, Specular = false };
             Toon.Part(img, hills, color, w, st);
 
+            // Petit village de bois (Village.cs) : moulin et cabanes au loin, chalets et barrière tout près.
+            if (far) FarVillage(img, t, hills, w, h);
+            else NearVillage(img, t, hills, w, h);
+
             if (!far)
             {
-                // Petits arbres ronds sur les collines proches.
+                // Petits arbres ronds sur les collines proches (pas devant les chalets).
                 for (int i = 0; i < 6; i++)
                 {
                     float x = w * (0.08f + i * 0.17f + rng.NextFloat() * 0.06f);
                     float top = TopOf(hills, x, h);
-                    if (top < h * 0.25f) continue;
+                    if (top < h * 0.25f || NearHouse(x / w)) continue;
                     float s = h * (0.07f + rng.NextFloat() * 0.04f);
                     var trunk = Shape.Box(x, top + s * 0.4f, s * 0.12f, s * 0.5f, s * 0.05f);
                     Toon.Part(img, trunk, WoodDark.Shade(t.Night ? 0.5f : 0.9f), s * 2, new Toon.Style { Outline = 0.04f, Shade = 0.1f, Rim = 0f, Specular = false });

@@ -3,6 +3,7 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
+- **Petit village en bois dès le début** (`Core/Village.cs`) : sur les collines de la prairie (0 à 5 500 points), chalets en rondins au toit rouge, cheminées qui fument, jardinières fleuries, barrière de bois ; au loin des cabanes et un moulin à vent. La nuit, les fenêtres s'allument. Les chalets restent sur les côtés : Basile et sa planche restent bien dégagés.
 - **14 mondes jusqu'à 30 000** (`Core/SceneBiomes.cs`, `Theme.All`, `Difficulty.ThemeScores`) : la prairie au fil de la journée (0 à 4 000), puis la **plage** (5 500 : mer, voilier, palmiers, coquillages), la **forêt** (7 000 : sapins, champignons), le **désert** (9 000 : mesas, dunes, cactus), la **montagne** (11 500 : sommets enneigés, sapins sous la neige), la **ville** (14 000) et **la ville la nuit** (17 000, fenêtres allumées), le **volcan** (20 000 : cratère, coulées et fissures de lave), la **banquise** (23 500 : icebergs, igloo, pingouin) et la **Lune** (27 000 : cratères, drapeau, la Terre dans le ciel, pas de nuages).
 - **Au-delà de 30 000** : un monde déjà vu revient tous les 3 000 points dans une autre teinte (7 teintes : rose, lavande, or, menthe, corail, violet, citron vert). 63 décors différents avant la moindre répétition, sans aucune image en plus.
 - **Mémoire** : seuls le monde affiché et le suivant sont chargés ; le suivant se charge pendant la partie, les autres sont libérés (décor du joueur et de l'adversaire en duel pris en compte).
@@ -10,7 +11,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Coffre** : se déverrouille en tapant n'importe où sur l'écran ; ondes de choc et confettis à chaque tap, couleur qui monte (or, orange, rose, violet), rayon de lumière, ouverture avec trois anneaux arc-en-ciel et pluie de confettis, compteur de pièces qui défile, tête gagnée qui tourne sur elle-même. Nouveau dessin : bande dorée rivetée, pierres bleues, étoile sur le couvercle, intérieur plus lumineux.
 - **Partage** : la vraie fenêtre de partage d'iOS (Messages, Snap, Insta…) avec l'image du score (`Plugins/iOS/BasculeShare.mm`), et celle d'Android ; avant, sans paquet NativeShare, le jeu se contentait de copier le texte (« texte copié »).
 - **Nouvelles têtes** : pastille rouge avec le nombre sur le bouton Têtes de l'accueil et sur chaque onglet de la collection, étiquette « NOUVEAU ! » sur la tête ; la collection s'ouvre sur l'onglet des nouveautés, la pastille disparaît une fois vues.
-- ArtPack régénéré, `ArtVersion` 16. 162 tests.
+- ArtPack régénéré, `ArtVersion` 17. 162 tests.
 
 ## V1.3 (1.3, build 4) – duel en direct, annonce de rafale, prêt pour la validation Apple
 - **Duel en temps réel entre amis** (`Core/Duel.cs`, `Runtime/Duel/`, `UI/DuelScreens.cs`) :
