@@ -194,6 +194,113 @@ namespace Bascule.UI
         }
     }
 
+    // ===================================================================== Défi du jour
+
+    /// <summary>
+    /// Défi du jour : le défi en grand sur une carte violette, la récompense en pastille dorée (ou « réussi »), le meilleur
+    /// score du jour et la série, la règle en une ligne, et un compte à rebours jusqu'au prochain défi.
+    /// </summary>
+    public sealed class DailyScreen : UiScreen
+    {
+        Text _sub, _challenge, _pillText, _best, _streak;
+        Image _pill, _pillIcon;
+        Button _play;
+        float _clock;
+
+        protected override void Build()
+        {
+            var card = Ui.Card(Safe, "Fenetre");
+            Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 20, 960, 1400);
+            card.gameObject.AddComponent<PopIn>();
+            var title = Ui.Title(card.transform, Loc.Get("daily"), 84, Palette.Accent);
+            Ui.Place(title.rectTransform, 0.5f, 1, 0, -92, 880, 120);
+            _sub = Ui.Label(card.transform, "", 38, Palette.Muted);
+            Ui.Place(_sub.rectTransform, 0.5f, 1, 0, -172, 880, 56);
+
+            // Carte du défi (violette), avec halo et cible.
+            var glow = Ui.Image(card.transform, Art.SoftDisc, new Color(0.65f, 0.42f, 1f, 0.35f), "Halo");
+            Ui.Place(glow.rectTransform, 0.5f, 1, 0, -440, 1000, 520);
+            var panel = Ui.Image(card.transform, Art.Panel, Palette.Purple, "Defi", true);
+            Ui.Place(panel.rectTransform, 0.5f, 1, 0, -220, 860, 440, 0.5f, 1);
+            var target = Ui.Icon(panel.transform, Art.IconSprite(Icon.Target), "Cible");
+            target.color = new Color(1, 1, 1, 0.9f);
+            Ui.Place(target.rectTransform, 0.5f, 1, 0, -70, 96, 96);
+            var label = Ui.Label(panel.transform, Loc.Get("daily_your_challenge"), 36, new Color(1, 1, 1, 0.85f));
+            Ui.Place(label.rectTransform, 0.5f, 1, 0, -146, 760, 50);
+            _challenge = Ui.Title(panel.transform, "", 60, Color.white);
+            Ui.Place(_challenge.rectTransform, 0.5f, 1, 0, -248, 780, 150);
+            _challenge.resizeTextForBestFit = true; _challenge.resizeTextMinSize = 40; _challenge.resizeTextMaxSize = 60;
+            // Pastille de récompense.
+            _pill = Ui.Image(panel.transform, Art.Pill, Palette.Accent, "Recompense", true);
+            Ui.Place(_pill.rectTransform, 0.5f, 0, 0, 34, 470, 92, 0.5f, 0);
+            _pillIcon = Ui.Icon(_pill.transform, Art.IconSprite(Icon.Coin), "Piece");
+            Ui.Place(_pillIcon.rectTransform, 0, 0.5f, 52, 0, 66, 66);
+            _pillText = Ui.Title(_pill.transform, "", 44, Color.white);
+            Ui.Stretch(_pillText.rectTransform, 90, 4, 24, 0);
+            _pill.gameObject.AddComponent<Pulse>().Amount = 0.04f;
+
+            // Meilleur score du jour et série.
+            _best = StatTile(card.transform, -0.5f, Icon.Trophy, Palette.Accent, Loc.Get("daily_best_label"));
+            _streak = StatTile(card.transform, 0.5f, Icon.Flame, Palette.Primary, Loc.Get("daily_streak_label"));
+
+            var rule = Ui.Label(card.transform, Loc.Get("daily_rule_short"), 34, Palette.Muted);
+            Ui.Place(rule.rectTransform, 0.5f, 1, 0, -1000, 840, 100);
+
+            _play = Ui.Button(card.transform, Loc.Get("play"), Palette.Play, () => { Hide(); App.Play(GameMode.Daily); }, Icon.Play, 60, "Jouer");
+            Ui.Place((RectTransform)_play.transform, 0.5f, 0, 0, 236, 760, 160);
+            var back = Ui.Button(card.transform, Loc.Get("back"), Palette.Muted, Hide, null, 46, "Retour");
+            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 86, 520, 116);
+        }
+
+        Text StatTile(Transform parent, float side, Icon icon, Color tint, string caption)
+        {
+            var tile = Ui.Image(parent, Art.Pill, new Color(1f, 1f, 1f, 0.75f), "Tuile", true);
+            Ui.Place(tile.rectTransform, 0.5f, 1, side * 430f, -700, 410, 200, 0.5f, 1);
+            var ic = Ui.Icon(tile.transform, Art.IconSprite(icon), "Icone");
+            ic.color = tint;
+            Ui.Place(ic.rectTransform, 0, 0.5f, 70, 18, 76, 76);
+            var value = Ui.Title(tile.transform, "-", 62, Palette.Ink);
+            Ui.Place(value.rectTransform, 0.5f, 0.5f, 40, 26, 270, 84);
+            var cap = Ui.Label(tile.transform, caption, 30, Palette.Muted);
+            Ui.Place(cap.rectTransform, 0.5f, 0, 0, 22, 370, 54, 0.5f, 0);
+            return value;
+        }
+
+        public override void Refresh()
+        {
+            var p = App.Profile;
+            string today = App.TodayKey;
+            var obj = DailyChallenge.For(today);
+            _challenge.text = Loc.DailyText(obj);
+            bool done = DailyChallenge.DoneToday(p, today);
+            _pill.color = done ? Palette.Success : Palette.Accent;
+            _pillIcon.gameObject.SetActive(!done);
+            _pillText.text = done ? Loc.Get("daily_done_pill") : Loc.Format("daily_reward_pill", obj.Reward);
+            ((RectTransform)_pillText.transform).offsetMin = new Vector2(done ? 24 : 90, 4);
+            int best = p.daily.bestDate == today ? p.daily.bestScoreToday : 0;
+            _best.text = best > 0 ? Loc.FormatScore(best) : "-";
+            int streak = Daily.CurrentStreak(p.daily, today);
+            _streak.text = streak.ToString();
+            Ui.ButtonLabel(_play).text = Loc.Get(Daily.PlayedToday(p.daily, today) ? "daily_again" : "play");
+            UpdateClock();
+        }
+
+        public override void Tick(float dt)
+        {
+            _clock -= dt;
+            if (_clock <= 0f) UpdateClock();
+        }
+
+        void UpdateClock()
+        {
+            _clock = 1f;
+            // Le défi change à minuit UTC (comme App.TodayKey).
+            var left = DateTime.UtcNow.Date.AddDays(1) - DateTime.UtcNow;
+            string time = left.TotalHours >= 1 ? Loc.Format("daily_hours", (int)left.TotalHours, left.Minutes) : Loc.Format("daily_minutes", Math.Max(1, left.Minutes));
+            _sub.text = Loc.Format("daily_sub", Brag.DayNumber(App.TodayKey), time);
+        }
+    }
+
     // ===================================================================== Cadeau du jour
 
     public sealed class GiftScreen : UiScreen

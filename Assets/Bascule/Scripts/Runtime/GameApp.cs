@@ -103,6 +103,7 @@ namespace Bascule
         MissionsScreen _missions;
         ShopScreen _shop;
         ConfirmScreen _confirm;
+        DailyScreen _daily;
         DuelLobbyScreen _duelLobby;
         DuelHudScreen _duelHud;
         DuelResultScreen _duelResult;
@@ -394,6 +395,7 @@ namespace Bascule
             _gift = Make<GiftScreen>(t, Palette.Shade);
             _duelLobby = Make<DuelLobbyScreen>(t, Palette.Shade);
             _duelResult = Make<DuelResultScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.93f));
+            _daily = Make<DailyScreen>(t, Palette.Shade);
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
@@ -465,7 +467,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -596,18 +598,8 @@ namespace Bascule
         /// <summary>Défi du jour : on explique la règle et le record avant de lancer, au lieu de démarrer une partie sans prévenir.</summary>
         public void ShowDailyIntro()
         {
-            var p = Profile;
-            int streak = Daily.CurrentStreak(p.daily, TodayKey);
-            bool played = Daily.PlayedToday(p.daily, TodayKey);
-            int today = p.daily.bestDate == TodayKey ? p.daily.bestScoreToday : 0;
-            var obj = DailyChallenge.For(TodayKey);
-            string body = Loc.Format("daily_objective", Loc.DailyText(obj)) + "\n"
-                + (DailyChallenge.DoneToday(p, TodayKey) ? Loc.Get("daily_objective_already") : Loc.Format("daily_objective_reward", obj.Reward))
-                + "\n\n" + Loc.Get("daily_rule");
-            if (today > 0) body += "\n\n" + Loc.Format("daily_best", Loc.FormatScore(today));
-            if (streak > 0) body += "\n" + Loc.Format("daily_streak", streak);
-            _confirm.Ask(Loc.Get("daily"), body, Art.IconSprite(Icon.Calendar),
-                Loc.Get(played ? "daily_again" : "play"), () => Play(GameMode.Daily), Loc.Get("back"), null);
+            _daily.Show();
+            _daily.Root.SetAsLastSibling();
         }
 
         // ------------------------------------------------------------------ Duel en temps réel
@@ -1598,6 +1590,7 @@ namespace Bascule
 
             Duel.Tick(Time.deltaTime);
             if (_hud.Visible) _hud.Tick(dt);
+            if (_daily.Visible) _daily.Tick(dt);
             if (_duelHud.Visible) _duelHud.Tick(dt);
             if (_duelLobby.Visible) _duelLobby.Tick(dt);
             if (_duelResult.Visible) _duelResult.Tick(dt);

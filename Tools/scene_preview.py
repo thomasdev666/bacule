@@ -1182,3 +1182,45 @@ if __name__ == "__main__" and len(sys.argv) > 3 and sys.argv[3] == "ecrans":
 
 if __name__ == "__main__" and not (len(sys.argv) > 3 and sys.argv[3] == "ecrans"):
     main()
+
+
+def daily_screen():
+    """Défi du jour (DailyScreen) : carte violette du défi, récompense, meilleur score et série, compte à rebours."""
+    c = home_screen()
+    img = c.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    cb = place(0.5, 0.5, 0, 20, 960, 1400)
+    card(img, cb)
+    title(img, "Défi du jour", (cb[0], cb[1] + 32, cb[2], cb[1] + 152), 84, color=rgb(COL["Accent"]))
+    title(img, "Défi n°42 · nouveau défi dans 5 h 07", (cb[0], cb[1] + 144, cb[2], cb[1] + 200), 38, color=rgb(COL["Muted"]), outline=False)
+    glow = Image.new("RGBA", (1000, 520), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse((60, 40, 940, 480), fill=(166, 108, 255, 110))
+    glow = glow.filter(ImageFilter.GaussianBlur(50))
+    img.alpha_composite(glow, (int(W / 2 - 500), int(cb[1] + 440 - 260)))
+    pb = (W / 2 - 430, cb[1] + 220, W / 2 + 430, cb[1] + 660)
+    card(img, pb, tint=rgb(COL["Purple"]) + (255,))
+    tinted_icon(img, "Target", (W / 2 - 48, pb[1] + 22, W / 2 + 48, pb[1] + 118), "#FFFFFF")
+    title(img, "TON DÉFI", (pb[0], pb[1] + 121, pb[2], pb[1] + 171), 36, color=(255, 255, 255), outline=False)
+    title(img, "Fais 60 fusions en une partie", (pb[0] + 40, pb[1] + 173, pb[2] - 40, pb[1] + 323), 60)
+    rb = (W / 2 - 235, pb[3] - 126, W / 2 + 235, pb[3] - 34)
+    pill(img, rb, color=rgb(COL["Accent"]) + (255,))
+    tinted_icon(img, "Coin", (rb[0] + 19, rb[1] + 13, rb[0] + 85, rb[1] + 79), "#FFE678")
+    title(img, "+150 pièces", (rb[0] + 90, rb[1], rb[2] - 24, rb[3] - 4), 44)
+    for side, ic, colr, val, cap in ((-1, "Trophy", "Accent", "2 310", "Ton meilleur aujourd'hui"), (1, "Flame", "Primary", "3", "Jours de suite")):
+        cx = W / 2 + side * 215
+        tb = (cx - 205, cb[1] + 700, cx + 205, cb[1] + 900)
+        pill(img, tb, color=(255, 255, 255, 190))
+        tinted_icon(img, ic, (tb[0] + 32, tb[1] + 44, tb[0] + 108, tb[1] + 120), colr)
+        title(img, val, (cx + 40 - 135, tb[1] + 32, cx + 40 + 135, tb[1] + 116), 62, color=rgb(COL["Ink"]), outline=False)
+        title(img, cap, (tb[0] + 20, tb[3] - 76, tb[2] - 20, tb[3] - 22), 30, color=rgb(COL["Muted"]), outline=False)
+    t1 = "Les mêmes poids pour tout le monde aujourd'hui."
+    t2 = "Ton meilleur score compte pour le classement du jour."
+    title(img, t1, (cb[0] + 60, cb[1] + 950, cb[2] - 60, cb[1] + 1000), 34, color=rgb(COL["Muted"]), outline=False)
+    title(img, t2, (cb[0] + 60, cb[1] + 1000, cb[2] - 60, cb[1] + 1050), 34, color=rgb(COL["Muted"]), outline=False)
+    button(img, (W / 2 - 380, cb[3] - 316, W / 2 + 380, cb[3] - 156), "Play", "Jouer", "Play", 60)
+    button(img, (W / 2 - 260, cb[3] - 144, W / 2 + 260, cb[3] - 28), "Muted", "Retour", None, 46)
+    return c
+
+
+if __name__ == "__main__" and len(sys.argv) > 3 and sys.argv[3] == "defi":
+    daily_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_defi_du_jour.png"))
