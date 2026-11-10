@@ -84,7 +84,8 @@ namespace Bascule.EditorTools
                 EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
 
             int code = PlayerSettings.Android.bundleVersionCode;
-            string path = "Builds/Bascule_" + BasculeSetup.Version + "_" + code + ".aab";
+            // Google Play exige que le nom du fichier reprenne le nom du paquet (fr.orpheex.bascule).
+            string path = "Builds/" + BasculeSetup.BundleId + "_" + code + ".aab";
             Directory.CreateDirectory("Builds");
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
