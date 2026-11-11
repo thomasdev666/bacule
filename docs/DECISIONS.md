@@ -29,7 +29,7 @@ Toutes ces décisions se changent sans recoder : dans `bascule_tuning.json` ou, 
 - **Fluidité** : aucune image n'est calculée pendant une partie (préparation en arrière-plan au lancement, `ArtCache.PrepareInBackground`).
 - **Écran** : téléphones et tablettes (jusqu'au rapport 0,8, iPad compris) remplissent tout l'écran ; seul un écran plus large affiche une colonne portrait.
 - **Têtes** : les anciens paliers (jusqu'à 60 000 points) laissaient 22 têtes sur 33 hors de portée. Il y a maintenant 20 têtes de record aux paliers resserrés, 13 de niveau (le niveau monte à chaque partie), 16 en pièces et 6 premium. Les identifiants des 40 têtes d'origine n'ont pas changé.
-- **Pièces** : elles n'achètent que des têtes, jamais un avantage en partie (§9). La seconde chance reste gratuite par vidéo pour tout le monde, et sans vidéo pour ceux qui ont acheté « sans pub ».
+- **Pièces** : elles n'achètent que des têtes, jamais un avantage en partie (§9). La seconde chance se gagne toujours par une vidéo choisie, pour tout le monde (« Sans publicité » retire seulement les pubs imposées).
 - **Pubs imposées** : seulement entre deux parties. Pas avant la 6e partie ; au plus une toutes les 3 parties et 3 minutes ; jamais juste après un record ou une vidéo choisie. C'est la règle qui garde presque toute la rétention pour le meilleur revenu parmi les règles raisonnables.
 - **Offre de départ** : une seule fois, pendant 48 h, après la 8e partie (le joueur a accroché, la première pub imposée vient de passer).
 - **Cadeau du jour** : il arrive après la 1re partie, jamais avant, pour qu'un nouveau joueur joue tout de suite.

@@ -470,7 +470,7 @@ namespace Bascule.Core
             ["p_starter"] = new[] { "Offre de départ", "Starter offer" },
             ["p_starter_desc"] = new[] { "Plus de pubs imposées + 2 000 pièces + Basile doré", "No forced ads + 2,000 coins + Golden Basile" },
             ["p_removeads"] = new[] { "Sans publicité", "No ads" },
-            ["p_removeads_desc"] = new[] { "Plus aucune pub entre les parties, et la seconde chance sans vidéo", "No more ads between games, and second chances without videos" },
+            ["p_removeads_desc"] = new[] { "Plus aucune pub imposée entre les parties", "No more forced ads between games" },
             ["p_coins_s"] = new[] { "600 pièces", "600 coins" },
             ["p_coins_m"] = new[] { "2 200 pièces", "2,200 coins" },
             ["p_coins_l"] = new[] { "6 000 pièces", "6,000 coins" },

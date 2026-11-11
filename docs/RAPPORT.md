@@ -164,7 +164,7 @@ Tout se règle dans `bascule_tuning.json`, section `ads`.
 | Produit | Prix | Contenu |
 |---|---|---|
 | Offre de départ | 3,99 € | sans pub + 2 000 pièces + Basile doré. Proposée une seule fois, pendant 48 h, après la 8e partie |
-| Sans publicité | 2,99 € | plus de pub imposée ; revivre sans vidéo |
+| Sans publicité | 2,99 € | plus de pub imposée |
 | Pièces | 0,99 €, 2,99 €, 6,99 € | 600, 2 200 (+20 %) ou 6 000 (+40 %) pièces |
 | Pack Légendes | 4,99 € | 5 têtes exclusives |
 

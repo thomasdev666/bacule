@@ -57,7 +57,7 @@ Sans régie branchée, `SimulatedAdService` affiche une fausse pub pour tester t
 3. Package Manager → **Advertisement Legacy** (`com.unity.ads`). Le define `BASCULE_UNITYADS` s'active tout seul.
 4. Remplir `GameApp.AdIds.Game` avec le Game ID (iOS et Android). `TestMode` suit tout seul le type de build : pubs de test dans un build de développement, vraies pubs sinon. Pour tester la vraie version sur ton téléphone, l'ajouter comme appareil de test dans Unity Ads, et ne jamais cliquer sur ses propres pubs (compte suspendu).
 5. Dans le tableau de bord Unity Ads, régler le public sur « contenu pour toute la famille / public mixte ». Le code déclare déjà au SDK l'absence de consentement au ciblage (`gdpr.consent = false`, `privacy.consent = false`, `privacy.mode = mixed`, `user.nonbehavioral = true`).
-6. Le joueur qui a acheté « Sans publicité » ou l'offre de départ ne voit plus aucune pub imposée et revit sans vidéo. Les vidéos qui donnent des pièces restent proposées : elles sont toujours au choix.
+6. Le joueur qui a acheté « Sans publicité » ou l'offre de départ ne voit plus aucune pub imposée. La seconde chance et les vidéos qui donnent des pièces restent proposées : elles sont toujours au choix.
 
 > Autre régie possible (Unity LevelPlay, AdMob) : écrire une classe qui implémente `IAdService` (`CanShowRewarded`, `CanShowInterstitial`, `ShowRewarded`, `ShowInterstitial`) et la créer à la place dans `GameApp.Awake`. AdMob : `TagForChildDirectedTreatment` ou `TagForUnderAgeOfConsent`, et `MaxAdContentRating = G`.
 
@@ -68,7 +68,7 @@ Catalogue (`Core/Economy.cs → Shop.Products`) : uniquement du confort ou du co
 | Identifiant | Type | Prix conseillé | Contenu |
 |---|---|---|---|
 | `bascule.starter` | non consommable | 3,99 € | sans pub + 2 000 pièces + tête Basile doré. Proposé une seule fois, 48 h, après la 8e partie |
-| `bascule.removeads` | non consommable | 2,99 € | plus de pubs imposées, revivre sans vidéo |
+| `bascule.removeads` | non consommable | 2,99 € | plus de pubs imposées entre les parties |
 | `bascule.coins.small` | consommable | 0,99 € | 600 pièces |
 | `bascule.coins.medium` | consommable | 2,99 € | 2 200 pièces (+20 %) |
 | `bascule.coins.large` | consommable | 6,99 € | 6 000 pièces (+40 %) |

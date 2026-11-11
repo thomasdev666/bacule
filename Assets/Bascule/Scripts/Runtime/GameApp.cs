@@ -977,8 +977,10 @@ namespace Bascule
             Texture card = null;
 
             _hud.Hide();
-            bool canRevive = Session.CanRevive && (Profile.adsRemoved || (_ads.CanShowRewarded && AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay)));
-            _gameOver.Present(result, rewards, _pendingGain, canRevive, Profile.adsRemoved, card);
+            // Seconde chance : toujours contre une vidéo choisie par le joueur (même avec « Sans publicité », qui retire
+            // seulement les pubs imposées entre les parties).
+            bool canRevive = Session.CanRevive && _ads.CanShowRewarded && AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay);
+            _gameOver.Present(result, rewards, _pendingGain, canRevive, false, card);
             _current = _gameOver;
         }
 
@@ -1118,7 +1120,6 @@ namespace Bascule
                 Session.Revive();
                 Show(_hud);
             }
-            if (Profile.adsRemoved) { Stats.Event("revive", ("free", true)); Revive(); return; }
             WatchRewarded(Placements.Revive, () => { Stats.Event("revive", ("free", false)); Revive(); });
         }
 
