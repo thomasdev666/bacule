@@ -23,7 +23,7 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 
 1. **Unity** : ouvrir le projet, « Bascule → Configurer le projet » (version 1.3, build 4, schéma `bascule`). Installer **Multiplayer Services** (Package Manager). Dashboard Unity : activer **Relay** et **Lobby**, et régler une alerte de dépense.
 2. **Site orpheex.fr** : mettre en ligne `docs/site/bascule/` à jour (`index.html`, `confidentialite.html`, `duel.html`, `style.css`), **avant** l'envoi. Apple ouvre les liens d'aide et de confidentialité.
-   - Remplir le dernier passage surligné de `confidentialite.html` : forme juridique, adresse et SIREN d'Orphex (je ne peux pas les inventer).
+   - `confidentialite.html` : forme juridique (entrepreneur individuel) et SIREN 939 004 032 renseignés ; reste l'adresse de domiciliation à choisir (surlignée).
    - Section « Âge » : la page dit « 13 ans et plus », mais la pub vise les 11–17 ans. Choisir une seule règle et l'aligner avec la classification App Store.
 3. **TestFlight, sur deux iPhone** :
    - un achat de test et « Restaurer mes achats » ;
