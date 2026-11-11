@@ -2,7 +2,7 @@
 
 Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la main dans App Store Connect, avec les textes prêts à coller.
 
-## Déjà réglé dans le projet (version 1.3, build 4)
+## Déjà réglé dans le projet (version 1.3)
 
 | Motif de refus fréquent | Ce que fait Bascule |
 |---|---|
@@ -21,7 +21,7 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 
 ## À faire avant d'envoyer la 1.3
 
-1. **Unity** : ouvrir le projet, « Bascule → Configurer le projet » (version 1.3, build 4, schéma `bascule`). Installer **Multiplayer Services** (Package Manager). Dashboard Unity : activer **Relay** et **Lobby**, et régler une alerte de dépense.
+1. **Unity** : ouvrir le projet, « Bascule → Configurer le projet » (version 1.3, schéma `bascule`). Installer **Multiplayer Services** (Package Manager). Dashboard Unity : activer **Relay** et **Lobby**, et régler une alerte de dépense.
 2. **Site orpheex.fr** : mettre en ligne `docs/site/bascule/` à jour (`index.html`, `confidentialite.html`, `duel.html`, `style.css`), **avant** l'envoi. Apple ouvre les liens d'aide et de confidentialité.
    - `confidentialite.html` : forme juridique (entrepreneur individuel) et SIREN 939 004 032 renseignés ; reste l'adresse de domiciliation à choisir (surlignée).
    - Section « Âge » : la page dit « 13 ans et plus », mais la pub vise les 11–17 ans. Choisir une seule règle et l'aligner avec la classification App Store.
@@ -45,22 +45,25 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 À coller tel quel (en anglais : les testeurs d'Apple le lisent plus vite) :
 
 ```
-Bascule is a free single-player balance game (French only). No login is required.
+Bascule is a free balance game (French only). No account and no login are required: everything works right after install.
 
-HOW TO PLAY: drag to aim, release to drop a weight on Basile's plank. Equal weights merge. Keep the plank balanced.
+HOW TO PLAY: drag to aim, release to drop a weight on Basile's plank. Equal weights merge. Keep the plank balanced as long as possible.
 
-ONLINE FEATURES (internet required):
-- Leaderboards (anonymous player, optional nickname). Nicknames are filtered. Any player can be reported (flag icon) or blocked from the leaderboard. Reports are handled within 24h at contact@orpheex.fr.
-- Live duel between two friends (Home > Duel). It needs TWO devices: on device A tap "Défier un ami" to get a 6-character code, on device B tap "Rejoindre un duel" and enter the code (or open the invite link). Both players get the same weights; the first one whose plank falls loses. Only nickname, head and game state are exchanged; there is no chat.
-  (If you have a demo video link of a duel, add it on this line; otherwise delete this line.)
+FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !".
 
-IN-APP PURCHASES: cosmetic items and "No ads" only; coins never change the score. "Restore purchases" is in Settings and in the Shop.
+ONLINE FEATURES (internet required, all optional):
+- Leaderboards (Home > trophy): anonymous player, optional nickname. Nicknames are filtered. Tap any player to Report ("Signaler") or Block ("Bloquer"). Reports are handled within 24h at contact@orpheex.fr.
+- Friends (Leaderboard > "Mon code ami" / "Ajouter un ami"): players add each other with a 6-character friend code. A friend can be removed at any time ("Retirer des amis").
+- Live duel (Home > Duel). It needs TWO devices: on device A tap "Défier un ami" to get a 6-character code, on device B tap "Rejoindre un duel" and enter the code. A friend can also be invited from "Mes amis". Both players get the same weights; the first plank to fall loses. Only nickname, head and game state are exchanged. There is NO chat and no free text between players.
+- A demo video of a full duel on two iPhones is attached to this submission.
 
-ADS: non-personalized ads via Unity LevelPlay. No App Tracking Transparency prompt because the app does not track users. Interstitials only appear between two games, never during a game.
+IN-APP PURCHASES: cosmetics (heads, planks, coins) and "Sans publicité" (removes forced interstitials). Coins only buy cosmetics and never change the score or the gameplay. "Restaurer mes achats" is in Settings and in the Shop.
 
-Data deletion: Settings > "Supprimer mes données en ligne".
+ADS: non-personalized ads via Unity LevelPlay. No App Tracking Transparency prompt because the app does not track users and does not read the IDFA. Interstitials only appear between two games, never during a game. The "second chance" after losing is always an optional rewarded ad.
 
-FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !". 
+NOTIFICATIONS: optional, at most one local reminder per day, asked only after the first games.
+
+DATA DELETION: Settings > "Supprimer mes données en ligne" deletes the online player, nickname, scores and friend code.
 ```
 
 ### Nouveautés de la version
@@ -101,7 +104,8 @@ Ne pas choisir la catégorie « Enfants ». Elle interdit la plupart des régies
 ### Divers
 
 - **Capture d'écran du duel** : facultative, mais elle montre la nouveauté.
-- **Numéro de build** : à chaque nouvel envoi, augmenter `BuildNumber` dans `Editor/BasculeSetup.cs`. Apple refuse deux envois avec le même numéro.
+- **Numéro de build** : Codemagic le règle tout seul (dernier build TestFlight + 1, étape « Numéro de build automatique » de `codemagic.yaml` dans bacule-ios).
+- **Vidéo du duel** : la joindre dans App Review Information → **Pièce jointe** (fichier .mov ou .mp4), c'est le plus sûr. Sinon, mettre un lien non répertorié dans les notes.
 
 
 ## Page produit (iOS 27) : en-tête et résultats de recherche
@@ -132,6 +136,6 @@ Bascule fait peau neuve !
 • Un petit village en bois dès les premiers points.
 • Une tenue différente pour chacune des 63 têtes.
 • Défi du jour : un vrai défi chaque jour, avec sa barre de progression en direct.
-• Nouveau : le DUEL EN DIRECT ! Défie un ami avec les mêmes poids et vois sa planche en direct. Invitation par message ou sur Snap.
+• Nouveau : le DUEL EN DIRECT ! Défie un ami avec les mêmes poids et vois sa planche en direct. Invite-le depuis ta liste d'amis ou par message.
 • Coffres plus vivants, partage de ton score en un geste, pastille sur les nouvelles têtes.
 ```
