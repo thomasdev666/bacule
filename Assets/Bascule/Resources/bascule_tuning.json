@@ -72,16 +72,16 @@
   },
   "economy": {
     "_aide": "Pièces par partie = score / scorePerCoin. XP par partie = xpPerGame + score / scorePerXp. XP du niveau n au suivant = levelXpBase + levelXpStep x n. Pièces au passage du niveau n = levelCoinsBase + levelCoinsStep x n. dailyGift : pièces des jours 1 à 7 de suite ; dailyGiftItems : objet du jour en plus (coins, chest = coffre, ticket = surprise gratuite, plank = planche). Les pièces n'achètent que des têtes (jamais d'avantage en partie).",
-    "scorePerCoin": 25,
+    "scorePerCoin": 40,
     "xpPerGame": 10,
     "scorePerXp": 10,
     "levelXpBase": 75,
     "levelXpStep": 50,
-    "levelCoinsBase": 50,
-    "levelCoinsStep": 10,
+    "levelCoinsBase": 40,
+    "levelCoinsStep": 8,
     "dailyGift": [50, 0, 120, 0, 200, 0, 300],
     "dailyGiftItems": ["coins", "chest", "coins", "ticket", "coins", "chest", "plank"],
-    "missionsBonus": 150,
+    "missionsBonus": 100,
     "missionXp": 40
   },
   "ads": {
@@ -139,7 +139,7 @@
     "coinsLose": 25,
     "coinsDraw": 40,
     "challengerWins": 15,
-    "snapshotsPerSecond": 15,
+    "snapshotsPerSecond": 20,
     "timeoutSeconds": 8
   }
 }

@@ -219,7 +219,9 @@ namespace Unity.Services.CloudSave.Models
     {
         public Query(List<FieldFilter> fields, HashSet<string> returnKeys = default, int offset = default, int limit = default) { }
     }
-    public class EntityData { public string Id { get; } }
+    public interface IDeserializable { T GetAs<T>(); }
+    public class Item { public string Key { get; } public IDeserializable Value { get; } }
+    public class EntityData { public string Id { get; } public List<Item> Data { get; } }
 }
 
 namespace Unity.Services.CloudSave.Models.Data.Player

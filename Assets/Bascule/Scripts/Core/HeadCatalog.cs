@@ -102,7 +102,7 @@ namespace Bascule.Core
         /// </summary>
         public static List<int> ScoreThresholds() => new List<int>
         {
-            250, 500, 1000, 1500, 2000, 3000, 4000, 5000, 6500, 8000, 10000, 12500, 15000, 17500, 20000, 25000, 30000, 40000, 50000, 75000,
+            300, 700, 1200, 1800, 2500, 3200, 4000, 5000, 6500, 8000, 10000, 12500, 15000, 17500, 20000, 25000, 30000, 40000, 50000, 75000,
         };
 
         /// <summary>Niveaux de joueur (13 têtes), espacés : une nouvelle tête de niveau toutes les quelques semaines de jeu.</summary>

@@ -48,7 +48,7 @@ namespace Bascule.Core
         /// <summary>Victoires pour la tête « Challenger ».</summary>
         public int challengerWins = 15;
         /// <summary>Photos de la partie envoyées par seconde.</summary>
-        public int snapshotsPerSecond = 15;
+        public int snapshotsPerSecond = 20;
         /// <summary>Sans nouvelles de l'adversaire pendant ce temps (s), il est considéré comme parti.</summary>
         public float timeoutSeconds = 8f;
     }
@@ -116,6 +116,24 @@ namespace Bascule.Core
             p.duelsPlayed++;
             if (o == DuelOutcome.Win) p.duelWins++;
             int coins = Coins(o, t);
+            Wallet.Add(p, coins);
+            return coins;
+        }
+
+        /// <summary>
+        /// Missions de duel (jouer, gagner) : avance, pièces des missions réussies et bonus des 3 missions du jour.
+        /// Renvoie les pièces gagnées ainsi ; <paramref name="done"/> reçoit les missions réussies.
+        /// </summary>
+        public static int ApplyMissions(Profile p, DuelOutcome o, EconomyTuning t, out List<Mission> done)
+        {
+            done = Missions.ApplyDuel(p.missions, o == DuelOutcome.Win);
+            int coins = 0;
+            foreach (var m in done) coins += m.reward;
+            if (done.Count > 0 && !p.missions.bonusClaimed && Missions.AllDone(p.missions))
+            {
+                p.missions.bonusClaimed = true;
+                coins += t.missionsBonus;
+            }
             Wallet.Add(p, coins);
             return coins;
         }
@@ -415,17 +433,29 @@ namespace Bascule.Core
         readonly Dictionary<ushort, DuelWeight> _prev = new Dictionary<ushort, DuelWeight>();
         float _offset = float.MaxValue;
         public float DelaySeconds = 0.12f;
+        /// <summary>
+        /// Délai adaptatif : il suit l'irrégularité du réseau (photos qui arrivent en avance ou en retard). Assez long
+        /// pour toujours avoir une photo d'avance (pas d'image figée puis qui saute), le plus court possible sinon.
+        /// </summary>
+        public bool Adaptive;
+        public float MinDelay = 0.08f, MaxDelay = 0.35f;
+        float _jitter, _interval = 1f / 15f;
         public int Count => _snaps.Count;
         public DuelSnapshot Latest => _snaps.Count > 0 ? _snaps[_snaps.Count - 1] : null;
         /// <summary>Heure locale de la dernière photo reçue.</summary>
         public float LastArrival { get; private set; } = -1f;
 
-        public void Clear() { _snaps.Clear(); _arrivals.Clear(); _offset = float.MaxValue; LastArrival = -1f; }
+        public void Clear() { _snaps.Clear(); _arrivals.Clear(); _offset = float.MaxValue; LastArrival = -1f; _jitter = 0f; }
 
         /// <summary>Ajoute une photo reçue à l'heure locale <paramref name="localTime"/> (s). Les photos en retard sont ignorées.</summary>
         public void Add(DuelSnapshot s, float localTime)
         {
             if (_snaps.Count > 0 && s.TimeMs <= _snaps[_snaps.Count - 1].TimeMs) return;
+            if (_snaps.Count > 0)
+            {
+                float gap = (s.TimeMs - _snaps[_snaps.Count - 1].TimeMs) / 1000f;
+                if (gap > 0f && gap < 0.5f) _interval += (gap - _interval) * 0.1f;
+            }
             _snaps.Add(s);
             _arrivals.Add(localTime);
             LastArrival = localTime;
@@ -434,6 +464,16 @@ namespace Bascule.Core
             if (off < _offset) _offset = off;
             // Le décalage peut dériver un peu : on le laisse remonter très lentement.
             else _offset += (off - _offset) * 0.002f;
+            if (Adaptive && _offset < float.MaxValue)
+            {
+                // Retard de cette photo par rapport au trajet le plus rapide : monte vite, redescend lentement.
+                float late = off - _offset;
+                _jitter = late > _jitter ? _jitter + (late - _jitter) * 0.5f : _jitter + (late - _jitter) * 0.02f;
+                float want = _interval * 1.6f + _jitter * 1.3f;
+                want = want < MinDelay ? MinDelay : (want > MaxDelay ? MaxDelay : want);
+                // Le délai change en douceur : l'adversaire ne fait jamais de saut en avant ou en arrière.
+                DelaySeconds += (want - DelaySeconds) * 0.08f;
+            }
             while (_snaps.Count > 40) { _snaps.RemoveAt(0); _arrivals.RemoveAt(0); }
         }
 

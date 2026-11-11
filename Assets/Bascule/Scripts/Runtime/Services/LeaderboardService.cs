@@ -17,6 +17,14 @@ namespace Bascule.Services
         public bool IsMe;
     }
 
+    /// <summary>Invitation à un duel reçue d'un ami (Cloud Save, données publiques de l'ami).</summary>
+    public sealed class DuelInvite
+    {
+        public string FromId, FromName, Code;
+        /// <summary>Heure d'envoi (secondes Unix, horloge de l'ami).</summary>
+        public long At;
+    }
+
     public sealed class LeaderboardPage
     {
         public bool Online;
@@ -57,6 +65,19 @@ namespace Bascule.Services
         Task<string> PublishFriendCodeAsync();
         /// <summary>Retrouve un joueur par son code court ; null s'il est introuvable (ou ambigu).</summary>
         Task<string> FindPlayerByCodeAsync(string code);
+        /// <summary>
+        /// Amis réciproques : publie « j'ai ajouté ce joueur » (donnée publique indexée, case <paramref name="slot"/> de 1 à
+        /// FriendLinkSlots). L'autre joueur le retrouve avec FindPlayersWhoAddedMeAsync et nous ajoute à son tour.
+        /// </summary>
+        Task<bool> PublishFriendLinkAsync(string friendId, int slot);
+        /// <summary>Joueurs qui nous ont ajouté en ami (récemment).</summary>
+        Task<List<string>> FindPlayersWhoAddedMeAsync();
+        /// <summary>Invite un ami au duel <paramref name="code"/> (il le voit sur son écran d'accueil).</summary>
+        Task<bool> SendDuelInviteAsync(string friendId, string code, string myName);
+        /// <summary>Retire l'invitation en cours (duel commencé ou annulé).</summary>
+        Task<bool> ClearDuelInviteAsync();
+        /// <summary>Invitations au duel adressées à ce joueur.</summary>
+        Task<List<DuelInvite>> FindDuelInvitesAsync();
     }
 
     /// <summary>Sans backend : rien n'est envoyé, les scores attendent dans le profil (pendingScores).</summary>
@@ -72,6 +93,11 @@ namespace Bascule.Services
         public Task<bool> DeleteAccountAsync() => Task.FromResult(false);
         public Task<string> PublishFriendCodeAsync() => Task.FromResult<string>(null);
         public Task<string> FindPlayerByCodeAsync(string code) => Task.FromResult<string>(null);
+        public Task<bool> PublishFriendLinkAsync(string friendId, int slot) => Task.FromResult(false);
+        public Task<List<string>> FindPlayersWhoAddedMeAsync() => Task.FromResult(new List<string>());
+        public Task<bool> SendDuelInviteAsync(string friendId, string code, string myName) => Task.FromResult(false);
+        public Task<bool> ClearDuelInviteAsync() => Task.FromResult(false);
+        public Task<List<DuelInvite>> FindDuelInvitesAsync() => Task.FromResult(new List<DuelInvite>());
     }
 
     /// <summary>

@@ -27,6 +27,7 @@ namespace Bascule.UI
                 case MissionKind.SurviveGusts: return Icon.Swords;
                 case MissionKind.HoldSeconds: return Icon.Hand;
                 case MissionKind.CleanScore: return Icon.Check;
+                case MissionKind.PlayDuels: case MissionKind.WinDuels: return Icon.Swords;
                 default: return Icon.Target;
             }
         }
@@ -46,6 +47,8 @@ namespace Bascule.UI
                 case MissionKind.SurviveGusts: return Palette.Secondary;
                 case MissionKind.HoldSeconds: return Palette.Success;
                 case MissionKind.CleanScore: return Palette.Accent;
+                case MissionKind.PlayDuels: return Palette.Primary;
+                case MissionKind.WinDuels: return Palette.Purple;
                 default: return Palette.Purple;
             }
         }

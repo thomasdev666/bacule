@@ -211,6 +211,27 @@ namespace Bascule.Core
             if (string.IsNullOrEmpty(playerId) || playerId == myId) return false;
             if (p.friends.Contains(playerId) || p.friends.Count >= MaxFriends) return false;
             p.friends.Add(playerId);
+            p.friendsRemoved.Remove(playerId); // ajouté exprès : il redevient un ami
+            return true;
+        }
+
+        /// <summary>Retire un ami. Il ne revient pas tout seul (même s'il nous a ajouté de son côté) : seulement si on le rajoute.</summary>
+        public static bool Remove(Profile p, string playerId)
+        {
+            if (!p.friends.Remove(playerId)) return false;
+            if (!p.friendsRemoved.Contains(playerId)) p.friendsRemoved.Add(playerId);
+            return true;
+        }
+
+        /// <summary>
+        /// Amitié réciproque : <paramref name="playerId"/> nous a ajouté ; on l'ajoute aussi, sauf si on l'a retiré ou
+        /// bloqué. Renvoie true s'il vient d'être ajouté.
+        /// </summary>
+        public static bool AddedBy(Profile p, string playerId, string myId)
+        {
+            if (string.IsNullOrEmpty(playerId) || p.friendsRemoved.Contains(playerId) || p.blocked.Contains(playerId)) return false;
+            if (p.friends.Contains(playerId) || playerId == myId || p.friends.Count >= MaxFriends) return false;
+            p.friends.Add(playerId);
             return true;
         }
     }

@@ -60,7 +60,7 @@ ADS: non-personalized ads via Unity LevelPlay. No App Tracking Transparency prom
 
 Data deletion: Settings > "Supprimer mes données en ligne".
 
-FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !". This version is the official launch: all progress and leaderboards start from zero for everyone; paid items (No ads, premium heads) are always kept and can be restored.
+FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !". 
 ```
 
 ### Nouveautés de la version
@@ -134,5 +134,4 @@ Bascule fait peau neuve !
 • Défi du jour : un vrai défi chaque jour, avec sa barre de progression en direct.
 • Nouveau : le DUEL EN DIRECT ! Défie un ami avec les mêmes poids et vois sa planche en direct. Invitation par message ou sur Snap.
 • Coffres plus vivants, partage de ton score en un geste, pastille sur les nouvelles têtes.
-• C'est le lancement : records, têtes, pièces et classements repartent de zéro pour tout le monde. Tes achats sont conservés.
 ```

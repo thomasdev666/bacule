@@ -53,6 +53,72 @@ namespace Bascule.UI
     /// Entrée du duel : « Défier un ami » (crée un code et l'invitation) ou « Rejoindre un duel » (saisir un code).
     /// Puis l'attente : le code en grand, le partage, et l'arrivée de l'ami.
     /// </summary>
+    /// <summary>Liste des amis à inviter au duel en cours (l'ami voit l'invitation sur son écran d'accueil).</summary>
+    public sealed class FriendPickerScreen : UiScreen
+    {
+        RectTransform _col;
+        Text _status;
+        int _request;
+
+        protected override void Build()
+        {
+            var card = Ui.Card(Safe, "Fenetre");
+            Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 20, 960, 1300);
+            card.gameObject.AddComponent<PopIn>();
+            var title = Ui.Title(card.transform, Loc.Get("duel_friends_title"), 72, Palette.Accent);
+            Ui.Place(title.rectTransform, 0.5f, 1, 0, -90, 880, 110);
+            _status = Ui.Label(card.transform, "", 40, Palette.Muted);
+            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -400, 840, 200);
+            var area = Ui.Rect("Liste", card.transform);
+            Ui.Place(area, 0.5f, 1, 0, -170, 880, 900, 0.5f, 1);
+            _col = Ui.Scroll(area, out _);
+            Ui.Column(_col, 14);
+            var close = Ui.Button(card.transform, Loc.Get("back"), Palette.Muted, Hide, null, 46, "Fermer");
+            Ui.Place((RectTransform)close.transform, 0.5f, 0, 0, 100, 520, 120);
+        }
+
+        public override async void Refresh()
+        {
+            Ui.Clear(_col);
+            var friends = App.Profile.friends;
+            if (friends.Count == 0) { _status.text = Loc.Get("duel_friends_none"); return; }
+            if (!App.Leaderboard.Service.IsOnline) { _status.text = Loc.Get("lb_offline"); return; }
+            _status.text = Loc.Get("lb_loading");
+            int request = ++_request;
+            // Pseudos des amis (classement mondial) ; un ami qui n'a encore aucun score garde un nom générique.
+            var page = await App.Leaderboard.Service.GetFriendsAsync(Boards.World, friends);
+            if (request != _request || !Visible) return;
+            _status.text = "";
+            foreach (var id in friends)
+            {
+                if (Moderation.IsBlocked(App.Profile, id)) continue;
+                var e = page?.Entries?.Find(x => x.PlayerId == id);
+                string name = e != null ? PseudoFilter.Display(e.Name, Loc.Get("lb_player")) : Loc.Get("lb_player") + " " + FriendCode.Short(id);
+                Row(id, name, e != null ? e.Head : 0);
+            }
+        }
+
+        void Row(string id, string name, int head)
+        {
+            var row = Ui.Image(_col, Art.Pill, new Color(1f, 1f, 1f, 0.8f), "Ami", true);
+            Ui.Size(row, 130);
+            var face = Ui.Icon(row.transform, Art.Portrait(HeadCatalog.Get(head)), "Tete");
+            Ui.Place(face.rectTransform, 0, 0.5f, 80, 0, 100, 100);
+            var label = Ui.Label(row.transform, name, 42, Palette.Ink, TextAnchor.MiddleLeft);
+            Ui.Stretch(label.rectTransform, 150, 8, 330, 8);
+            Button btn = null;
+            btn = Ui.Button(row.transform, Loc.Get("duel_friend_invite"), Palette.Play, async () =>
+            {
+                btn.interactable = false;
+                bool ok = await App.InviteFriendToDuel(id, name);
+                if (btn == null) return;
+                Ui.ButtonLabel(btn).text = Loc.Get(ok ? "duel_friend_sent" : "duel_friend_invite");
+                btn.interactable = !ok;
+            }, null, 38, "Inviter");
+            Ui.Place((RectTransform)btn.transform, 1, 0.5f, -20, 0, 290, 100, 1, 0.5f);
+        }
+    }
+
     public sealed class DuelLobbyScreen : UiScreen
     {
         RectTransform _choice, _hosting, _busy;
@@ -113,8 +179,11 @@ namespace Bascule.UI
             var invite = Ui.Button(_hosting, Loc.Get("duel_invite"), Palette.Play, App.DuelShareInvite, Icon.Share, 58, "Inviter");
             Ui.Place((RectTransform)invite.transform, 0.5f, 1, 0, -760, 860, 180);
             invite.gameObject.AddComponent<Pulse>().Amount = 0.025f;
-            var copy = Ui.Button(_hosting, Loc.Get("duel_copy"), Palette.Secondary, App.DuelCopyCode, Icon.Check, 50, "Copier");
-            Ui.Place((RectTransform)copy.transform, 0.5f, 1, 0, -950, 620, 140);
+            var copy = Ui.Button(_hosting, Loc.Get("duel_copy"), Palette.Secondary, App.DuelCopyCode, Icon.Check, 46, "Copier");
+            Ui.Place((RectTransform)copy.transform, 0.5f, 1, -225, -950, 420, 140);
+            // Inviter directement un ami : il reçoit l'invitation sur son écran d'accueil.
+            var friends = Ui.Button(_hosting, Loc.Get("duel_friends"), Palette.Purple, App.OpenFriendPicker, Icon.Face, 46, "Amis");
+            Ui.Place((RectTransform)friends.transform, 0.5f, 1, 225, -950, 420, 140);
             _spinner = Ui.Icon(_hosting, Art.Ring, "Attente");
             Ui.Place(_spinner.rectTransform, 0.5f, 1, -330, -1150, 70, 70);
             _spinner.color = Palette.Accent;
@@ -275,6 +344,14 @@ namespace Bascule.UI
             _count = Ui.Title(_countRt, "3", 300, Palette.Accent);
             Ui.Stretch(_count.rectTransform);
             _count.horizontalOverflow = HorizontalWrapMode.Overflow;
+            // Contour fin : celui d'un titre (6 % de la taille) rendait les gros chiffres pâteux.
+            var fx = _count.GetComponents<Shadow>(); // deux contours (Outline hérite de Shadow), puis l'ombre portée
+            if (fx.Length >= 3)
+            {
+                fx[0].effectDistance = new Vector2(6f, -6f);
+                fx[1].effectDistance = new Vector2(4f, 4f);
+                fx[2].effectDistance = new Vector2(0f, -12f);
+            }
             Ui.Isolate(_countRt.gameObject);
 
             // ---- Bandeau K.O. / attente

@@ -203,6 +203,7 @@ namespace Bascule
             Session.Combo += c => _hud.OnCombo(c);
             Session.LoseStarted += () => Duel?.OnLocalLoseStarted();
             InitDuel();
+            Missions.DuelsAvailable = DuelAvailable;
 
 #if BASCULE_LEVELPLAY && !UNITY_EDITOR
             _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial);
@@ -398,6 +399,7 @@ namespace Bascule
             _duelLobby = Make<DuelLobbyScreen>(t, Palette.Shade);
             _duelResult = Make<DuelResultScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.93f));
             _daily = Make<DailyScreen>(t, Palette.Shade);
+            _friendPicker = Make<FriendPickerScreen>(t, Palette.Shade);
             _welcome = Make<WelcomeScreen>(t, Palette.Shade);
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
@@ -470,7 +472,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _friendPicker, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -496,6 +498,7 @@ namespace Bascule
         void ShowHome()
         {
             Show(_home);
+            _socialTimer = Mathf.Min(_socialTimer, 1.5f); // amis et invitations vérifiés peu après le retour à l'accueil
             if (!string.IsNullOrEmpty(_pendingDuelCode)) { ConsumePendingDuelLink(); return; }
             HomePopups();
         }
@@ -709,8 +712,80 @@ namespace Bascule
             Duel.Join(MyHello(), code);
         }
 
+        // ------------------------------------------------------------------ Amis : ajout réciproque et invitations au duel
+
+        FriendPickerScreen _friendPicker;
+        float _socialTimer;
+        bool _socialBusy, _inviteSent;
+        readonly HashSet<string> _seenInvites = new HashSet<string>();
+        /// <summary>Une invitation de plus de 5 minutes ne s'affiche plus (le duel a été abandonné).</summary>
+        const long InviteMaxAge = 300;
+
+        public void OpenFriendPicker() => _friendPicker.Show();
+
+        public async System.Threading.Tasks.Task<bool> InviteFriendToDuel(string friendId, string name)
+        {
+            if (string.IsNullOrEmpty(Duel.Code)) return false;
+            bool ok = await Leaderboard.Service.SendDuelInviteAsync(friendId, Duel.Code, Profile.pseudo);
+            if (ok) { _inviteSent = true; Stats.Event("duel_invite_friend"); }
+            _toast.Say(ok ? Loc.Format("duel_invite_sent", name) : Loc.Get("duel_invite_failed"), 2.5f);
+            return ok;
+        }
+
+        void ClearDuelInvite()
+        {
+            if (!_inviteSent) return;
+            _inviteSent = false;
+            _ = Leaderboard.Service.ClearDuelInviteAsync();
+        }
+
+        /// <summary>
+        /// À l'accueil, toutes les 20 s : ajoute les joueurs qui nous ont ajouté en ami (amitié réciproque) et montre
+        /// une invitation au duel d'un ami, s'il y en a une récente.
+        /// </summary>
+        async void SyncSocial()
+        {
+            if (_socialBusy || !Leaderboard.Service.IsOnline) return;
+            _socialBusy = true;
+            try
+            {
+                var me = Leaderboard.Service.PlayerId;
+                int added = 0;
+                foreach (var id in await Leaderboard.Service.FindPlayersWhoAddedMeAsync())
+                    if (FriendCode.AddedBy(Profile, id, me)) added++;
+                if (added > 0)
+                {
+                    SaveProfile();
+                    Stats.Event("friend_mutual", ("added", added));
+                    _toast.Say(Loc.Get("friend_added_you_generic"), 3f);
+                    if (_leaderboard.Visible) _leaderboard.Refresh();
+                }
+
+                if (!DuelAvailable || Duel.InDuel || !_home.Visible || _confirm.Visible) return;
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                DuelInvite best = null;
+                foreach (var inv in await Leaderboard.Service.FindDuelInvitesAsync())
+                {
+                    if (!Profile.friends.Contains(inv.FromId) || Moderation.IsBlocked(Profile, inv.FromId)) continue;
+                    if (Math.Abs(now - inv.At) > InviteMaxAge || _seenInvites.Contains(inv.FromId + inv.Code)) continue;
+                    if (best == null || inv.At > best.At) best = inv;
+                }
+                if (best == null || !_home.Visible || _confirm.Visible || Duel.InDuel) return;
+                _seenInvites.Add(best.FromId + best.Code);
+                string name = PseudoFilter.Display(best.FromName, Loc.Get("lb_player"));
+                Stats.Event("duel_invite_received");
+                _haptics.Medium();
+                string code = best.Code;
+                _confirm.Ask(Loc.Get("duel_invite_title"), Loc.Format("duel_invite_body", name), Art.IconSprite(Icon.Swords),
+                    Loc.Get("duel_invite_join"), () => JoinDuel(code), Loc.Get("later"), null);
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Amis / invitations : " + e.Message); }
+            finally { _socialBusy = false; }
+        }
+
         public void DuelCancel()
         {
+            ClearDuelInvite();
             Duel.Leave();
             ShowHome();
         }
@@ -745,6 +820,7 @@ namespace Bascule
 
         public void DuelHome()
         {
+            ClearDuelInvite();
             Duel.Leave();
             Session.InputLocked = false;
             Session.SetPaused(false);
@@ -779,6 +855,9 @@ namespace Bascule
         {
             var o = Duel.Outcome;
             int coins = DuelRules.Record(Profile, o, Tuning.duel);
+            Missions.Refresh(Profile, LocalDay);
+            coins += DuelRules.ApplyMissions(Profile, o, Tuning.economy, out var duelMissions);
+            foreach (var m in duelMissions) _toast.Reward(MetaUi.MissionIcon(m.kind), MetaUi.MissionColor(m.kind), Loc.Get("mission_title"), Loc.MissionText(m), m.reward, 2.6f);
             var heads = DuelRules.UnlockHeads(Profile);
             Duel.SetRewards(coins, heads);
             SaveProfile();
@@ -844,6 +923,18 @@ namespace Bascule
             StartRun(mode, seed);
         }
 
+        /// <summary>
+        /// Scores en ligne d'une partie solo : le classement mondial (parties normales) et le classement du jour, qui
+        /// garde le meilleur score de la journée, quelle que soit la partie (normale ou défi du jour).
+        /// </summary>
+        void EnqueueScores(RunResult result)
+        {
+            if (result.Mode == GameMode.Duel) return;
+            if (result.Mode == GameMode.Infinite) Leaderboard.Enqueue(Boards.World, result.Score, Profile.selectedHead, "");
+            string day = result.Mode == GameMode.Daily && !string.IsNullOrEmpty(result.DayKey) ? result.DayKey : TodayKey;
+            Leaderboard.Enqueue(Boards.Daily, result.Score, Profile.selectedHead, day);
+        }
+
         void OnRunEnded(RunResult result)
         {
             _save.ClearRun();
@@ -863,7 +954,7 @@ namespace Bascule
             if (_current != _hud)
             {
                 _pendingGain = null;
-                Leaderboard.Enqueue(result.Mode == GameMode.Daily ? Boards.Daily : Boards.World, result.Score, Profile.selectedHead, result.Mode == GameMode.Daily ? result.DayKey : "");
+                EnqueueScores(result);
                 FinalizeRun();
                 Session.GoIdle();
                 return;
@@ -879,8 +970,7 @@ namespace Bascule
             _lastRunSeconds = result.Seconds;
             // Classements : le score part tout de suite (avant, il partait en quittant l'écran de fin).
             // Une seconde chance ne peut que l'améliorer : le meilleur des deux est gardé.
-            if (result.Mode == GameMode.Infinite) Leaderboard.Enqueue(Boards.World, result.Score, Profile.selectedHead, "");
-            if (result.Mode == GameMode.Daily) Leaderboard.Enqueue(Boards.Daily, result.Score, Profile.selectedHead, result.DayKey);
+            EnqueueScores(result);
             Leaderboard.Flush(TodayKey);
 
             // La carte de score n'est fabriquée qu'au moment de partager (sinon : à-coup à chaque défaite).
@@ -1427,6 +1517,15 @@ namespace Bascule
             _playerMenu.Open(playerId, name);
         }
 
+        public void RemoveFriend(string playerId)
+        {
+            if (!FriendCode.Remove(Profile, playerId)) return;
+            SaveProfile();
+            Stats.Event("friend_remove");
+            _toast.Say(Loc.Get("friend_removed"), 2.5f);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
         public void BlockPlayer(string playerId)
         {
             Moderation.Block(Profile, playerId, Leaderboard.Service.PlayerId);
@@ -1482,6 +1581,8 @@ namespace Bascule
                 if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
                 if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
                 SaveProfile();
+                // Amitié réciproque : l'ami nous retrouvera et nous ajoutera à son tour.
+                _ = Leaderboard.Service.PublishFriendLinkAsync(id, Profile.friends.Count);
                 Stats.Event("friend_add", ("friends", Profile.friends.Count));
                 _toast.Say(Loc.Get("friend_added"));
                 if (_leaderboard.Visible) _leaderboard.Refresh();
@@ -1655,7 +1756,15 @@ namespace Bascule
             if (_duelHud.Visible) _duelHud.Tick(dt);
             if (_duelLobby.Visible) _duelLobby.Tick(dt);
             if (_duelResult.Visible) _duelResult.Tick(dt);
-            if (_home.Visible) _home.Tick(dt);
+            if (_home.Visible)
+            {
+                _home.Tick(dt);
+                // Amis réciproques et invitations au duel : vérifiés toutes les 20 s à l'accueil.
+                _socialTimer -= dt;
+                if (_socialTimer <= 0f) { _socialTimer = 20f; SyncSocial(); }
+            }
+            // Le duel a commencé : l'invitation envoyée à l'ami n'a plus lieu d'être.
+            if (_inviteSent && Duel.InMatch) ClearDuelInvite();
             if (_shop.Visible) _shop.Tick(dt);
             if (_missions.Visible) _missions.Tick(dt);
             if (_collection.Visible) _collection.Tick(dt);

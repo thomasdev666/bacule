@@ -178,6 +178,129 @@ namespace Bascule.Services
 #endif
         }
 
+        // ------------------------------------------------------------------ Amis réciproques et invitations au duel
+        // Données publiques du joueur dans Cloud Save. Les clés link1…link5 et duel_to doivent être INDEXÉES dans le
+        // tableau de bord (Cloud Save → Indexes → Player, accès public, type texte), comme friend_code.
+
+        public const int FriendLinkSlots = 5;
+        public const string FriendLinkKey = "link", DuelToKey = "duel_to", DuelCodeKey = "duel_code", DuelAtKey = "duel_at", DuelNameKey = "duel_name";
+
+        public async Task<bool> PublishFriendLinkAsync(string friendId, int slot)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(friendId)) return false;
+            try
+            {
+                int s = 1 + Math.Abs(slot - 1) % FriendLinkSlots;
+                await SavePublic(new Dictionary<string, object> { { FriendLinkKey + s, friendId } });
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Ami réciproque : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        public async Task<List<string>> FindPlayersWhoAddedMeAsync()
+        {
+            var ids = new List<string>();
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return ids;
+            string me = AuthenticationService.Instance.PlayerId;
+            for (int s = 1; s <= FriendLinkSlots; s++)
+            {
+                try
+                {
+                    foreach (var e in await QueryPublic(FriendLinkKey + s, me, 20))
+                        if (!string.IsNullOrEmpty(e.Id) && e.Id != me && !ids.Contains(e.Id)) ids.Add(e.Id);
+                }
+                catch (Exception e) { Debug.LogWarning("[Bascule] Amis réciproques : " + e.Message); break; }
+            }
+#else
+            await Task.CompletedTask;
+#endif
+            return ids;
+        }
+
+        public async Task<bool> SendDuelInviteAsync(string friendId, string code, string myName)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(friendId) || string.IsNullOrEmpty(code)) return false;
+            try
+            {
+                await SavePublic(new Dictionary<string, object>
+                {
+                    { DuelToKey, friendId }, { DuelCodeKey, code }, { DuelNameKey, Sanitize(myName) },
+                    { DuelAtKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() },
+                });
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Invitation au duel : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        public async Task<bool> ClearDuelInviteAsync()
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return false;
+            try { await SavePublic(new Dictionary<string, object> { { DuelToKey, "-" } }); return true; }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Invitation au duel : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        public async Task<List<DuelInvite>> FindDuelInvitesAsync()
+        {
+            var list = new List<DuelInvite>();
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return list;
+            try
+            {
+                string me = AuthenticationService.Instance.PlayerId;
+                foreach (var e in await QueryPublic(DuelToKey, me, 10, DuelCodeKey, DuelNameKey, DuelAtKey))
+                {
+                    var inv = new DuelInvite { FromId = e.Id };
+                    if (e.Data != null)
+                        foreach (var item in e.Data)
+                        {
+                            string v = item.Value?.GetAs<string>() ?? "";
+                            if (item.Key == DuelCodeKey) inv.Code = v;
+                            else if (item.Key == DuelNameKey) inv.FromName = v;
+                            else if (item.Key == DuelAtKey) long.TryParse(v, out inv.At);
+                        }
+                    if (!string.IsNullOrEmpty(inv.Code)) list.Add(inv);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Invitations au duel : " + e.Message); }
+#else
+            await Task.CompletedTask;
+#endif
+            return list;
+        }
+
+#if BASCULE_CLOUDSAVE
+        static Task SavePublic(Dictionary<string, object> data) =>
+            Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.SaveAsync(data,
+                new Unity.Services.CloudSave.Models.Data.Player.SaveOptions(new Unity.Services.CloudSave.Models.Data.Player.PublicWriteAccessClassOptions()));
+
+        static Task<List<Unity.Services.CloudSave.Models.EntityData>> QueryPublic(string key, string value, int limit, params string[] returnKeys)
+        {
+            var filters = new List<Unity.Services.CloudSave.Models.FieldFilter>
+            {
+                new Unity.Services.CloudSave.Models.FieldFilter(key, value, Unity.Services.CloudSave.Models.FieldFilter.OpOptions.EQ, true),
+            };
+            var keys = new HashSet<string>(returnKeys) { key };
+            var query = new Unity.Services.CloudSave.Models.Query(filters, keys, 0, limit);
+            return Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.QueryAsync(query, new Unity.Services.CloudSave.Models.Data.Player.QueryOptions());
+        }
+#endif
+
         static string Sanitize(string s)
         {
             s = (s ?? "").Trim().Replace(" ", "_");

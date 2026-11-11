@@ -66,6 +66,8 @@ namespace Bascule.Core
         public bool ratingAsked;
         /// <summary>Amis ajoutés par code (identifiants de joueur en ligne).</summary>
         public List<string> friends = new List<string>();
+        /// <summary>Amis retirés : ils ne reviennent pas tout seuls par l'ajout réciproque.</summary>
+        public List<string> friendsRemoved = new List<string>();
         /// <summary>Joueurs bloqués ou signalés : leurs pseudos ne s'affichent plus dans le classement.</summary>
         public List<string> blocked = new List<string>();
         /// <summary>Parties jouées depuis le dernier coffre, et coffres ouverts.</summary>
@@ -121,6 +123,7 @@ namespace Bascule.Core
             if (duelsPlayed < duelWins) duelsPlayed = duelWins;
             settings.textScale = settings.textScale < 1f ? 1f : (settings.textScale > 1.6f ? 1.6f : settings.textScale);
             if (friends == null) friends = new List<string>();
+            if (friendsRemoved == null) friendsRemoved = new List<string>();
             if (blocked == null) blocked = new List<string>();
             if (missions == null) missions = new MissionState();
             if (missions.list == null) missions.list = new List<Mission>();
@@ -171,6 +174,7 @@ namespace Bascule.Core
             fresh.pseudo = old.pseudo;
             fresh.friendCode = old.friendCode;
             fresh.friends = old.friends ?? new List<string>();
+            fresh.friendsRemoved = old.friendsRemoved ?? new List<string>();
             fresh.blocked = old.blocked ?? new List<string>();
             fresh.settings = old.settings ?? new Settings();
             fresh.consentVersion = old.consentVersion;
@@ -183,10 +187,10 @@ namespace Bascule.Core
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
             if (old.adsRemoved) fresh.adsRemoved = true;
-            // Les pièces gagnées en jouant repartent de zéro. Les pièces achetées et pas encore dépensées sont rendues :
-            // Apple interdit de faire expirer une monnaie achetée (règle 3.1.1 de l'App Store).
-            fresh.coins = UnspentBoughtCoins(old);
-            fresh.coinsBought = fresh.coins;
+            // Les pièces repartent toutes de zéro : au lancement officiel, personne n'a encore acheté de pièces (le jeu
+            // n'était pas encore distribué). Pour une prochaine saison avec de vrais achats, rendre UnspentBoughtCoins(old).
+            fresh.coins = 0;
+            fresh.coinsBought = 0;
             fresh.season = Current;
             fresh.welcomePending = true;
             fresh.Sanitize();
@@ -263,6 +267,9 @@ namespace Bascule.Core
         public const int PersonalTopSize = 10;
 
         /// <summary>Met à jour le profil après une partie et renvoie les récompenses (record, nouvelles têtes).</summary>
+        /// <summary>Têtes de score gagnées au plus par partie.</summary>
+        public const int MaxScoreHeadsPerRun = 2;
+
         public static RunRewards ApplyRun(Profile p, GameMode mode, RunAchievements run, string todayKey)
         {
             var r = new RunRewards { PreviousBest = p.bestScore };
@@ -273,19 +280,26 @@ namespace Bascule.Core
             p.personalTop.Sort((a, b) => b.CompareTo(a));
             if (p.personalTop.Count > PersonalTopSize) p.personalTop.RemoveRange(PersonalTopSize, p.personalTop.Count - PersonalTopSize);
 
-            if (mode == GameMode.Daily)
+            if (mode == GameMode.Daily) Daily.RegisterPlay(p.daily, todayKey);
+            // Meilleur score de la journée (classement du jour) : toutes les parties solo comptent, pas seulement le défi.
+            if (mode != GameMode.Duel)
             {
-                Daily.RegisterPlay(p.daily, todayKey);
                 if (p.daily.bestDate != todayKey) { p.daily.bestDate = todayKey; p.daily.bestScoreToday = 0; }
                 if (run.Score > p.daily.bestScoreToday) p.daily.bestScoreToday = run.Score;
             }
             run.DailyStreak = p.daily.streak;
             r.DailyStreak = p.daily.streak;
 
+            // Au plus MaxScoreHeadsPerRun têtes de score par partie (les paliers les plus bas d'abord) : un très bon
+            // premier score ne débloque plus dix têtes d'un coup, les suivantes viennent aux parties d'après.
+            int scoreHeads = 0;
             foreach (var h in HeadCatalog.All)
             {
                 if (p.unlockedHeads.Contains(h.Id)) continue;
-                if (HeadCatalog.IsEarned(h, run)) { p.unlockedHeads.Add(h.Id); r.NewHeads.Add(h); }
+                if (!HeadCatalog.IsEarned(h, run)) continue;
+                if (h.Unlock == UnlockKind.Score && scoreHeads >= MaxScoreHeadsPerRun) continue;
+                if (h.Unlock == UnlockKind.Score) scoreHeads++;
+                p.unlockedHeads.Add(h.Id); r.NewHeads.Add(h);
             }
             r.NextHead = HeadCatalog.NextScoreHead(p.unlockedHeads);
             return r;

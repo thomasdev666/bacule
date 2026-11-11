@@ -18,6 +18,8 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 
 **Code ami court (Cloud Save, gratuit)** : Package Manager → **Cloud Save** (`com.unity.services.cloudsave`, 3.x). Le define `BASCULE_CLOUDSAVE` s'active tout seul. Dans le tableau de bord Unity Cloud → **Cloud Save → Queries** (Index), créer un index : entité **Player**, accès **Public**, clé **`friend_code`** (type chaîne). Sans cet index, la recherche par code court échoue (le code long reste accepté).
 
+**Amis réciproques et invitations au duel (Cloud Save)** : créer de la même façon (entité **Player**, accès **Public**, type chaîne) six index de plus : **`link1`**, **`link2`**, **`link3`**, **`link4`**, **`link5`** (« j'ai ajouté ce joueur » : l'autre nous ajoute à son tour) et **`duel_to`** (invitation au duel d'un ami, vue sur son écran d'accueil). Sans eux, l'ajout reste à sens unique et les invitations n'arrivent pas (le code et le lien de duel marchent toujours).
+
 **Modération (obligatoire pour l'App Store, règle 1.2)** : chaque ligne du classement a un bouton « Signaler ». Le joueur peut signaler le pseudo (e-mail prérempli vers `GameApp.ContactEmail`, avec l'identifiant du joueur) ou le bloquer (il disparaît de son classement et de ses amis). Lire cette boîte chaque jour : pour supprimer un pseudo, tableau de bord Unity Cloud → Leaderboards → chercher l'identifiant du joueur et supprimer son score (ou le joueur dans Player Management).
 
 **Suppression des données** : Réglages → « Supprimer mes données en ligne » efface le compte en ligne (RGPD, et règle de l'App Store pour les applis avec compte).

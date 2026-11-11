@@ -79,7 +79,7 @@ PLANK_PRICES = [500, 800, 1100, 1500, 2000, 5000]
 SURPRISE_PRICE, SHIELD_PRICE, SHIELD_MAX = 600, 300, 2
 # V18 : têtes plus rares (Core/HeadCatalog.cs, Core/Engagement.cs, Core/Cosmetics.cs).
 # Compromis retenu (« début doux, puis rare ») après comparaison de 4 réglages (docs/ECONOMIE.md).
-RARE_SCORE = [250, 500, 1000, 1500, 2000, 3000, 4000, 5000, 6500, 8000, 10000, 12500, 15000, 17500, 20000, 25000, 30000, 40000, 50000, 75000]
+RARE_SCORE = [300, 700, 1200, 1800, 2500, 3200, 4000, 5000, 6500, 8000, 10000, 12500, 15000, 17500, 20000, 25000, 30000, 40000, 50000, 75000]
 RARE_LEVEL = [3, 6, 9, 12, 16, 20, 25, 30, 35, 40, 45, 50, 60]
 RARE_SHOP = [600, 800, 1000, 1300, 1600, 2000, 2400, 2900, 3400, 4000, 4600, 5200, 5800, 6500, 7200, 8000]
 DESIGNS["v18"] = dict(DESIGNS["v17"], score_heads=RARE_SCORE, level_heads=RARE_LEVEL, rare=True)
@@ -95,7 +95,7 @@ def game_xp(score):
 
 
 def game_coins(score):
-    return score // 25
+    return score // 40
 
 
 # ---------------------------------------------------------------------------------------------- joueur

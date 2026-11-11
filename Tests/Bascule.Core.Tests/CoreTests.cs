@@ -759,10 +759,11 @@ namespace Bascule.Core.Tests
         public void ScoreUnlocksHeads()
         {
             var p = new Profile(); p.Sanitize();
+            // 1 600 points : les paliers 300, 700 et 1 200 sont atteints, mais au plus 2 têtes de score par partie.
             var r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 1600 }, "2026-11-02");
-            Assert.AreEqual(4, r.NewHeads.Count);
+            Assert.AreEqual(2, r.NewHeads.Count);
             Assert.True(r.NewBest);
-            Assert.AreEqual(2000, r.NextHead.UnlockValue);
+            Assert.AreEqual(1200, r.NextHead.UnlockValue);
             var r2 = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 900 }, "2026-11-02");
             Assert.AreEqual(0, r2.NewHeads.Count);
             Assert.False(r2.NewBest);
@@ -1065,12 +1066,9 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(0, p.gamesPlayed);
             Assert.AreEqual(1, p.level);
             Assert.AreEqual(0, p.personalTop.Count);
-            Assert.AreEqual(1000, p.coins, "les pièces gagnées repartent de zéro, les pièces achetées non dépensées sont rendues (App Store 3.1.1)");
-            Assert.AreEqual(1000, p.coinsBought);
-            // Pièces achetées déjà dépensées : rien à rendre. Jamais plus que le solde.
-            Assert.AreEqual(0, Seasons.Reset(new Profile { season = 0, coins = 0, coinsBought = 2200 }).coins);
-            Assert.AreEqual(300, Seasons.Reset(new Profile { season = 0, coins = 300, coinsBought = 2200 }).coins);
-            Assert.AreEqual(0, Seasons.Reset(new Profile { season = 0, coins = 5000, coinsBought = 0 }).coins);
+            Assert.AreEqual(0, p.coins, "lancement : toutes les pièces repartent de zéro");
+            Assert.AreEqual(0, p.coinsBought);
+            Assert.AreEqual(0, Seasons.Reset(new Profile { season = 0, coins = 300, coinsBought = 2200 }).coins, "lancement : aucune pièce gardée");
             Assert.False(p.unlockedHeads.Contains(1) || p.unlockedHeads.Contains(40), "têtes gagnées remises à zéro");
             foreach (var h in HeadCatalog.All)
                 if (h.Unlock == UnlockKind.Premium && h.Product == Shop.Legends) Assert.True(p.unlockedHeads.Contains(h.Id), "têtes payées gardées");
@@ -1156,6 +1154,58 @@ namespace Bascule.Core.Tests
             // Chacun des 28 défis a une valeur à suivre.
             foreach (var d in DailyChallenge.All)
                 Assert.AreEqual(d.A, DailyChallenge.Track(d, new RunStats { Score = 99999, Merges = 999, Seconds = 999, MaxValue = 999, Drops = 999, Balloons = 9, Gusts = 9, BestSave = 1f, BestChain = 9 }).Current, d.Key);
+        }
+
+        [Test]
+        public void AtMostTwoScoreHeadsPerRun()
+        {
+            var p = new Profile();
+            var r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 9000 }, "2026-11-11");
+            int scoreHeads = r.NewHeads.FindAll(h => h.Unlock == UnlockKind.Score).Count;
+            Assert.AreEqual(Progress.MaxScoreHeadsPerRun, scoreHeads, "un gros premier score ne débloque pas tout d'un coup");
+            r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 9000 }, "2026-11-11");
+            Assert.AreEqual(2, r.NewHeads.FindAll(h => h.Unlock == UnlockKind.Score).Count, "les suivantes viennent aux parties d'après");
+        }
+
+        [Test]
+        public void DailyBoardCountsEveryRunOfTheDay()
+        {
+            var p = new Profile();
+            Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 1200 }, "2026-11-11");
+            Assert.AreEqual(1200, p.daily.bestScoreToday, "une partie normale compte pour le classement du jour");
+            Progress.ApplyRun(p, GameMode.Daily, new RunAchievements { Score = 800 }, "2026-11-11");
+            Assert.AreEqual(1200, p.daily.bestScoreToday);
+            Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 300 }, "2026-11-12");
+            Assert.AreEqual(300, p.daily.bestScoreToday, "nouveau jour, nouveau meilleur score");
+        }
+
+        [Test]
+        public void FriendsAreMutualUnlessRemoved()
+        {
+            var p = new Profile();
+            Assert.True(FriendCode.AddedBy(p, "ami-qui-m-a-ajoute-123", "moi"));
+            Assert.True(p.friends.Contains("ami-qui-m-a-ajoute-123"));
+            Assert.True(FriendCode.Remove(p, "ami-qui-m-a-ajoute-123"));
+            Assert.False(FriendCode.AddedBy(p, "ami-qui-m-a-ajoute-123", "moi"), "un ami retiré ne revient pas tout seul");
+            Assert.True(FriendCode.Add(p, "ami-qui-m-a-ajoute-123", "moi"), "mais on peut le rajouter soi-même");
+            Assert.False(FriendCode.AddedBy(p, "moi", "moi"));
+        }
+
+        [Test]
+        public void DuelMissionsProgressWithDuels()
+        {
+            var s = new MissionState { list = new List<Mission>
+            {
+                new Mission { kind = MissionKind.PlayDuels, target = 2, reward = 90 },
+                new Mission { kind = MissionKind.WinDuels, target = 1, reward = 90 },
+            } };
+            Assert.AreEqual(0, Missions.ApplyDuel(s, false).Count);
+            var done = Missions.ApplyDuel(s, true);
+            Assert.AreEqual(2, done.Count, "2 duels joués et 1 gagné");
+            Missions.DuelsAvailable = false;
+            for (uint seed = 0; seed < 200; seed++)
+                foreach (var m in Missions.Generate(seed, 20, 9000, 50))
+                    Assert.False(m.kind == MissionKind.PlayDuels || m.kind == MissionKind.WinDuels, "pas de mission de duel sans duel");
         }
 
         [Test]

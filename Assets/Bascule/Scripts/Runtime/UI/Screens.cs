@@ -1917,11 +1917,12 @@ namespace Bascule.UI
     {
         Text _title;
         string _id, _name;
+        GameObject _unfriend;
 
         protected override void Build()
         {
             var card = Ui.Card(Safe, "Fenetre");
-            Ui.Place(card.rectTransform, 0.5f, 0.55f, 0, 0, 940, 960);
+            Ui.Place(card.rectTransform, 0.5f, 0.55f, 0, 0, 940, 1130);
             card.gameObject.AddComponent<PopIn>();
             _title = Ui.Title(card.transform, "", 64, Palette.Ink);
             Ui.Plain(_title);
@@ -1934,6 +1935,9 @@ namespace Bascule.UI
             Ui.Place((RectTransform)block.transform, 0.5f, 0, 0, 300, 780, 140);
             var cancel = Ui.Button(card.transform, Loc.Get("cancel"), Palette.Muted, Hide, Icon.Close, 50, "Annuler");
             Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 130, 780, 140);
+            var unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Secondary, () => { Hide(); App.RemoveFriend(_id); }, null, 52, "RetirerAmi");
+            Ui.Place((RectTransform)unfriend.transform, 0.5f, 0, 0, 640, 780, 140);
+            _unfriend = unfriend.gameObject;
         }
 
         public void Open(string playerId, string name)
@@ -1942,6 +1946,8 @@ namespace Bascule.UI
             _id = playerId;
             _name = string.IsNullOrEmpty(name) ? "-" : name;
             _title.text = _name;
+            // « Retirer des amis » seulement pour un ami.
+            _unfriend.SetActive(App.Profile.friends.Contains(playerId));
         }
     }
 

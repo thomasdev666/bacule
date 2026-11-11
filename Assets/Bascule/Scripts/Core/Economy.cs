@@ -12,7 +12,7 @@ namespace Bascule.Core
     public class EconomyTuning
     {
         /// <summary>Pièces gagnées par partie = score / scorePerCoin.</summary>
-        public int scorePerCoin = 25;
+        public int scorePerCoin = 40;
         /// <summary>XP par partie = xpPerGame + score / scorePerXp.</summary>
         public int xpPerGame = 10;
         public int scorePerXp = 10;
@@ -20,8 +20,8 @@ namespace Bascule.Core
         public int levelXpBase = 75;
         public int levelXpStep = 50;
         /// <summary>Pièces offertes au passage du niveau n = levelCoinsBase + levelCoinsStep × n.</summary>
-        public int levelCoinsBase = 50;
-        public int levelCoinsStep = 10;
+        public int levelCoinsBase = 40;
+        public int levelCoinsStep = 8;
         /// <summary>Cadeau du jour, jour 1 à 7 de suite (un jour manqué : on repart au jour 1) : pièces de chaque jour.</summary>
         public int[] dailyGift = { 50, 0, 120, 0, 200, 0, 300 };
         /// <summary>
@@ -30,7 +30,7 @@ namespace Bascule.Core
         /// </summary>
         public string[] dailyGiftItems = { "coins", "chest", "coins", "ticket", "coins", "chest", "plank" };
         /// <summary>Bonus quand les 3 missions du jour sont faites.</summary>
-        public int missionsBonus = 150;
+        public int missionsBonus = 100;
         public int missionXp = 40;
     }
 
@@ -66,7 +66,9 @@ namespace Bascule.Core
 
     public enum MissionKind { PlayGames, ScoreInGame, TotalScore, Merges, MakeValue, Balloon, Combo, NearMiss, PlayDaily, /* plus proposée (cœurs retirés) : gardée pour les anciennes sauvegardes */ NoHeartLost,
         // 1.3 : missions d'exploit (toujours ajouter à la fin : les types sont sauvegardés)
-        SurviveGusts, HoldSeconds, CleanScore }
+        SurviveGusts, HoldSeconds, CleanScore,
+        // Duel : jouer avec un ami (seulement si le duel est disponible dans la version)
+        PlayDuels, WinDuels }
 
     [Serializable]
     public class Mission
@@ -319,6 +321,24 @@ namespace Bascule.Core
             return true;
         }
 
+        /// <summary>Le duel en temps réel est disponible dans cette version (réglé par le jeu au lancement).</summary>
+        public static bool DuelsAvailable;
+
+        /// <summary>Fait avancer les missions de duel avec un duel terminé ; renvoie celles qui viennent d'être réussies.</summary>
+        public static List<Mission> ApplyDuel(MissionState s, bool won)
+        {
+            var done = new List<Mission>();
+            foreach (var m in s.list)
+            {
+                if (m.done) continue;
+                if (m.kind == MissionKind.PlayDuels) m.progress++;
+                else if (m.kind == MissionKind.WinDuels && won) m.progress++;
+                else continue;
+                if (m.progress >= m.target) { m.progress = m.target; m.done = true; done.Add(m); }
+            }
+            return done;
+        }
+
         /// <summary>3 missions de types différents, adaptées au niveau et au record du joueur.</summary>
         public static List<Mission> Generate(uint seed, int level, int best, int gamesPlayed, MissionKind? avoid = null, IList<Mission> keep = null)
         {
@@ -336,6 +356,9 @@ namespace Bascule.Core
             // Missions d'exploit : tenir longtemps, ne rien laisser tomber, et (dès que le vent souffle) traverser des rafales.
             if (gamesPlayed >= 5 || level >= 3) { pool.Add(MissionKind.HoldSeconds); pool.Add(MissionKind.CleanScore); }
             if (best >= 6500) pool.Add(MissionKind.SurviveGusts);
+            // Duel avec un ami : pour donner envie de jouer à deux (jamais pour un tout nouveau joueur).
+            if (DuelsAvailable && (gamesPlayed >= 3 || level >= 2)) pool.Add(MissionKind.PlayDuels);
+            if (DuelsAvailable && level >= 4) pool.Add(MissionKind.WinDuels);
             // Toujours une mission facile pour les débutants : « jouer N parties ».
             bool beginner = gamesPlayed < 10;
             int guard = 0;
@@ -368,6 +391,8 @@ namespace Bascule.Core
                 case MissionKind.HoldSeconds: m.target = level >= 8 ? (r < 0.5f ? 150 : 180) : (r < 0.5f ? 90 : 120); m.reward = m.target >= 150 ? 90 : 70; break;
                 case MissionKind.CleanScore: m.target = Round((int)(bestRef * (0.3f + 0.15f * r)), 100); m.reward = 90; break;
                 case MissionKind.PlayDaily: m.target = 1; m.reward = 60; break;
+                case MissionKind.PlayDuels: m.target = r < 0.5f ? 1 : 2; m.reward = m.target >= 2 ? 90 : 60; break;
+                case MissionKind.WinDuels: m.target = r < 0.6f ? 1 : 2; m.reward = m.target >= 2 ? 140 : 90; break;
                 case MissionKind.NoHeartLost: m.target = Round((int)(bestRef * (0.3f + 0.2f * r)), 100); m.reward = 80; break;
                 case MissionKind.NearMiss: m.target = 90; m.reward = 90; break;
                 case MissionKind.Balloon: m.target = 1; m.reward = 150; break;

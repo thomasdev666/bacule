@@ -222,7 +222,8 @@ namespace Bascule.Duel
             if (!gameObject.activeSelf) return;
             _renderTimer -= Time.unscaledDeltaTime;
             if (_renderTimer > 0f) return;
-            _renderTimer = 1f / 30f;
+            // Même cadence que l'écran (60 images/s) : l'adversaire bouge aussi fluidement que sa propre planche.
+            _renderTimer = 1f / 60f;
             _cam.Render();
         }
 

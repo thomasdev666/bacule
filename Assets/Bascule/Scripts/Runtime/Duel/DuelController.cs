@@ -11,7 +11,7 @@ namespace Bascule.Duel
     /// 1. Salle d'attente : l'hôte crée une partie (un code) ; l'ami la rejoint avec ce code ou le lien d'invitation.
     /// 2. Présentations : chacun envoie son nom, sa tête et sa planche (Hello). L'hôte tire la graine et donne le départ.
     /// 3. Compte à rebours (3 s) : Basile arrive avec sa planche pendant « 2… 1… ».
-    /// 4. Partie : même graine, donc mêmes poids et mêmes rafales. Chacun joue chez lui et envoie 15 photos par seconde
+    /// 4. Partie : même graine, donc mêmes poids et mêmes rafales. Chacun joue chez lui et envoie 20 photos par seconde
     ///    de sa partie ; l'autre la voit en direct dans la petite vue (seconde caméra).
     /// 5. Le premier qui lâche perd. L'autre a quelques secondes pour poser un dernier poids, puis lève les bras.
     /// 6. Chacun envoie son score final (Finished) ; le résultat est calculé de la même façon des deux côtés
@@ -26,7 +26,7 @@ namespace Bascule.Duel
 
         readonly IDuelNetwork _net;
         readonly Func<Tuning> _tuning;
-        readonly SnapshotBuffer _buffer = new SnapshotBuffer();
+        readonly SnapshotBuffer _buffer = new SnapshotBuffer { Adaptive = true };
         readonly DuelSnapshot _out = new DuelSnapshot();
         readonly DuelSnapshot _in = new DuelSnapshot();
         OpponentView _view;
@@ -432,7 +432,7 @@ namespace Bascule.Duel
 
             if (InMatch && _runStarted)
             {
-                // Mes photos, 15 par seconde (non fiables : une photo perdue est remplacée par la suivante).
+                // Mes photos, 20 par seconde (non fiables : une photo perdue est remplacée par la suivante).
                 _sendTimer -= dt;
                 if (_sendTimer <= 0f && Capture != null)
                 {

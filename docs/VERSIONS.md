@@ -3,6 +3,15 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
+- **Retours de test** :
+  - **Amis réciproques** : quand tu ajoutes quelqu'un, il te retrouve dans ses amis (vérifié toutes les 20 s à l'accueil). **Retirer des amis** depuis le classement des amis (toucher le joueur) ; un ami retiré ne revient pas tout seul.
+  - **Défier un ami** : dans le salon du duel, « Mes amis » liste tes amis avec un bouton « Inviter » ; l'ami reçoit « Défi en duel ! » sur son écran d'accueil et rejoint d'un toucher (invitation valable 5 min).
+  - **Duel plus fluide** : 20 photos/s au lieu de 15, délai de lissage adaptatif (plus d'image figée puis qui saute), vue de l'adversaire redessinée à 60 images/s.
+  - **Compte à rebours du duel** : contour plus fin.
+  - **Missions du jour de duel** : « Joue 1-2 duels avec un ami », « Gagne 1-2 duels » (seulement si le duel est disponible).
+  - **Têtes moins faciles au début** : paliers 300, 700, 1 200, 1 800, 2 500, 3 200… et au plus **2 têtes de score par partie** (un gros premier score ne débloque plus tout d'un coup).
+  - **Pièces** : une pièce pour 40 points (au lieu de 25), niveaux et bonus des missions un peu moins généreux ; remise à zéro du lancement : 0 pièce pour tout le monde.
+  - **Classement du jour** : le meilleur score de la journée, toutes parties confondues (plus seulement le défi du jour).
 - **Lancement : tout le monde repart à zéro** (`Core.Seasons`, saison 2). Au premier lancement de cette version, record, têtes gagnées, **toutes les pièces**, niveau, planches, missions, séries, coffres, duels et statistiques repartent de zéro, et la partie en cours est oubliée. On garde le pseudo, le code ami, les amis, les joueurs bloqués, les réglages et les achats définitifs (sans pubs, têtes premium : Apple impose de ne jamais les faire perdre). Les tutoriels déjà vus ne reviennent pas. Classements en ligne neufs : `bascule_monde_s2` et `bascule_jour_s2` (à créer dans le tableau de bord Unity, voir `docs/INTEGRATIONS.md`).
 - **Relecture (robustesse et validation Apple)** :
   - partage iOS : correction d'une erreur d'édition de liens du plugin (`extern "C"`), plus de double feuille de partage ; texte `NSPhotoLibraryAddUsageDescription` ajouté (sans lui, « Enregistrer l'image » fermait l'app et Apple refuse le build) ;
