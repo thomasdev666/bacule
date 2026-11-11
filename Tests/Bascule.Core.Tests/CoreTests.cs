@@ -759,11 +759,11 @@ namespace Bascule.Core.Tests
         public void ScoreUnlocksHeads()
         {
             var p = new Profile(); p.Sanitize();
-            // 1 600 points : les paliers 300, 700 et 1 200 sont atteints, mais au plus 2 têtes de score par partie.
+            // 1 600 points : les paliers 300, 700 et 1 200 sont atteints.
             var r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 1600 }, "2026-11-02");
-            Assert.AreEqual(2, r.NewHeads.Count);
+            Assert.AreEqual(3, r.NewHeads.Count);
             Assert.True(r.NewBest);
-            Assert.AreEqual(1200, r.NextHead.UnlockValue);
+            Assert.AreEqual(1800, r.NextHead.UnlockValue);
             var r2 = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 900 }, "2026-11-02");
             Assert.AreEqual(0, r2.NewHeads.Count);
             Assert.False(r2.NewBest);
@@ -1157,14 +1157,13 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
-        public void AtMostTwoScoreHeadsPerRun()
+        public void BigRunUnlocksEveryScoreHeadItReaches()
         {
             var p = new Profile();
-            var r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 9000 }, "2026-11-11");
-            int scoreHeads = r.NewHeads.FindAll(h => h.Unlock == UnlockKind.Score).Count;
-            Assert.AreEqual(Progress.MaxScoreHeadsPerRun, scoreHeads, "un gros premier score ne débloque pas tout d'un coup");
-            r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 9000 }, "2026-11-11");
-            Assert.AreEqual(2, r.NewHeads.FindAll(h => h.Unlock == UnlockKind.Score).Count, "les suivantes viennent aux parties d'après");
+            var r = Progress.ApplyRun(p, GameMode.Infinite, new RunAchievements { Score = 20000 }, "2026-11-11");
+            foreach (var h in HeadCatalog.All)
+                if (h.Unlock == UnlockKind.Score && h.UnlockValue <= 20000) Assert.True(p.unlockedHeads.Contains(h.Id), "palier " + h.UnlockValue);
+            Assert.False(r.NewHeads.Exists(h => h.Unlock == UnlockKind.Score && h.UnlockValue > 20000));
         }
 
         [Test]

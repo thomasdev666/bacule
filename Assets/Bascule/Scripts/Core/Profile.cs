@@ -267,9 +267,6 @@ namespace Bascule.Core
         public const int PersonalTopSize = 10;
 
         /// <summary>Met à jour le profil après une partie et renvoie les récompenses (record, nouvelles têtes).</summary>
-        /// <summary>Têtes de score gagnées au plus par partie.</summary>
-        public const int MaxScoreHeadsPerRun = 2;
-
         public static RunRewards ApplyRun(Profile p, GameMode mode, RunAchievements run, string todayKey)
         {
             var r = new RunRewards { PreviousBest = p.bestScore };
@@ -290,16 +287,11 @@ namespace Bascule.Core
             run.DailyStreak = p.daily.streak;
             r.DailyStreak = p.daily.streak;
 
-            // Au plus MaxScoreHeadsPerRun têtes de score par partie (les paliers les plus bas d'abord) : un très bon
-            // premier score ne débloque plus dix têtes d'un coup, les suivantes viennent aux parties d'après.
-            int scoreHeads = 0;
+            // Toutes les têtes atteintes par la partie : un exploit (20 000 points) débloque tout ce qu'il mérite.
             foreach (var h in HeadCatalog.All)
             {
                 if (p.unlockedHeads.Contains(h.Id)) continue;
-                if (!HeadCatalog.IsEarned(h, run)) continue;
-                if (h.Unlock == UnlockKind.Score && scoreHeads >= MaxScoreHeadsPerRun) continue;
-                if (h.Unlock == UnlockKind.Score) scoreHeads++;
-                p.unlockedHeads.Add(h.Id); r.NewHeads.Add(h);
+                if (HeadCatalog.IsEarned(h, run)) { p.unlockedHeads.Add(h.Id); r.NewHeads.Add(h); }
             }
             r.NextHead = HeadCatalog.NextScoreHead(p.unlockedHeads);
             return r;
