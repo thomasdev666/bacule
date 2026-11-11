@@ -340,7 +340,7 @@ namespace Bascule.UI
 
             // ---- Compte à rebours
             _countRt = Ui.Rect("Compte", Safe);
-            Ui.Place(_countRt, 0.5f, 0.5f, 0, 160, 900, 360);
+            Ui.Place(_countRt, 0.5f, 0.5f, 0, 10, 900, 360); // sous la phrase d'aide (« Glisse pour viser… »), sans la toucher
             _count = Ui.Title(_countRt, "3", 300, Palette.Accent);
             Ui.Stretch(_count.rectTransform);
             _count.horizontalOverflow = HorizontalWrapMode.Overflow;
