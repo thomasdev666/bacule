@@ -6,8 +6,8 @@ Tout est prêt à copier-coller. Le jeu est publié en français.
 
 | Champ | Valeur |
 |---|---|
-| Nom de l'appli | Bascule |
-| Sous-titre (App Store, 30 caractères) | Le jeu d'équilibre addictif |
+| Nom de l'appli | Bascule : jeu d'équilibre (App Store, 30 caractères) |
+| Sous-titre (App Store, 30 caractères) | Pose les poids, tiens bon ! |
 | Éditeur | Orphex |
 | Identifiant | `fr.orpheex.bascule` |
 | Catégorie | Jeux → Réflexion (secondaire : Arcade) |
@@ -39,7 +39,9 @@ Bascule est gratuit. Il contient des publicités non personnalisées entre les p
 
 ## Mots-clés (App Store, 100 caractères)
 
-équilibre,poids,fusion,planche,arcade,réflexion,casual,défi,record,2048,empiler,balance,physique
+poids,planche,empiler,fusion,arcade,réflexion,casual,défi,record,duel,ami,physique,tour,2048,tenir
+
+Ne pas répéter les mots du nom ni du sous-titre (Apple les compte déjà), pas d'espace après les virgules. « balance » est retiré : il attire les applis de pesée, qui occupent la recherche « bascule ».
 
 ## Captures d'écran
 
