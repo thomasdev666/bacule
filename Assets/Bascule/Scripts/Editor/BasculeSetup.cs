@@ -22,7 +22,7 @@ namespace Bascule.EditorTools
         /// <summary>Version du jeu : la même que celle du zip (Bascule_V9.zip → 9.0).</summary>
         public const string Version = "1.3";
         /// <summary>Numéro de build iOS : à augmenter à chaque envoi à Apple (deux envois ne peuvent pas avoir le même).</summary>
-        const string BuildNumber = "4";
+        const string BuildNumber = "5";
         const int VersionCode = 39;
 
         static BasculeSetup()
