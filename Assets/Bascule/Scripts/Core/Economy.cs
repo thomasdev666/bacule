@@ -62,6 +62,13 @@ namespace Bascule.Core
         /// <summary>Offre de départ : proposée après N parties, valable offerHours heures.</summary>
         public int starterOfferAfterGames = 8;
         public float starterOfferHours = 48f;
+        /// <summary>
+        /// Pub trop longue : le jeu ne peut pas couper une pub (elle appartient à la régie), mais une pub de plus de
+        /// longAdSeconds secondes (vidéo suivie d'un mini-jeu publicitaire…) fait sauter la prochaine pub imposée,
+        /// jusqu'à longAdPassesMax d'avance.
+        /// </summary>
+        public float longAdSeconds = 60f;
+        public int longAdPassesMax = 2;
     }
 
     // =====================================================================================================
@@ -114,6 +121,8 @@ namespace Bascule.Core
         public int interstitialsTotal;
         public int rewardedTotal;
         public bool removeAdsHintShown;
+        /// <summary>Pubs imposées à sauter, gagnées quand une pub a duré trop longtemps (AdPolicy.OnAdFinished).</summary>
+        public int longAdPasses;
     }
 
     [Serializable]
@@ -565,6 +574,31 @@ namespace Bascule.Core
             if (s.interstitialsToday >= t.maxInterstitialsPerDay) return false;
             if (celebration) return false;
             if (runSeconds < t.minRunSecondsForInterstitial) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Fin d'une pub (imposée ou choisie) : si elle a duré plus de longAdSeconds, la prochaine pub imposée sautera.
+        /// Renvoie vrai si la pub était trop longue.
+        /// </summary>
+        public static bool OnAdFinished(AdTuning t, AdState s, float seconds)
+        {
+            if (seconds <= t.longAdSeconds) return false;
+            s.longAdPasses = Math.Min(t.longAdPassesMax, s.longAdPasses + 1);
+            return true;
+        }
+
+        /// <summary>
+        /// Une pub imposée est due : si une pub trop longue l'a « payée » d'avance, on la saute (comptée comme vue pour
+        /// l'espacement, donc la suivante ne revient pas tout de suite). Renvoie vrai si elle est sautée.
+        /// </summary>
+        public static bool UseLongAdPass(AdState s, double now, string today)
+        {
+            if (s.longAdPasses <= 0) return false;
+            Roll(s, today);
+            s.longAdPasses--;
+            s.gamesSinceInterstitial = 0;
+            s.lastInterstitial = now;
             return true;
         }
 

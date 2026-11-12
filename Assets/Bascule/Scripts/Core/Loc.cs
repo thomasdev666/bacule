@@ -514,6 +514,7 @@ namespace Bascule.Core
             ["rate_no"] = new[] { "Pas maintenant", "Not now" },
             ["rate_row"] = new[] { "Noter Bascule", "Rate Bascule" },
             ["promo_row"] = new[] { "Code promo", "Promo code" },
+            ["ad_long_pass"] = new[] { "Pub un peu longue… la prochaine pub imposée est sautée !", "That ad was long… your next forced ad is skipped!" },
             ["promo_title"] = new[] { "Entre ton code", "Enter your code" },
             ["promo_note"] = new[] { "Le code d'un partenaire (BDE, créateur…) t'offre une tête introuvable ailleurs.", "A partner's code (student club, creator…) gives you a head you can't get anywhere else." },
             ["promo_ok_title"] = new[] { "Code accepté !", "Code accepted!" },

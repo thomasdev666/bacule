@@ -1291,12 +1291,23 @@ namespace Bascule
             FinalizeRun();
             if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay))
             {
+                // Une pub précédente a duré trop longtemps : celle-ci est sautée (le joueur l'a déjà « payée »).
+                if (AdPolicy.UseLongAdPass(Profile.ads, Now, LocalDay))
+                {
+                    Stats.Event("ad_skipped_long", ("left", Profile.ads.longAdPasses));
+                    SaveProfile();
+                    next();
+                    _leavingGameOver = false;
+                    return;
+                }
                 Stats.Event("ad_interstitial", ("games", Profile.gamesPlayed), ("today", Profile.ads.interstitialsToday + 1));
                 _adStarted = Time.realtimeSinceStartup;
                 _ads.ShowInterstitial(() =>
                 {
+                    float seconds = Time.realtimeSinceStartup - _adStarted;
                     _adStarted = -1f;
                     AdPolicy.OnInterstitialShown(Profile.ads, Now, LocalDay);
+                    AdTooLong("interstitial", seconds);
                     SaveProfile();
                     next();
                     _leavingGameOver = false;
@@ -1305,6 +1316,17 @@ namespace Bascule
             }
             next();
             _leavingGameOver = false;
+        }
+
+        /// <summary>
+        /// Une pub a duré plus d'une minute (vidéo suivie d'un mini-jeu publicitaire…) : on ne peut pas la couper, mais
+        /// la prochaine pub imposée sautera, et on le dit au joueur. Le réseau qui l'a servie est noté (docs/PUBS.md).
+        /// </summary>
+        void AdTooLong(string placement, float seconds)
+        {
+            if (!AdPolicy.OnAdFinished(Tuning.ads, Profile.ads, seconds)) return;
+            Stats.Event("ad_long", ("placement", placement), ("seconds", Mathf.RoundToInt(seconds)), ("network", _ads.LastNetwork ?? ""));
+            _toast.Say(Loc.Get("ad_long_pass"), Icon.Film, Palette.Purple, 3.5f);
         }
 
         /// <summary>Une pub est à l'écran (ou va l'être). Garde-fou de 5 minutes si la régie ne répond jamais.</summary>
@@ -1320,7 +1342,9 @@ namespace Bascule
             _adStarted = Time.realtimeSinceStartup;
             _ads.ShowRewarded(placement, ok =>
             {
+                float seconds = Time.realtimeSinceStartup - _adStarted;
                 _adStarted = -1f;
+                AdTooLong(placement, seconds);
                 if (!ok) { _toast.Say(Loc.Get("ad_unavailable")); return; }
                 AdPolicy.OnRewardedWatched(Profile.ads, Now, LocalDay);
                 Stats.Event("ad_rewarded", ("placement", placement), ("today", Profile.ads.rewardedToday));
