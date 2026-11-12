@@ -22,6 +22,7 @@ namespace Bascule.Core
         /// <summary>Le corps complet habillé de la tenue <paramref name="o"/>.</summary>
         public static Dictionary<string, Part> BuildOutfit(Rgba skin, OutfitDef o)
         {
+            if (o.Top == Top.Dress) return BuildDress(skin, o);
             var main = Rgba.FromHex(o.Main);
             var accent = Rgba.FromHex(o.Accent);
             var bottom = Rgba.FromHex(o.BottomColor);
@@ -80,9 +81,138 @@ namespace Bascule.Core
                 ["upperArm"] = upper,
                 ["forearm"] = fore,
                 ["hand"] = Hand(o.Top == Top.Space ? Glove : skin),
-                ["shoe"] = ShoePart(o.Shoe, Rgba.FromHex(o.ShoeColor)),
+                ["shoe"] = ShoePart(o.Shoe, Rgba.FromHex(o.ShoeColor), skin),
                 ["cushion"] = Cushion(),
             };
+        }
+
+        // ================================================================== Robe de fête (tête Samb'bach)
+
+        /// <summary>
+        /// Robe de fête : corsage ajusté à manches ballon et col à volant, ceinture nouée d'un gros nœud, jupe à trois
+        /// volants. Silhouette fine : bras et jambes plus minces, sans les biceps de leveur de Basile ; bracelets dorés,
+        /// ballerines. Même squelette et mêmes pivots que les autres corps.
+        /// </summary>
+        static Dictionary<string, Part> BuildDress(Rgba skin, OutfitDef o)
+        {
+            var main = Rgba.FromHex(o.Main);
+            var accent = Rgba.FromHex(o.Accent);
+            return new Dictionary<string, Part>
+            {
+                ["torso"] = OutfitTorso(skin, o, main, accent, new Rgba(0, 0, 0, 0)),
+                ["shorts"] = DressSkirt(main, accent, Rgba.FromHex(o.BottomColor)),
+                ["thigh"] = Segment(MascotRig.Thigh, 0.24f, 0.19f, skin, null, 0),
+                ["shin"] = Segment(MascotRig.Shin, 0.19f, 0.14f, skin, null, 0),
+                ["upperArm"] = PuffSleeveArm(skin, main, accent),
+                ["forearm"] = Segment(MascotRig.Forearm, 0.165f, 0.13f, skin, (img, limb, ax, bx) =>
+                {
+                    // Deux bracelets dorés au poignet.
+                    float u = U;
+                    for (int i = 0; i < 2; i++)
+                    {
+                        float x = ax + (bx - ax) * (0.8f + i * 0.09f);
+                        var band = Shape.Intersect(limb.Grow(0.025f * u), Shape.Box(x, img.Height * 0.5f, 0.022f * u, u));
+                        Toon.Part(img, band, Gold, 0.2f * u, Limb);
+                    }
+                }, 0),
+                ["hand"] = Hand(skin),
+                ["shoe"] = ShoePart(o.Shoe, Rgba.FromHex(o.ShoeColor), skin),
+                ["cushion"] = Cushion(),
+            };
+        }
+
+        /// <summary>Corsage ajusté : épaules arrondies, taille marquée, coutures princesse, col à volant, ceinture nouée.</summary>
+        static Part DressTorso(Rgba skin, Rgba main, Rgba accent)
+        {
+            var part = Canvas(2.3f, 2.2f, out var img, out float cx, out float cy);
+            float u = U;
+            Toon.Part(img, Shape.Tapered(cx, cy + 0.5f * u, 0.21f * u, cx, cy + 0.95f * u, 0.19f * u), skin, u, Body);
+            img.Fill(Shape.Ellipse(cx, cy + 0.82f * u, 0.25f * u, 0.1f * u), skin.Shadow(0.7f).WithAlpha(0.6f), 0.08f * u);
+            var shoulders = Shape.Smooth(Shape.Circle(cx - 0.76f * u, cy + 0.54f * u, 0.27f * u), Shape.Circle(cx + 0.76f * u, cy + 0.54f * u, 0.27f * u), 0.2f * u);
+            var bodice = Shape.Poly(cx - 0.6f * u, cy + 0.5f * u, cx + 0.6f * u, cy + 0.5f * u, cx + 0.52f * u, cy + 0.0f * u, cx + 0.36f * u, cy - 0.5f * u,
+                cx + 0.42f * u, cy - 0.72f * u, cx - 0.42f * u, cy - 0.72f * u, cx - 0.36f * u, cy - 0.5f * u, cx - 0.52f * u, cy + 0.0f * u).Grow(0.05f * u);
+            var neck = Shape.Ellipse(cx, cy + 0.68f * u, 0.27f * u, 0.25f * u);
+            var cloth = Shape.Subtract(Shape.Smooth(shoulders, bodice, 0.22f * u), neck);
+            Toon.Part(img, cloth, main, 2 * u, Body);
+            for (int sd = -1; sd <= 1; sd += 2)
+                img.FillClipped(cloth, Shape.Arc(cx + sd * 0.95f * u, cy - 0.05f * u, 0.62f * u, sd > 0 ? 150f : -30f, sd > 0 ? 210f : 30f, 0.014f * u), main.Shadow(0.7f).WithAlpha(0.55f), 1.5f);
+            // Col à volant : petits ronds le long de l'encolure.
+            Shape ruffle = null;
+            for (int i = 0; i <= 10; i++)
+            {
+                double a = (195 + i * 15) * Math.PI / 180;
+                var c = Shape.Circle(cx + (float)Math.Cos(a) * 0.33f * u, cy + 0.68f * u + (float)Math.Sin(a) * 0.3f * u, 0.075f * u);
+                ruffle = ruffle == null ? c : Shape.Union(ruffle, c);
+            }
+            Toon.Part(img, Shape.Subtract(ruffle, neck), accent, 0.5f * u, Body);
+            // Ceinture et gros nœud sur le côté, pans qui tombent sur la jupe.
+            var sash = Shape.Intersect(Shape.Box(cx, cy - 0.6f * u, 0.55f * u, 0.09f * u, 0.05f * u), cloth.Grow(0.02f * u));
+            Toon.Part(img, sash, accent, u, Body);
+            float kx = cx - 0.34f * u, ky = cy - 0.6f * u;
+            var tails = Shape.Union(Shape.Tapered(kx - 0.02f * u, ky - 0.04f * u, 0.05f * u, kx - 0.13f * u, ky - 0.34f * u, 0.035f * u),
+                Shape.Tapered(kx + 0.02f * u, ky - 0.04f * u, 0.05f * u, kx + 0.1f * u, ky - 0.31f * u, 0.035f * u));
+            Toon.Part(img, tails, accent.Shade(0.92f), 0.4f * u, Limb);
+            var loops = Shape.Union(Shape.Ellipse(kx - 0.13f * u, ky + 0.05f * u, 0.14f * u, 0.085f * u, 25f), Shape.Ellipse(kx + 0.13f * u, ky + 0.05f * u, 0.14f * u, 0.085f * u, -25f));
+            Toon.Part(img, loops, accent, 0.4f * u, Limb);
+            Toon.Part(img, Shape.Circle(kx, ky + 0.02f * u, 0.055f * u), accent.Shade(0.9f), 0.2f * u, Limb);
+            part.PivotY = cy;
+            return part;
+        }
+
+        /// <summary>Jupe à trois volants (alternance de deux couleurs), plis doux, bas festonné bordé d'un liseré.</summary>
+        static Part DressSkirt(Rgba main, Rgba accent, Rgba piping)
+        {
+            var part = Canvas(2.3f, 1.4f, out var img, out float cx, out float cy);
+            float u = U;
+            Shape Tier(float top, float bottom, float wTop, float wBottom, int scallops)
+            {
+                var s = Shape.Poly(cx - wTop * u, cy + top * u, cx + wTop * u, cy + top * u, cx + wBottom * u, cy + bottom * u, cx - wBottom * u, cy + bottom * u);
+                float rr = wBottom * u / scallops * 1.08f;
+                for (int i = 0; i < scallops; i++)
+                    s = Shape.Union(s, Shape.Circle(cx - wBottom * u + (i + 0.5f) * 2 * wBottom * u / scallops, cy + bottom * u, rr));
+                return s;
+            }
+            void Draw(Shape tier, Rgba c, float top, float bottom, float wTop, float wBottom, int folds)
+            {
+                Toon.Part(img, tier, c, 1.4f * u, Body);
+                for (int i = 1; i < folds; i++)
+                {
+                    float t = i / (float)folds;
+                    float xt = cx + (t * 2 - 1) * wTop * 0.9f * u, xb = cx + (t * 2 - 1) * wBottom * 0.95f * u;
+                    img.FillClipped(tier, Shape.Capsule(xt, cy + (top - 0.06f) * u, xb, cy + (bottom + 0.02f) * u, 0.016f * u), c.Shadow(0.72f).WithAlpha(0.45f), 2.5f);
+                }
+            }
+            var t3 = Tier(-0.12f, -0.56f, 0.74f, 0.98f, 9);
+            Draw(t3, main, -0.12f, -0.56f, 0.74f, 0.98f, 8);
+            img.FillClipped(t3, t3.Move(0, 0.05f * u).Not(), piping, 1f);
+            var t2 = Tier(0.16f, -0.24f, 0.56f, 0.8f, 8);
+            Draw(t2, accent, 0.16f, -0.24f, 0.56f, 0.8f, 7);
+            var t1 = Tier(0.46f, 0.06f, 0.42f, 0.6f, 7);
+            Draw(t1, main, 0.46f, 0.06f, 0.42f, 0.6f, 6);
+            part.PivotY = cy;
+            return part;
+        }
+
+        /// <summary>Bras fin (sans biceps) avec une manche ballon froncée, bordée d'un volant.</summary>
+        static Part PuffSleeveArm(Rgba skin, Rgba main, Rgba accent)
+        {
+            float length = MascotRig.UpperArm, ra = 0.2f, rb = 0.155f, pad = 0.12f;
+            var part = Canvas(length + ra + rb + pad * 2, 0.76f, out var img, out _, out float cy);
+            float u = U, ax = (pad + ra) * u, bx = ax + length * u;
+            Toon.Part(img, Shape.Tapered(ax, cy, ra * u, bx, cy, rb * u), skin, ra * 2.4f * u, Limb);
+            var puff = Shape.Ellipse(ax + 0.12f * u, cy, 0.34f * u, 0.3f * u);
+            Toon.Part(img, puff, main, 0.7f * u, Limb);
+            for (int k = -1; k <= 1; k++)
+                img.FillClipped(puff, Shape.Arc(ax - 0.28f * u, cy + k * 0.1f * u, 0.52f * u, -18f, 18f, 0.014f * u), main.Shadow(0.72f).WithAlpha(0.5f), 1.5f);
+            Shape ruffle = null;
+            for (int k = -3; k <= 3; k++)
+            {
+                var c = Shape.Circle(ax + 0.42f * u - Math.Abs(k) * 0.025f * u, cy + k * 0.085f * u, 0.06f * u);
+                ruffle = ruffle == null ? c : Shape.Union(ruffle, c);
+            }
+            Toon.Part(img, ruffle, accent, 0.4f * u, Limb);
+            part.PivotX = ax; part.PivotY = cy;
+            return part;
         }
 
         // ================================================================== Haut
@@ -95,7 +225,7 @@ namespace Bascule.Core
             {
                 float x = torso.Image.Width * 0.5f, y = torso.Image.Height * 0.5f;
                 var (dx, dy, r) = PatchSpot(o.Top);
-                DrawPatch(torso.Image, o.Patch, x + dx * U, y + dy * U, r * U);
+                DrawPatch(torso.Image, o.Patch, x + dx * U, y + dy * U, r * U, o.Top == Top.Dress);
             }
             return torso;
         }
@@ -109,12 +239,14 @@ namespace Bascule.Core
                 case Top.Jacket: return (0f, -0.12f, 0.18f);  // sur le t-shirt, entre les pans
                 case Top.Suit: case Top.Shirt: case Top.Space: return (0.36f, 0.02f, 0.17f);
                 case Top.Robe: return (-0.36f, -0.05f, 0.17f);
+                case Top.Dress: return (0f, -0.06f, 0.3f);    // broche dorée au milieu du corsage
                 default: return (0f, -0.3f, 0.4f);            // débardeur, t-shirt, maillot, pull : en grand
             }
         }
 
         static Part OutfitTorsoCloth(Rgba skin, OutfitDef o, Rgba main, Rgba accent, Rgba pin)
         {
+            if (o.Top == Top.Dress) return DressTorso(skin, main, accent);
             if (o.Top == Top.Tank) return TankTorso(skin, main, accent, o.Emblem, o.Belt, o.Motif, accent);
             if (o.Top == Top.Suit)
             {
@@ -463,15 +595,35 @@ namespace Bascule.Core
 
         // ================================================================== Chaussures
 
-        static Part ShoePart(Core.Shoe kind, Rgba color)
+        static Part ShoePart(Core.Shoe kind, Rgba color, Rgba skin)
         {
             switch (kind)
             {
+                case Core.Shoe.Flats: return Flats(color, skin);
                 case Core.Shoe.HighTops: return HighTops(color);
                 case Core.Shoe.Boots: return Boots(color);
                 case Core.Shoe.Dress: return DressShoes(color);
                 default: return Shoe(color);
             }
+        }
+
+        /// <summary>Ballerines : chaussure basse au bout rond, dessus du pied visible, petit nœud sur le devant.</summary>
+        static Part Flats(Rgba color, Rgba skin)
+        {
+            var part = Canvas(1.0f, 0.7f, out var img, out float cx, out float cy);
+            float u = U;
+            var st = new Toon.Style { Outline = 0.05f, Shade = 0.2f, Soft = 0.18f, Rim = 0.07f, RimOpacity = 0.55f, Specular = true, SpecSize = 0.08f };
+            var foot = Shape.Smooth(Shape.Ellipse(cx + 0.06f * u, cy - 0.06f * u, 0.3f * u, 0.12f * u), Shape.Ellipse(cx - 0.08f * u, cy + 0.04f * u, 0.14f * u, 0.14f * u), 0.08f * u);
+            Toon.Part(img, foot, skin, 0.6f * u, st);
+            // Chaussure : le bout couvre les orteils, le dessus du pied reste visible ; semelle fine.
+            var shoe = Shape.Subtract(Shape.Smooth(Shape.Ellipse(cx + 0.1f * u, cy - 0.07f * u, 0.34f * u, 0.14f * u), Shape.Box(cx - 0.12f * u, cy - 0.08f * u, 0.15f * u, 0.12f * u, 0.07f * u), 0.08f * u),
+                Shape.Ellipse(cx - 0.06f * u, cy + 0.07f * u, 0.2f * u, 0.11f * u, -8f));
+            Toon.Part(img, shoe, color, 0.8f * u, st);
+            Toon.Part(img, Shape.Box(cx + 0.06f * u, cy - 0.2f * u, 0.38f * u, 0.022f * u, 0.022f * u), color.Shade(0.65f), 0.8f * u, new Toon.Style { Outline = 0.05f, Shade = 0.1f, Soft = 0.1f, Rim = 0f, Specular = false });
+            float bx = cx + 0.2f * u, by = cy + 0.0f * u;
+            Toon.Part(img, Shape.Union(Shape.Ellipse(bx - 0.05f * u, by, 0.05f * u, 0.03f * u, 20f), Shape.Ellipse(bx + 0.05f * u, by, 0.05f * u, 0.03f * u, -20f)), color.Shade(0.85f), 0.2f * u, st);
+            part.PivotX = cx - 0.08f * u; part.PivotY = cy + 0.1f * u;
+            return part;
         }
 
         /// <summary>Baskets montantes : tige haute, bout blanc, pastille ronde sur la cheville.</summary>
@@ -591,17 +743,31 @@ namespace Bascule.Core
         /// Écusson brodé : bord orange épais (le cercle du logo, élargi pour rester lisible en petit), points de couture,
         /// le logo dedans, et une ombre douce en bas à droite comme un écusson cousu sur le tissu.
         /// </summary>
-        static void DrawPatch(Raster img, string key, float x, float y, float r)
+        static void DrawPatch(Raster img, string key, float x, float y, float r, bool jewel = false)
         {
             float u = U, rim = Math.Max(0.045f * u, r * 0.17f);
             var outer = Shape.Circle(x, y, r + rim);
-            Toon.Part(img, outer, PatchRing, 2 * (r + rim), new Toon.Style { Outline = 0.04f, Shade = 0.06f, Soft = 0.08f, ShadeStrength = 0.85f, Rim = 0.04f, RimOpacity = 0.6f, Specular = false });
             int n = Math.Max(16, (int)(r / u * 70));
             float rr = r + rim * 0.5f;
-            for (int i = 0; i < n; i++)
+            if (jewel)
             {
-                double a = i * 2 * Math.PI / n, b = a + Math.PI / n;
-                img.Fill(Shape.Capsule(x + (float)Math.Cos(a) * rr, y + (float)Math.Sin(a) * rr, x + (float)Math.Cos(b) * rr, y + (float)Math.Sin(b) * rr, 0.009f * u), Rgba.White.WithAlpha(0.7f));
+                // Broche : monture dorée brillante, perles d'or tout autour.
+                Toon.Part(img, outer, Gold, 2 * (r + rim), new Toon.Style { Outline = 0.04f, Shade = 0.08f, Soft = 0.08f, ShadeStrength = 0.85f, Rim = 0.06f, RimOpacity = 0.8f, Specular = true, SpecSize = 0.08f });
+                int beads = Math.Max(12, n / 2);
+                for (int i = 0; i < beads; i++)
+                {
+                    double a = i * 2 * Math.PI / beads;
+                    Toon.Part(img, Shape.Circle(x + (float)Math.Cos(a) * rr, y + (float)Math.Sin(a) * rr, rim * 0.3f), Gold.Light(1.25f), rim, new Toon.Style { Outline = 0f, Shade = 0.2f, Soft = 0.2f, Rim = 0f, Specular = true, SpecSize = 0.25f });
+                }
+            }
+            else
+            {
+                Toon.Part(img, outer, PatchRing, 2 * (r + rim), new Toon.Style { Outline = 0.04f, Shade = 0.06f, Soft = 0.08f, ShadeStrength = 0.85f, Rim = 0.04f, RimOpacity = 0.6f, Specular = false });
+                for (int i = 0; i < n; i++)
+                {
+                    double a = i * 2 * Math.PI / n, b = a + Math.PI / n;
+                    img.Fill(Shape.Capsule(x + (float)Math.Cos(a) * rr, y + (float)Math.Sin(a) * rr, x + (float)Math.Cos(b) * rr, y + (float)Math.Sin(b) * rr, 0.009f * u), Rgba.White.WithAlpha(0.7f));
+                }
             }
             var disc = Shape.Circle(x, y, r);
             if (key != null && PatchImages.TryGetValue(key, out var logo)) img.DrawImage(logo, x, y, 2 * r, disc);
@@ -612,7 +778,7 @@ namespace Bascule.Core
                 img.Fill(Star(x, y, 0.62f * r, 0.26f * r), Rgba.FromHex("#00A651"));
             }
             img.FillClipped(disc, disc.Move(-0.03f * u, 0.05f * u).Not(), Rgba.FromHex("#4A2A00").WithAlpha(0.2f), 0.05f * u);
-            img.Fill(Shape.Subtract(disc.Grow(1.5f), disc), PatchRing.Shade(0.75f));
+            img.Fill(Shape.Subtract(disc.Grow(1.5f), disc), (jewel ? Gold : PatchRing).Shade(0.75f));
         }
 
         /// <summary>Écusson rond (couleur d'accent) avec un symbole de la couleur du tissu.</summary>

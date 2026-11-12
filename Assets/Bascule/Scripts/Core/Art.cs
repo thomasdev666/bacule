@@ -47,8 +47,8 @@ namespace Bascule.Core
 
             switch (h.Hair)
             {
-                case HairStyle.Waves:
-                    WavesBack(img, cx, cy, r, hair);
+                case HairStyle.Cascade:
+                    CascadeBack(img, cx, cy, r, hair);
                     break;
                 case HairStyle.Long:
                     Toon.Part(img, Shape.Smooth(Shape.Box(cx, cy - 0.2f * r, 1.12f * r, 0.95f * r, 0.55f * r), Shape.Circle(cx, cy + 0.2f * r, 1.12f * r), 0.2f * r), hair, sz, Line());
@@ -202,37 +202,58 @@ namespace Bascule.Core
                 DrawPlume(img, bx, by, a, 0.12f * r, len * r, 0.17f * r, c, sz * 0.45f);
         }
 
+        static readonly Rgba Honey = Rgba.FromHex("#C98B4A");
+
         /// <summary>
-        /// Longs cheveux ondulés (calque arrière) : beaucoup de volume autour de la tête, des boucles sur le contour,
-        /// et deux longues mèches qui tombent de chaque côté sur les épaules. Le cou reste dégagé.
+        /// Une vague de cheveux : mèche ovale inclinée, cernée, avec un creux sombre sur le bas et un reflet brillant
+        /// sur le haut. Empilées en zigzag, elles forment de grosses ondulations.
         /// </summary>
-        static void WavesBack(Raster img, float cx, float cy, float r, Rgba hair)
+        static void WaveLock(Raster img, float x, float y, float rx, float ry, float rot, Rgba c)
+        {
+            var lockShape = Shape.Ellipse(x, y, rx, ry, rot);
+            Toon.Part(img, lockShape, c, ry * 2.2f, Line(0.03f, 0.12f));
+            img.FillClipped(lockShape, lockShape.Move(0.03f * rx, 0.22f * ry).Not(), c.Shade(0.62f).WithAlpha(0.6f), 0.18f * ry);
+            double a = (90 + rot) * Math.PI / 180;
+            float hx = x - (float)Math.Cos(a) * 0.05f * ry - 0.28f * rx, hy = y + (float)Math.Sin(a) * 0.32f * ry;
+            img.FillClipped(lockShape, Shape.Ellipse(hx, hy, 0.16f * rx, 0.5f * ry, rot), c.Light(1.7f).WithAlpha(0.55f), 0.12f * rx);
+        }
+
+        /// <summary>Couleur d'une mèche selon sa hauteur : brun en haut, miel aux pointes (balayage).</summary>
+        static Rgba Balayage(Rgba hair, float yRel) => Rgba.Lerp(hair, Honey, (0.35f - yRel) / 1.45f);
+
+        /// <summary>
+        /// Coiffure « cascade » (calque arrière) : tout est ramené sur le côté droit (à droite vue de face) en une grosse
+        /// tresse qui tombe sur l'épaule, du brun aux pointes miel (balayage), tenue par une bague dorée et finie par
+        /// une pointe ondulée ; à gauche, les cheveux sont lissés derrière l'oreille (la créole reste visible).
+        /// </summary>
+        static void CascadeBack(Raster img, float cx, float cy, float r, Rgba hair)
         {
             float sz = r * 2f;
-            var s = Shape.Smooth(Shape.Circle(cx, cy + 0.18f * r, 1.1f * r), Shape.Box(cx, cy - 0.45f * r, 1.0f * r, 0.78f * r, 0.5f * r), 0.3f * r);
-            foreach (var (x, y, rr) in new[]
-            {
-                (0.98f, 0.74f, 0.24f), (1.14f, 0.36f, 0.23f), (1.2f, -0.04f, 0.22f), (1.18f, -0.44f, 0.21f),
-                (1.08f, -0.82f, 0.2f), (0.9f, -1.1f, 0.19f), (0.66f, -1.18f, 0.17f), (0.56f, 1.08f, 0.24f),
-            })
-            {
-                s = Shape.Union(s, Shape.Circle(cx - x * r, cy + y * r, rr * r));
-                s = Shape.Union(s, Shape.Circle(cx + x * r, cy + y * r, rr * r));
-            }
-            // Le cou reste dégagé : les cheveux tombent de chaque côté, derrière les épaules.
-            s = Shape.Subtract(s, Shape.Box(cx, cy - 1.55f * r, 0.5f * r, 0.62f * r, 0.3f * r));
+            // La tresse part derrière l'oreille droite et retombe vers l'avant, sur l'épaule (elle reste visible quand
+            // les bras sont levés).
+            var flow = Shape.Tapered(cx + 1.0f * r, cy + 0.35f * r, 0.26f * r, cx + 0.86f * r, cy - 1.0f * r, 0.12f * r);
+            var s = Shape.Smooth(Shape.Circle(cx + 0.04f * r, cy + 0.2f * r, 1.08f * r), flow, 0.2f * r);
+            s = Shape.Union(s, Shape.Ellipse(cx - 0.82f * r, cy + 0.2f * r, 0.32f * r, 0.5f * r, -15f));
             Toon.Part(img, s, hair, sz, Line());
-            // Ondulations : creux sombres et reflets clairs en S sur les longueurs.
-            var dark = hair.Shade(0.7f).WithAlpha(0.6f);
-            var shine = hair.Light(1.9f).WithAlpha(0.32f);
-            for (int sd = -1; sd <= 1; sd += 2)
-                for (int k = 0; k < 3; k++)
-                {
-                    float x = cx + sd * (1.04f - k * 0.04f) * r, y = cy + (0.25f - k * 0.45f) * r;
-                    float a0 = sd > 0 ? 100f : -80f;
-                    img.FillClipped(s, Shape.Arc(x, y, 0.2f * r, a0, a0 + 160f, 0.035f * r), dark, 1.5f);
-                    img.FillClipped(s, Shape.Arc(x - sd * 0.05f * r, y - 0.2f * r, 0.17f * r, a0 + 180f, a0 + 300f, 0.03f * r), shine, 1.5f);
-                }
+            img.FillClipped(s, s, Paint.Linear(Honey.WithAlpha(0f), 0, cy - 0.1f * r, Honey.WithAlpha(0.9f), 0, cy - 1.1f * r), 1f);
+            // Pointe ondulée sous la bague.
+            float tx = cx + 0.8f * r, ty = cy - 1.3f * r;
+            WaveLock(img, tx - 0.05f * r, ty - 0.1f * r, 0.08f * r, 0.09f * r, 10f, Balayage(hair, -1.4f));
+            WaveLock(img, tx, ty, 0.12f * r, 0.13f * r, -30f, Balayage(hair, -1.3f));
+            // La tresse : des maillons inclinés une fois à gauche, une fois à droite, du bas vers le haut
+            // (chaque maillon passe devant celui du dessous), de plus en plus fins vers la pointe.
+            const int links = 5;
+            for (int i = links - 1; i >= 0; i--)
+            {
+                float t = i / (float)(links - 1);
+                int side = i % 2 == 0 ? 1 : -1;
+                float x = 1.14f - 0.34f * (float)Math.Pow(t, 1.3) + side * 0.06f, y = 0.3f - 1.26f * t;
+                WaveLock(img, cx + x * r, cy + y * r, (0.27f - 0.05f * t) * r, (0.3f - 0.04f * t) * r, side * 28f - 15f * t, Balayage(hair, y));
+            }
+            // Bague dorée qui tient la tresse.
+            var cuff = Shape.Box(tx + 0.02f * r, cy - 1.17f * r, 0.12f * r, 0.065f * r, 0.03f * r, -15f);
+            Toon.Part(img, cuff, Gold, 0.4f * r, new Toon.Style { Outline = 0.05f, Shade = 0.15f, Soft = 0.12f, Rim = 0.08f, RimOpacity = 0.7f, Specular = true, SpecSize = 0.15f });
+            img.FillClipped(cuff, Shape.Box(tx + 0.02f * r, cy - 1.17f * r, 0.13f * r, 0.012f * r, 0f, -15f), Gold.Shade(0.75f), 1f);
         }
 
         // ================================================================== Calque visage
@@ -521,24 +542,25 @@ namespace Bascule.Core
                 case HairStyle.Afro:
                     Fringe(Shape.Union(Puff(cx, cy + 0.86f * r, 0.92f * r, 10, 0.22f * r), Shape.Ellipse(cx, cy + 0.85f * r, 0.9f * r, 0.32f * r)));
                     break;
-                case HairStyle.Waves:
+                case HairStyle.Cascade:
                 {
-                    // Raie sur le côté, grande mèche balayée et longues mèches ondulées qui encadrent le visage.
-                    var s = Shape.Smooth(Cap(0.02f), Shape.Tapered(cx - 0.32f * r, cy + 1.04f * r, 0.34f * r, cx + 0.82f * r, cy + 0.5f * r, 0.12f * r), 0.14f * r);
-                    s = Shape.Smooth(s, Shape.Tapered(cx - 0.44f * r, cy + 1.0f * r, 0.22f * r, cx - 0.84f * r, cy + 0.6f * r, 0.1f * r), 0.12f * r);
-                    for (int sd = -1; sd <= 1; sd += 2)
-                    {
-                        var wave = Shape.Smooth(Shape.Tapered(cx + sd * 0.88f * r, cy + 0.66f * r, 0.2f * r, cx + sd * 1.0f * r, cy - 0.02f * r, 0.15f * r),
-                            Shape.Tapered(cx + sd * 1.0f * r, cy - 0.02f * r, 0.15f * r, cx + sd * 0.9f * r, cy - 0.56f * r, 0.12f * r), 0.08f * r);
-                        s = Shape.Union(s, Shape.Union(wave, Shape.Circle(cx + sd * 0.86f * r, cy - 0.62f * r, 0.13f * r)));
-                    }
+                    // Raie profonde à gauche : une grande vague brillante balayée sur le front vers la droite, vers la
+                    // tresse ; à gauche, une mèche lisse jusqu'à l'oreille.
+                    var left = Shape.Smooth(Shape.Ellipse(cx - 0.64f * r, cy + 0.84f * r, 0.36f * r, 0.24f * r, 30f),
+                        Shape.Tapered(cx - 0.8f * r, cy + 0.66f * r, 0.15f * r, cx - 0.98f * r, cy + 0.28f * r, 0.07f * r), 0.1f * r);
+                    var sweep = Shape.Smooth(Shape.Ellipse(cx + 0.12f * r, cy + 0.94f * r, 0.84f * r, 0.32f * r, -10f),
+                        Shape.Tapered(cx + 0.45f * r, cy + 0.86f * r, 0.32f * r, cx + 0.94f * r, cy + 0.44f * r, 0.2f * r), 0.12f * r);
+                    var s = Shape.Union(left, sweep);
                     Fringe(s);
-                    var shine = hair.Light(2.0f).WithAlpha(0.5f);
-                    for (int sd = -1; sd <= 1; sd += 2)
-                    {
-                        img.FillClipped(s, Shape.Arc(cx + sd * 1.08f * r, cy + 0.32f * r, 0.16f * r, sd > 0 ? 120f : -60f, sd > 0 ? 250f : 70f, 0.028f * r), shine, 1.5f);
-                        img.FillClipped(s, Shape.Arc(cx + sd * 0.82f * r, cy - 0.25f * r, 0.14f * r, sd > 0 ? -70f : 110f, sd > 0 ? 60f : 240f, 0.025f * r), shine, 1.5f);
-                    }
+                    // Brillance de la vague : un large reflet qui suit le balayage, et le creux de l'ondulation.
+                    img.FillClipped(s, Shape.Arc(cx + 0.18f * r, cy + 0.42f * r, 0.74f * r, 38f, 100f, 0.09f * r), hair.Light(1.9f).WithAlpha(0.4f), 3f);
+                    img.FillClipped(s, Shape.Arc(cx + 0.1f * r, cy + 0.5f * r, 0.6f * r, 28f, 118f, 0.03f * r), hair.Shade(0.6f).WithAlpha(0.7f), 1.5f);
+                    img.FillClipped(s, Shape.Arc(cx - 0.62f * r, cy + 0.84f * r, 0.22f * r, 60f, 150f, 0.03f * r), hair.Light(1.9f).WithAlpha(0.45f), 1.5f);
+                    // Une mèche fine qui s'échappe de la tresse et encadre le visage à droite.
+                    var strand = Shape.Smooth(Shape.Tapered(cx + 0.84f * r, cy + 0.52f * r, 0.1f * r, cx + 0.99f * r, cy + 0.06f * r, 0.065f * r),
+                        Shape.Tapered(cx + 0.99f * r, cy + 0.06f * r, 0.065f * r, cx + 0.9f * r, cy - 0.32f * r, 0.025f * r), 0.04f * r);
+                    Toon.Part(img, strand, hair, sz * 0.3f, hairStyle);
+                    img.FillClipped(strand, strand, Paint.Linear(Honey.WithAlpha(0f), 0, cy + 0.2f * r, Honey.WithAlpha(0.9f), 0, cy - 0.3f * r), 1f);
                     break;
                 }
             }
@@ -548,6 +570,21 @@ namespace Bascule.Core
                 img.Fill(Shape.Arc(cx - 0.18f * r, cy + 0.72f * r, 0.48f * r, 105f, 150f, 0.07f * r), hair.Light(1.45f).WithAlpha(0.75f));
                 img.Fill(Shape.Arc(cx - 0.08f * r, cy + 0.7f * r, 0.62f * r, 92f, 118f, 0.05f * r), hair.Light(1.45f).WithAlpha(0.6f));
             }
+
+            // Cils recourbés au coin extérieur des yeux (posés sur le bord de l'œil ouvert, et dans le prolongement
+            // d'un œil fermé en sourire).
+            if (h.Lashes)
+                for (int sd = -1; sd <= 1; sd += 2)
+                {
+                    float lx = cx + sd * ex, ly = ey;
+                    foreach (var (a, len, tilt) in new[] { (12f, 0.12f, 28f), (36f, 0.11f, 48f), (60f, 0.09f, 68f) })
+                    {
+                        double ar = a * Math.PI / 180, tr = tilt * Math.PI / 180;
+                        float px = lx + sd * (float)Math.Cos(ar) * 0.2f * r, py = ly + (float)Math.Sin(ar) * 0.26f * r;
+                        float qx = px + sd * (float)Math.Cos(tr) * len * r, qy = py + (float)Math.Sin(tr) * len * r;
+                        img.Fill(Shape.Tapered(px, py, 0.026f * r, qx, qy, 0.008f * r), Ink);
+                    }
+                }
 
             var acc = new Toon.Style { Outline = 0.03f, Shade = 0.15f, Soft = 0.1f, Rim = 0.04f, RimOpacity = 0.5f, Specular = true, SpecSize = 0.08f };
             switch (h.Accessory)
@@ -826,7 +863,9 @@ namespace Bascule.Core
                     img.Fill(StarShape(mx, my, 0.09f * r, 0.04f * r, 0f), BrYellow);
                     for (int sd = -1; sd <= 1; sd += 2)
                     {
-                        var hoop = Shape.Subtract(Shape.Circle(cx + sd * 1.04f * r, cy - 0.46f * r, 0.13f * r), Shape.Circle(cx + sd * 1.04f * r, cy - 0.46f * r, 0.085f * r));
+                        if (sd > 0 && h.Hair == HairStyle.Cascade) continue; // oreille droite sous les boucles
+                        float hr = h.Hair == HairStyle.Cascade ? 0.15f : 0.13f;
+                        var hoop = Shape.Subtract(Shape.Circle(cx + sd * 1.04f * r, cy - 0.48f * r, hr * r), Shape.Circle(cx + sd * 1.04f * r, cy - 0.48f * r, (hr - 0.045f) * r));
                         Toon.Part(img, hoop, Gold, sz * 0.2f, acc);
                     }
                     break;

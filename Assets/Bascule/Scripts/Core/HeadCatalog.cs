@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace Bascule.Core
 {
     public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh, Curls,
-        // Longs cheveux ondulés et volumineux qui tombent sur les épaules (tête « Samb'bach »).
-        Waves }
+        // Coiffure unique de la tête « Samb'bach » : raie profonde, grande vague balayée sur le front, grosse tresse
+        // sur une seule épaule tenue par une bague dorée, pointes couleur miel (balayage brésilien) ; l'autre côté lissé derrière l'oreille.
+        Cascade }
 
     /// <summary>Tenue du corps : le débardeur de Basile, ou le costume croisé (tête Challenger).</summary>
     public enum Outfit { Tank, Suit }
@@ -61,6 +62,8 @@ namespace Bascule.Core
         public string Product;
         /// <summary>Tenue du corps (débardeur par défaut).</summary>
         public Outfit Outfit;
+        /// <summary>Cils recourbés au coin des yeux (calque avant).</summary>
+        public bool Lashes;
         /// <summary>Clé des images du corps : la peau et la tenue de cette tête (« #E8B48C_h12 », Core/Outfits.cs).</summary>
         public string BodyKey => Skin + "_h" + Id;
 

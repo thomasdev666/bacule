@@ -4,10 +4,14 @@ using System.Collections.Generic;
 namespace Bascule.Core
 {
     /// <summary>Haut de la tenue.</summary>
-    public enum Top { Tank, TShirt, Sweater, Hoodie, Jersey, Shirt, Jacket, Suit, Robe, Space }
+    public enum Top { Tank, TShirt, Sweater, Hoodie, Jersey, Shirt, Jacket, Suit, Robe, Space,
+        // Robe de fête : corsage ajusté à manches ballon, jupe à volants, silhouette fine (tête « Samb'bach »).
+        Dress }
     /// <summary>Bas de la tenue.</summary>
     public enum Bottom { Shorts, Trousers, Jeans, Joggers }
-    public enum Shoe { Sneakers, HighTops, Boots, Dress }
+    public enum Shoe { Sneakers, HighTops, Boots, Dress,
+        // Ballerines (avec la robe de fête).
+        Flats }
     /// <summary>Motif du tissu du haut.</summary>
     public enum Motif { None, Stripes, Pinstripe, Dots, Stars, Plaid }
     /// <summary>Écusson sur la poitrine. Patch : le logo d'un partenaire (OutfitDef.Patch), cousu en grand.</summary>

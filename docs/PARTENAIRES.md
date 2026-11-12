@@ -4,8 +4,10 @@ Une tête de partenaire = un personnage complet (tête, coiffure, accessoire, te
 
 ## Samb'bach (BDE) : en validation
 
-- **Personnage** : une Brésilienne aux longs cheveux ondulés (`HairStyle.Waves`), coiffe du carnaval aux couleurs du Brésil (plumes vertes, jaunes et bleues, diadème doré, créoles : `Accessory.Samba`), grand sourire (`Expression.Happy`).
-- **Tenue** : maillot jaune à liserés verts façon Brésil, short bleu, chaussettes blanches, baskets vertes ; le logo du BDE en écusson brodé (bord orange, points de couture) au milieu de la poitrine (`Emblem.Patch`).
+- **Personnage** : une Brésilienne, grand sourire, cils recourbés (`HeadDef.Lashes`).
+- **Coiffure unique** (`HairStyle.Cascade`, à elle seule) : raie profonde, grande vague brillante balayée sur le front, tout ramené en une grosse tresse qui retombe sur l'épaule droite, du brun aux pointes miel (balayage brésilien), tenue par une bague dorée ; de l'autre côté, cheveux lissés derrière l'oreille et une créole dorée.
+- **Coiffe du carnaval** (`Accessory.Samba`) : plumes vertes, jaunes et bleues, diadème doré avec une étoile sur une pierre verte.
+- **Tenue** (`Top.Dress`) : robe de fête vert émeraude ajustée à la taille, manches ballon et col à volants jaunes, ceinture nouée d'un gros nœud, jupe à trois volants (émeraude, jaune, émeraude) bordée de bleu ; le logo du BDE en broche dorée sur le corsage (`Emblem.Patch`). Silhouette fine (bras et jambes plus minces que Basile, sans biceps), bracelets dorés, ballerines dorées (`Shoe.Flats`).
 - **Logo** : `Tools/Sponsors/sambbach_logo.png` (le disque intérieur du logo fourni, détouré en rond, 512 px) ; l'original est à côté.
 - **Aperçus** : `docs/apercu/sponsor_sambbach*.png`.
 

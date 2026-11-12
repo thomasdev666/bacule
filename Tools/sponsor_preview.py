@@ -74,14 +74,24 @@ def portrait_card():
     p = sp.load(f"sponsors/{KEY}_portrait.png").resize((760, 760), Image.LANCZOS)
     img.alpha_composite(p, (int(W / 2 - 380), 170))
     sp.title(img, NAME, (40, 900, W - 40, 1020), 96, color=YELLOW)
-    sp.title(img, "Coiffe du carnaval, créoles dorées", (40, 1010, W - 40, 1070), 42, color=(216, 233, 255), outline=False)
-    # Gros plan sur le torse : le logo du BDE en écusson brodé.
-    torso = sp.load(f"{BODY}/torso.png")
-    t = torso.resize((int(torso.width * 1.8), int(torso.height * 1.8)), Image.LANCZOS)
+    sp.title(img, "Tresse sur l'épaule, coiffe du carnaval", (40, 1010, W - 40, 1070), 42, color=(216, 233, 255), outline=False)
+    # Gros plan sur la robe : le logo du BDE en broche dorée sur le corsage.
     card = (W / 2 - 430, 1100, W / 2 + 430, 1100 + 780)
     sp.card(img, card, tint=(255, 244, 214))
-    sp.title(img, "Logo du BDE cousu sur le maillot", (card[0] + 20, card[1] + 26, card[2] - 20, card[1] + 92), 42, color=sp.INK, outline=False)
-    img.alpha_composite(t, (int(W / 2 - t.width / 2), int(card[1] + 112)))
+    sp.title(img, "Logo du BDE en broche sur la robe", (card[0] + 20, card[1] + 26, card[2] - 20, card[1] + 92), 42, color=sp.INK, outline=False)
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    old_ppu, old_ground = sp.PPU, sp.GROUND_Y
+    ppu, ground = 205.0, -5.2
+    sp.PPU, sp.GROUND_Y = ppu, ground
+    sp.mascot(sp.Canvas(layer), 0, -2.0, 0.0, "Grin", head=KEY, body=BODY)
+    sp.PPU, sp.GROUND_Y = old_ppu, old_ground
+    # Des épaules au bas de la jupe, centré dans la carte.
+    top_y = H / 2 - (ground + 3.42) * ppu
+    crop = layer.crop((int(W / 2 - 420), int(top_y), int(W / 2 + 420), int(top_y + 640)))
+    mask = Image.new("L", crop.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, crop.width, crop.height), 40, fill=255)
+    crop.putalpha(Image.composite(crop.split()[3], mask, mask))
+    img.alpha_composite(crop, (int(W / 2 - 420), int(card[1] + 104)))
     return img
 
 

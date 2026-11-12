@@ -196,12 +196,13 @@ static class SponsorPreviews
             Head = new HeadDef
             {
                 Id = 66, NameFr = "Samb'bach", NameEn = "Samb'bach", Unlock = UnlockKind.Default, Skin = "#C68C5D",
-                Hair = HairStyle.Waves, HairColor = "#3B2216", Accessory = Accessory.Samba, Expression = Expression.Happy,
+                Hair = HairStyle.Cascade, HairColor = "#3A1F14", Accessory = Accessory.Samba, Expression = Expression.Grin, Lashes = true,
             },
+            // Robe de fête vert émeraude à volants jaunes, liseré bleu, logo du BDE en broche dorée, ballerines dorées.
             Outfit = new OutfitDef
             {
-                Top = Top.Jersey, Main = "#FFD31A", Accent = "#00A651", Motif = Motif.None, Emblem = Emblem.Patch, Patch = "sambbach",
-                Bottom = Bottom.Shorts, BottomColor = "#1F4BA5", Shoe = Shoe.Sneakers, ShoeColor = "#00A651", Sock = "#FFFFFF",
+                Top = Top.Dress, Main = "#0E9F5B", Accent = "#FFD31A", Motif = Motif.None, Emblem = Emblem.Patch, Patch = "sambbach",
+                Bottom = Bottom.Shorts, BottomColor = "#2F6FE0", Shoe = Shoe.Flats, ShoeColor = "#E8B23A",
             },
         },
     };

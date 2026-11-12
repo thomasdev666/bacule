@@ -35,7 +35,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Rafales plus douces** (`Core/Wind.cs`) : de 22 % à 52 % du couple de défaite (avant : 42 % à 60 %). Les 3 premières rafales sont « douces » : le vent seul ne dépasse pas 55 % de l'angle max et il s'efface dès que la planche penche (danger de 50 % à 80 %) : elles ne font jamais perdre. La limite d'équité passe désormais avant la force minimale. Duel : de 30 % à 64 % (avant : 45 % à 72 %).
 
 ## En préparation – têtes de partenaires
-- **Samb'bach (BDE)** : visuel à valider (`docs/PARTENAIRES.md`, aperçus `docs/apercu/sponsor_sambbach*.png`). Le dessin sait déjà faire les longs cheveux ondulés (`HairStyle.Waves`), la coiffe du carnaval (`Accessory.Samba`) et un logo cousu sur la poitrine (`Emblem.Patch`, image donnée par `MascotArtist.RegisterPatch`). Rien ne change encore dans le jeu ; le code promo viendra après la validation.
+- **Samb'bach (BDE)** : visuel à valider (`docs/PARTENAIRES.md`, aperçus `docs/apercu/sponsor_sambbach*.png`). Le dessin sait déjà faire sa coiffure unique (tresse sur l'épaule au balayage miel, `HairStyle.Cascade`), les cils (`HeadDef.Lashes`), la coiffe du carnaval (`Accessory.Samba`), la robe de fête à volants avec une silhouette fine (`Top.Dress`, `Shoe.Flats`) et un logo en broche ou en écusson (`Emblem.Patch`, image donnée par `MascotArtist.RegisterPatch`). Rien ne change encore dans le jeu ; le code promo viendra après la validation.
 
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
 - **Retours de test** :
