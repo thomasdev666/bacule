@@ -92,7 +92,7 @@ Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adap
 
 ## Branchés dans LevelPlay (12/11/2026)
 
-Instances Rewarded et Interstitial actives (enchères) pour : ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost. Blocs AdMob iOS : interstitiel `ca-app-pub-3087780473555937/4650789819`, récompensé `ca-app-pub-3087780473555937/9212676344`. « Google AdMob Native » laissé vide (pas de pub native dans le jeu). Restent à brancher dès validation de leur compte : AppLovin, Mintegral, DT Exchange, Pangle.
+Instances Rewarded et Interstitial actives et ajoutées aux groupes de médiation (enchères, All Countries) pour : ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost. Blocs AdMob iOS : interstitiel `ca-app-pub-3087780473555937/4650789819`, récompensé `ca-app-pub-3087780473555937/9212676344`. « Google AdMob Native » laissé vide (pas de pub native dans le jeu). Restent à brancher dès validation de leur compte : AppLovin, Mintegral, DT Exchange, Pangle.
 
 ## Adaptateurs installés dans Unity (fait le 12/11/2026)
 
