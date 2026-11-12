@@ -11,6 +11,9 @@ vungle.com, 6af5e868efb36623c25fe232, DIRECT, c107d686becd2d77
 # ironSource Ads (LevelPlay)
 ironsrc.com, 698899, DIRECT, 79929e88b2ba73bc
 
+# InMobi
+inmobi.com, 0e0ea6a0e05544ffaf7a5f03113ada06, DIRECT, 83e75a7ae333ca9d
+
 # Unity Ads (liste fournie par Unity : Monetization > Settings > Organization > App-ads.txt)
 my-cast.tv, 987033, RESELLER, 8c33fe1bd714ffd7
 zmaticoo.com, 5135195, RESELLER

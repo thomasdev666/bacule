@@ -82,6 +82,9 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 - **Unity Ads et ironSource Ads** (LevelPlay) : lignes ajoutées (liste d'Unity : Monetization → Settings → Organization → App-ads.txt ; ironSource : éditeur `698899`). Dans Unity, renseigner ensuite l'« App-ads URL » si la page le demande.
 - **AppLovin** : inscription faite, compte en attente de confirmation par AppLovin.
 - **Pangle** : app « Bascule » créée (ID 8932945, en test) ; compléter les informations de l'entreprise pour l'activer, puis créer les placements. Sa ligne app-ads.txt viendra ensuite.
+- **InMobi** : compte créé (ORPHEE X), ligne app-ads.txt ajoutée ; ajouter l'app Bascule iOS et ses placements.
+- **Chartboost** : app Bascule créée (en attente de l'intégration du SDK, normal) ; créer des emplacements en enchères (« bidding ») seulement.
+- **DT Exchange** : inscription en cours de vérification.
 - **Meta Audience Network** : pas commencé (la page « Monétisation » de Meta Business Suite concerne les Pages Facebook, pas les applis).
 - **app-ads.txt** : version complète dans `docs/site/app-ads.txt`, à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`).
 
