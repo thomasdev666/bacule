@@ -34,3 +34,4 @@ Jeu mobile Unity 6 (portrait, Android/iOS). Le cahier des charges et les choix f
 - Monétisation : rien qui donne un avantage en partie contre de l'argent ; les pubs imposées passent uniquement par `AdPolicy`. Pubs personnalisées : seulement avec `PrivacyRules.Personalized` (15 ans et plus + accord) ; réseaux et identifiants : `docs/PUBS.md`, `Editor/AdNetworkSettings.cs`.
 - Commentaires et documentation en français. Le jeu est publié en français uniquement (`Loc.FrenchOnly`).
 - Identité : éditeur Orphex, identifiant `fr.orpheex.bascule`, pages légales dans `docs/site/bascule` (à mettre sur orpheex.fr).
+- Fiche App Store (docs/STORE.md) : images des achats mis en avant, des événements et captures avec titre dans `docs/store`, refaites par `python3 Tools/store_listing_assets.py Exports/art docs/apercu docs/store`.
