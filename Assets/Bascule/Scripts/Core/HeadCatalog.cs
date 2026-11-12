@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace Bascule.Core
 {
-    public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh, Curls }
+    public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh, Curls,
+        // Longs cheveux ondulés et volumineux qui tombent sur les épaules (tête « Samb'bach »).
+        Waves }
 
     /// <summary>Tenue du corps : le débardeur de Basile, ou le costume croisé (tête Challenger).</summary>
     public enum Outfit { Tank, Suit }
@@ -19,6 +21,8 @@ namespace Bascule.Core
         StarGlasses,
         // Trèfle à quatre feuilles de la tête « Chanceux » (roue de la chance)
         Clover,
+        // Coiffe du carnaval : éventail de plumes aux couleurs du Brésil, diadème doré et créoles (tête « Samb'bach »)
+        Samba,
     }
 
     public enum UnlockKind

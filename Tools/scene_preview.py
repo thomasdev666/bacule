@@ -106,9 +106,12 @@ def world(theme):
     return c
 
 
-def mascot(c, x0, angle, squash, expression="Calm", head=0, defeated=False):
-    P = json.load(open(os.path.join(ART, "mascot/pivots.json")))
-    part = lambda k: load(f"mascot/{k}.png")
+def mascot(c, x0, angle, squash, expression="Calm", head=0, defeated=False, body="mascot"):
+    """head : numéro de tête (calques layers/NN_*.png) ou clé d'une tête en test (layers/<clé>_*.png) ;
+    body : dossier des pièces du corps (« mascot » = Basile, « mascot_h/<id ou clé> » = tenue d'une tête)."""
+    P = json.load(open(os.path.join(ART, f"{body}/pivots.json")))
+    part = lambda k: load(f"{body}/{k}.png")
+    hk = f"{head:02}" if isinstance(head, int) else head
     s = PART_PPU and PPU / PART_PPU
     g = GROUND_Y
     # Ombre au sol
@@ -134,10 +137,10 @@ def mascot(c, x0, angle, squash, expression="Calm", head=0, defeated=False):
     c.sprite(part("torso"), x0, g + RIG["TorsoY"] - squash, pivot=P["torso"][:2], scale=s)
 
     # Tête (3 calques)
-    hs = PPU * RIG["HeadSize"] / load(f"layers/{head:02}_back.png").width
+    hs = PPU * RIG["HeadSize"] / load(f"layers/{hk}_back.png").width
     head_y = g + RIG["HeadY"] - squash
     tilt = max(-6, min(6, angle * 0.15))
-    for layer in (f"layers/{head:02}_back.png", f"faces/{expression}.png", f"layers/{head:02}_front.png"):
+    for layer in (f"layers/{hk}_back.png", f"faces/{expression}.png", f"layers/{hk}_front.png"):
         c.sprite(load(layer), x0, head_y, scale=hs, rot=tilt)
     c.sprite(part("cushion"), *pivot, pivot=(P["cushion"][0], P["cushion"][1] - 0.08 * PART_PPU), scale=s, rot=-angle)
 
@@ -417,9 +420,9 @@ def badge(img, button_box, text):
     title(img, text, bb, 44 if s == 76 else 32)
 
 
-def home_screen():
+def home_screen(head=0, body="mascot", expression="Calm"):
     c = world(0)
-    mascot_scene(c, angle=-3.0, expression="Calm", weights=False)
+    mascot_scene(c, angle=-3.0, expression=expression, weights=False, head=head, body=body)
     img = c.img
     button(img, place(0, 1, 28, -28, 124, 130, 0, 1), "Dark", ic="Gear")
     lb = place(0, 1, 168, -32, 330, 120, 0, 1)
@@ -542,8 +545,8 @@ def gift_screen():
     return c
 
 
-def mascot_scene(c, angle=11.0, expression="Tense", weights=True, defeated=False, squash=0.1):
-    pivot, along, hands = mascot(c, 0, angle, squash, expression, defeated=defeated)
+def mascot_scene(c, angle=11.0, expression="Tense", weights=True, defeated=False, squash=0.1, head=0, body="mascot"):
+    pivot, along, hands = mascot(c, 0, angle, squash, expression, head=head, defeated=defeated, body=body)
     center, al, nm = plank(c, pivot, angle, 6.3)
     th = 0.32
     if weights:
@@ -552,9 +555,9 @@ def mascot_scene(c, angle=11.0, expression="Tense", weights=True, defeated=False
             weight(c, v, x, y, rot=-angle)
         x, y = on_plank(center, al, nm, 1.05, th / 2 + 2 * body_half_height(16) + body_half_height(2))
         weight(c, 2, x, y, rot=-angle)
-    P = json.load(open(os.path.join(ART, "mascot/pivots.json")))
+    P = json.load(open(os.path.join(ART, f"{body}/pivots.json")))
     for hand, side in hands:
-        c.sprite(load("mascot/hand.png"), *hand, pivot=P["hand"][:2], scale=PPU / PART_PPU, rot=-angle if not defeated else side * -70, flipx=side < 0)
+        c.sprite(load(f"{body}/hand.png"), *hand, pivot=P["hand"][:2], scale=PPU / PART_PPU, rot=-angle if not defeated else side * -70, flipx=side < 0)
 
 
 def game_screen():

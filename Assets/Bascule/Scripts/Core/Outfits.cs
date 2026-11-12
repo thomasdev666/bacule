@@ -10,8 +10,8 @@ namespace Bascule.Core
     public enum Shoe { Sneakers, HighTops, Boots, Dress }
     /// <summary>Motif du tissu du haut.</summary>
     public enum Motif { None, Stripes, Pinstripe, Dots, Stars, Plaid }
-    /// <summary>Écusson sur la poitrine.</summary>
-    public enum Emblem { None, B, Star, Heart, Bolt, Moon, Crown, Ring }
+    /// <summary>Écusson sur la poitrine. Patch : le logo d'un partenaire (OutfitDef.Patch), cousu en grand.</summary>
+    public enum Emblem { None, B, Star, Heart, Bolt, Moon, Crown, Ring, Patch }
 
     /// <summary>Tenue complète d'un personnage (une par tête, fixe).</summary>
     public sealed class OutfitDef
@@ -27,9 +27,11 @@ namespace Bascule.Core
         public string Sock = "#FFFFFF";
         /// <summary>Ceinture d'haltérophile (le look sportif de Basile).</summary>
         public bool Belt;
+        /// <summary>Logo cousu sur la poitrine (Emblem.Patch) : clé de l'image enregistrée par MascotArtist.RegisterPatch.</summary>
+        public string Patch;
 
         /// <summary>Signature (pour vérifier que deux têtes n'ont pas la même tenue).</summary>
-        public string Signature => $"{Top}|{Main}|{Accent}|{Motif}|{Emblem}|{Bottom}|{BottomColor}|{Shoe}|{ShoeColor}";
+        public string Signature => $"{Top}|{Main}|{Accent}|{Motif}|{Emblem}|{Patch}|{Bottom}|{BottomColor}|{Shoe}|{ShoeColor}";
     }
 
     /// <summary>

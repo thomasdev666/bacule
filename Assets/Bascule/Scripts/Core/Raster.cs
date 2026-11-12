@@ -393,6 +393,74 @@ namespace Bascule.Core
             }
         }
 
+        // ---------- Images (logos de partenaires) ----------
+
+        /// <summary>
+        /// Copie redimensionnée. En réduction, chaque pixel est la moyenne exacte de la zone qu'il couvre (aucun
+        /// crénelage sur un logo plein de détails) ; en agrandissement, interpolation bilinéaire.
+        /// Moyennes faites en couleurs prémultipliées : pas de liseré sombre au bord des zones transparentes.
+        /// </summary>
+        public Raster Resized(int w, int h)
+        {
+            w = Math.Max(1, w); h = Math.Max(1, h);
+            var r = new Raster(w, h);
+            float sx = Width / (float)w, sy = Height / (float)h;
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                if (sx <= 1f && sy <= 1f) { r.Pixels[y * w + x] = Sample((x + 0.5f) * sx - 0.5f, (y + 0.5f) * sy - 0.5f); continue; }
+                float fx0 = x * sx, fx1 = fx0 + sx, fy0 = y * sy, fy1 = fy0 + sy;
+                double pr = 0, pg = 0, pb = 0, pa = 0, area = 0;
+                for (int j = (int)fy0; j < Math.Min(Height, (int)Math.Ceiling(fy1)); j++)
+                {
+                    float wy = Math.Min(fy1, j + 1) - Math.Max(fy0, j);
+                    if (wy <= 0f) continue;
+                    for (int i = (int)fx0; i < Math.Min(Width, (int)Math.Ceiling(fx1)); i++)
+                    {
+                        float wx = Math.Min(fx1, i + 1) - Math.Max(fx0, i);
+                        if (wx <= 0f) continue;
+                        var c = Pixels[j * Width + i];
+                        double k = wx * wy, al = c.a / 255.0 * k;
+                        pr += c.r * al; pg += c.g * al; pb += c.b * al; pa += al; area += k;
+                    }
+                }
+                r.Pixels[y * w + x] = pa <= 0 ? Rgba.Clear : new Rgba((byte)Math.Min(255, pr / pa + 0.5), (byte)Math.Min(255, pg / pa + 0.5),
+                    (byte)Math.Min(255, pb / pa + 0.5), (byte)Math.Min(255, pa / area * 255 + 0.5));
+            }
+            return r;
+        }
+
+        /// <summary>Couleur interpolée (bilinéaire, prémultipliée) au point (x, y) en pixels ; bords prolongés.</summary>
+        public Rgba Sample(float x, float y)
+        {
+            int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y);
+            float tx = x - x0, ty = y - y0;
+            double pr = 0, pg = 0, pb = 0, pa = 0;
+            for (int k = 0; k < 4; k++)
+            {
+                int xi = Math.Max(0, Math.Min(Width - 1, x0 + (k & 1))), yi = Math.Max(0, Math.Min(Height - 1, y0 + (k >> 1)));
+                double wgt = ((k & 1) == 1 ? tx : 1 - tx) * ((k >> 1) == 1 ? ty : 1 - ty);
+                var c = Pixels[yi * Width + xi];
+                double al = c.a / 255.0 * wgt;
+                pr += c.r * al; pg += c.g * al; pb += c.b * al; pa += al;
+            }
+            if (pa <= 0) return Rgba.Clear;
+            return new Rgba((byte)Math.Min(255, pr / pa + 0.5), (byte)Math.Min(255, pg / pa + 0.5), (byte)Math.Min(255, pb / pa + 0.5), (byte)Math.Min(255, pa * 255 + 0.5));
+        }
+
+        /// <summary>
+        /// Pose l'image <paramref name="src"/> en carré de côté <paramref name="size"/> centré en (cx, cy), découpée
+        /// par <paramref name="clip"/> (bord anticrénelé). L'image est d'abord réduite à sa taille d'affichage.
+        /// </summary>
+        public void DrawImage(Raster src, float cx, float cy, float size, Shape clip)
+        {
+            int n = Math.Max(1, (int)Math.Round(size));
+            var s = src.Width == n && src.Height == n ? src : src.Resized(n, n);
+            float x0 = cx - size * 0.5f, y0 = cy - size * 0.5f, k = n / size;
+            DrawShape(clip.X0, clip.Y0, clip.X1, clip.Y1, (px, py) => Coverage(clip.D(px, py), 1f),
+                Paint.Custom((px, py) => s.Sample((px - x0) * k - 0.5f, (py - y0) * k - 0.5f)), 1f);
+        }
+
         // ---------- Interne ----------
 
         void DrawShape(float minX, float minY, float maxX, float maxY, Rgba c, Func<float, float, float> sdf)

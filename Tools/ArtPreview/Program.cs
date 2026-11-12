@@ -104,6 +104,28 @@ Png.Save(UiArtist.Pill(160, 96, 2f), Path.Combine(outDir, "ui", "pill@2x.png"));
 foreach (Icon ic in Enum.GetValues(typeof(Icon))) Png.Save(UiArtist.DrawIcon(ic), Path.Combine(outDir, "ui", $"icon_{ic}.png"));
 Png.Save(HeadArtist.Flush(N), Path.Combine(outDir, "layers", "flush.png"));
 Png.Save(ShapeArtist.Balloon(256, WeightCatalog.Color(128)), Path.Combine(outDir, "balloon.png"));
+// Partenaires : têtes en cours de validation (pas encore dans le jeu). Core ne lit pas de fichier : l'outil lui
+// donne le logo (Tools/Sponsors), puis exporte la tête, ses calques et le corps habillé, pour les maquettes.
+foreach (var sp in SponsorPreviews.All)
+{
+    var logoPath = Path.Combine(SponsorPreviews.Root(), "Tools", "Sponsors", sp.Patch + "_logo.png");
+    if (!File.Exists(logoPath)) { Console.WriteLine("Logo absent : " + logoPath); continue; }
+    MascotArtist.RegisterPatch(sp.Patch, PngReader.Load(logoPath));
+    Directory.CreateDirectory(Path.Combine(outDir, "sponsors"));
+    Png.Save(HeadArtist.Portrait(sp.Head, 768), Path.Combine(outDir, "sponsors", sp.Key + "_portrait.png"));
+    Png.Save(HeadArtist.Back(sp.Head, N), Path.Combine(outDir, "layers", sp.Key + "_back.png"));
+    Png.Save(HeadArtist.Front(sp.Head, N), Path.Combine(outDir, "layers", sp.Key + "_front.png"));
+    var dir = Path.Combine(outDir, "mascot_h", sp.Key);
+    Directory.CreateDirectory(dir);
+    var pv = new System.Text.StringBuilder("{");
+    foreach (var kv in MascotArtist.BuildOutfit(Rgba.FromHex(sp.Head.Skin), sp.Outfit))
+    {
+        Png.Save(kv.Value.Image, Path.Combine(dir, kv.Key + ".png"));
+        pv.Append($"\"{kv.Key}\":[{kv.Value.PivotX.ToString(System.Globalization.CultureInfo.InvariantCulture)},{kv.Value.PivotY.ToString(System.Globalization.CultureInfo.InvariantCulture)},{kv.Value.Image.Width},{kv.Value.Image.Height}],");
+    }
+    pv.Length--; pv.Append("}");
+    File.WriteAllText(Path.Combine(dir, "pivots.json"), pv.ToString());
+}
 using (var w = new StreamWriter(Path.Combine(outDir, "heads.tsv")))
     foreach (var h in HeadCatalog.All)
         w.WriteLine($"{h.Id}\t{h.NameFr}\t{h.Unlock}\t{h.UnlockValue}\t{h.Expression}");
@@ -157,5 +179,104 @@ static class Png
             for (int i = 0; i < 8; i++) c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1;
         }
         return c;
+    }
+}
+
+/// <summary>Têtes de partenaires à valider : dessinées pour les maquettes, pas encore ajoutées au catalogue du jeu.</summary>
+static class SponsorPreviews
+{
+    public sealed class Entry { public string Key, Patch; public HeadDef Head; public OutfitDef Outfit; }
+
+    public static readonly Entry[] All =
+    {
+        // BDE Samb'bach : une Brésilienne en coiffe de carnaval, maillot jaune et vert, logo du BDE cousu sur la poitrine.
+        new Entry
+        {
+            Key = "sambbach", Patch = "sambbach",
+            Head = new HeadDef
+            {
+                Id = 66, NameFr = "Samb'bach", NameEn = "Samb'bach", Unlock = UnlockKind.Default, Skin = "#C68C5D",
+                Hair = HairStyle.Waves, HairColor = "#3B2216", Accessory = Accessory.Samba, Expression = Expression.Happy,
+            },
+            Outfit = new OutfitDef
+            {
+                Top = Top.Jersey, Main = "#FFD31A", Accent = "#00A651", Motif = Motif.None, Emblem = Emblem.Patch, Patch = "sambbach",
+                Bottom = Bottom.Shorts, BottomColor = "#1F4BA5", Shoe = Shoe.Sneakers, ShoeColor = "#00A651", Sock = "#FFFFFF",
+            },
+        },
+    };
+
+    /// <summary>Racine du dépôt (le dossier qui contient Assets/Bascule), quel que soit le dossier de lancement.</summary>
+    public static string Root()
+    {
+        var d = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (d != null && !Directory.Exists(Path.Combine(d.FullName, "Assets", "Bascule"))) d = d.Parent;
+        return d?.FullName ?? Directory.GetCurrentDirectory();
+    }
+}
+
+/// <summary>Lecture d'un PNG 8 bits (RGB ou RGBA, non entrelacé) en Raster (origine en bas à gauche).</summary>
+static class PngReader
+{
+    public static Raster Load(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        int pos = 8, w = 0, h = 0, colorType = 0, depth = 0, interlace = 0;
+        using var idat = new MemoryStream();
+        while (pos + 8 <= bytes.Length)
+        {
+            int len = (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3];
+            string type = System.Text.Encoding.ASCII.GetString(bytes, pos + 4, 4);
+            int data = pos + 8;
+            if (type == "IHDR")
+            {
+                w = (bytes[data] << 24) | (bytes[data + 1] << 16) | (bytes[data + 2] << 8) | bytes[data + 3];
+                h = (bytes[data + 4] << 24) | (bytes[data + 5] << 16) | (bytes[data + 6] << 8) | bytes[data + 7];
+                depth = bytes[data + 8]; colorType = bytes[data + 9]; interlace = bytes[data + 12];
+            }
+            else if (type == "IDAT") idat.Write(bytes, data, len);
+            else if (type == "IEND") break;
+            pos = data + len + 4;
+        }
+        if (depth != 8 || interlace != 0 || (colorType != 6 && colorType != 2)) throw new NotSupportedException($"PNG non pris en charge : {path}");
+        int bpp = colorType == 6 ? 4 : 3, stride = w * bpp;
+        idat.Position = 0;
+        using var z = new ZLibStream(idat, CompressionMode.Decompress);
+        var raw = new byte[(stride + 1) * h];
+        int read = 0;
+        while (read < raw.Length) { int n = z.Read(raw, read, raw.Length - read); if (n <= 0) break; read += n; }
+        var cur = new byte[stride];
+        var prev = new byte[stride];
+        var img = new Raster(w, h);
+        for (int y = 0; y < h; y++)
+        {
+            int f = raw[y * (stride + 1)];
+            Array.Copy(raw, y * (stride + 1) + 1, cur, 0, stride);
+            for (int i = 0; i < stride; i++)
+            {
+                int a = i >= bpp ? cur[i - bpp] : 0, b = prev[i], c = i >= bpp ? prev[i - bpp] : 0;
+                int v = cur[i];
+                switch (f)
+                {
+                    case 1: v += a; break;
+                    case 2: v += b; break;
+                    case 3: v += (a + b) / 2; break;
+                    case 4:
+                    {
+                        int p = a + b - c, pa = Math.Abs(p - a), pb = Math.Abs(p - b), pc = Math.Abs(p - c);
+                        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+                        break;
+                    }
+                }
+                cur[i] = (byte)v;
+            }
+            for (int x = 0; x < w; x++)
+            {
+                int o = x * bpp;
+                img.Pixels[(h - 1 - y) * w + x] = new Rgba(cur[o], cur[o + 1], cur[o + 2], bpp == 4 ? cur[o + 3] : (byte)255);
+            }
+            (prev, cur) = (cur, prev);
+        }
+        return img;
     }
 }

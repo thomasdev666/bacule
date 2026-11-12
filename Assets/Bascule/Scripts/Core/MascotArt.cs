@@ -145,7 +145,7 @@ namespace Bascule.Core
 
             // Emblème : un « B » dans un rond blanc.
             float ey = cy - 0.18f * u;
-            if (emblem != Emblem.B) DrawEmblem(img, emblem, cx, ey, 0.29f * u, trim, Tank);
+            if (emblem != Emblem.B && emblem != Emblem.Patch) DrawEmblem(img, emblem, cx, ey, 0.29f * u, trim, Tank);
             if (emblem == Emblem.B) {
             Toon.Part(img, Shape.Circle(cx, ey, 0.29f * u), trim, 0.6f * u, new Toon.Style { Outline = 0.05f, OutlineColor = Tank.Outline(), Shade = 0.15f, Soft = 0.2f, Rim = 0f, Specular = false });
             var stem = Shape.Box(cx - 0.07f * u, ey, 0.045f * u, 0.17f * u, 0.015f * u);

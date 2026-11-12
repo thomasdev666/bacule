@@ -34,6 +34,9 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Décors plus tôt** (`Difficulty.ThemeScores`) : la plupart des parties s'arrêtent avant 8 000, les 20 000 sont rares. Prairie au fil de la journée jusqu'à 1 800, puis plage 2 500, forêt 3 300, désert 4 200, montagne 5 200, ville 6 300, ville la nuit 7 500, volcan 9 500, banquise 12 000, Lune 15 000 ; au-delà de 18 000, mondes déjà vus recolorés tous les 2 500 points. La difficulté ne change pas (elle ne dépend pas du décor).
 - **Rafales plus douces** (`Core/Wind.cs`) : de 22 % à 52 % du couple de défaite (avant : 42 % à 60 %). Les 3 premières rafales sont « douces » : le vent seul ne dépasse pas 55 % de l'angle max et il s'efface dès que la planche penche (danger de 50 % à 80 %) : elles ne font jamais perdre. La limite d'équité passe désormais avant la force minimale. Duel : de 30 % à 64 % (avant : 45 % à 72 %).
 
+## En préparation – têtes de partenaires
+- **Samb'bach (BDE)** : visuel à valider (`docs/PARTENAIRES.md`, aperçus `docs/apercu/sponsor_sambbach*.png`). Le dessin sait déjà faire les longs cheveux ondulés (`HairStyle.Waves`), la coiffe du carnaval (`Accessory.Samba`) et un logo cousu sur la poitrine (`Emblem.Patch`, image donnée par `MascotArtist.RegisterPatch`). Rien ne change encore dans le jeu ; le code promo viendra après la validation.
+
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
 - **Retours de test** :
   - **Amis réciproques** : quand tu ajoutes quelqu'un, il te retrouve dans ses amis (vérifié toutes les 20 s à l'accueil). **Retirer des amis** depuis le classement des amis (toucher le joueur) ; un ami retiré ne revient pas tout seul.

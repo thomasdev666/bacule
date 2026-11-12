@@ -89,12 +89,38 @@ namespace Bascule.Core
 
         static Part OutfitTorso(Rgba skin, OutfitDef o, Rgba main, Rgba accent, Rgba pin)
         {
+            var torso = OutfitTorsoCloth(skin, o, main, accent, pin);
+            // Logo d'un partenaire, cousu en grand au milieu de la poitrine.
+            if (o.Emblem == Emblem.Patch)
+            {
+                float x = torso.Image.Width * 0.5f, y = torso.Image.Height * 0.5f;
+                var (dx, dy, r) = PatchSpot(o.Top);
+                DrawPatch(torso.Image, o.Patch, x + dx * U, y + dy * U, r * U);
+            }
+            return torso;
+        }
+
+        /// <summary>Place de l'écusson de partenaire selon le haut (en unités, depuis le centre du torse) et son rayon.</summary>
+        static (float dx, float dy, float r) PatchSpot(Top top)
+        {
+            switch (top)
+            {
+                case Top.Hoodie: return (0f, -0.12f, 0.3f);   // au-dessus de la poche
+                case Top.Jacket: return (0f, -0.12f, 0.18f);  // sur le t-shirt, entre les pans
+                case Top.Suit: case Top.Shirt: case Top.Space: return (0.36f, 0.02f, 0.17f);
+                case Top.Robe: return (-0.36f, -0.05f, 0.17f);
+                default: return (0f, -0.3f, 0.4f);            // débardeur, t-shirt, maillot, pull : en grand
+            }
+        }
+
+        static Part OutfitTorsoCloth(Rgba skin, OutfitDef o, Rgba main, Rgba accent, Rgba pin)
+        {
             if (o.Top == Top.Tank) return TankTorso(skin, main, accent, o.Emblem, o.Belt, o.Motif, accent);
             if (o.Top == Top.Suit)
             {
                 var suit = SuitTorso(skin, main, pin);
                 // Épinglette au revers (Légende…).
-                if (o.Emblem != Emblem.None)
+                if (o.Emblem != Emblem.None && o.Emblem != Emblem.Patch)
                 {
                     float sx = suit.Image.Width * 0.5f, sy = suit.Image.Height * 0.5f;
                     DrawEmblem(suit.Image, o.Emblem, sx - 0.42f * U, sy + 0.3f * U, 0.1f * U, accent, main);
@@ -544,7 +570,49 @@ namespace Bascule.Core
 
         static void Badge(Raster img, Emblem e, float x, float y, float r, Rgba accent, Rgba main)
         {
-            if (e != Core.Emblem.None) DrawEmblem(img, e, x, y, r, accent, main);
+            if (e != Core.Emblem.None && e != Core.Emblem.Patch) DrawEmblem(img, e, x, y, r, accent, main);
+        }
+
+        // ------------------------------------------------------------------ Écussons de partenaires
+
+        /// <summary>Logos des partenaires (Emblem.Patch). Core ne lit pas de fichier : le jeu ou l'outil de dessin les fournit.</summary>
+        static readonly Dictionary<string, Raster> PatchImages = new Dictionary<string, Raster>();
+        static readonly Rgba PatchRing = Rgba.FromHex("#F7A23B");
+
+        /// <summary>Enregistre l'image (carrée, détourée en rond) d'un logo de partenaire, avant de dessiner les tenues.</summary>
+        public static void RegisterPatch(string key, Raster logo)
+        {
+            if (!string.IsNullOrEmpty(key) && logo != null) PatchImages[key] = logo;
+        }
+
+        public static bool HasPatch(string key) => !string.IsNullOrEmpty(key) && PatchImages.ContainsKey(key);
+
+        /// <summary>
+        /// Écusson brodé : bord orange épais (le cercle du logo, élargi pour rester lisible en petit), points de couture,
+        /// le logo dedans, et une ombre douce en bas à droite comme un écusson cousu sur le tissu.
+        /// </summary>
+        static void DrawPatch(Raster img, string key, float x, float y, float r)
+        {
+            float u = U, rim = Math.Max(0.045f * u, r * 0.17f);
+            var outer = Shape.Circle(x, y, r + rim);
+            Toon.Part(img, outer, PatchRing, 2 * (r + rim), new Toon.Style { Outline = 0.04f, Shade = 0.06f, Soft = 0.08f, ShadeStrength = 0.85f, Rim = 0.04f, RimOpacity = 0.6f, Specular = false });
+            int n = Math.Max(16, (int)(r / u * 70));
+            float rr = r + rim * 0.5f;
+            for (int i = 0; i < n; i++)
+            {
+                double a = i * 2 * Math.PI / n, b = a + Math.PI / n;
+                img.Fill(Shape.Capsule(x + (float)Math.Cos(a) * rr, y + (float)Math.Sin(a) * rr, x + (float)Math.Cos(b) * rr, y + (float)Math.Sin(b) * rr, 0.009f * u), Rgba.White.WithAlpha(0.7f));
+            }
+            var disc = Shape.Circle(x, y, r);
+            if (key != null && PatchImages.TryGetValue(key, out var logo)) img.DrawImage(logo, x, y, 2 * r, disc);
+            else
+            {
+                // Image absente (jamais dans le jeu publié) : un écusson neutre plutôt qu'un trou.
+                img.Fill(disc, Rgba.FromHex("#FFE89A"));
+                img.Fill(Star(x, y, 0.62f * r, 0.26f * r), Rgba.FromHex("#00A651"));
+            }
+            img.FillClipped(disc, disc.Move(-0.03f * u, 0.05f * u).Not(), Rgba.FromHex("#4A2A00").WithAlpha(0.2f), 0.05f * u);
+            img.Fill(Shape.Subtract(disc.Grow(1.5f), disc), PatchRing.Shade(0.75f));
         }
 
         /// <summary>Écusson rond (couleur d'accent) avec un symbole de la couleur du tissu.</summary>
