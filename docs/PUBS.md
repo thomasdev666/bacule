@@ -90,6 +90,10 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 
 Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adaptateurs installés dans Unity avant un build peuvent être activés plus tard depuis LevelPlay, sans nouvelle version ; un adaptateur absent du build demande une nouvelle version.
 
+## Avant chaque publication sur l'App Store (à ne pas oublier)
+
+Unity → **Ads Mediation → Network Manager** → **Install** sur chaque régie : Google AdMob, Liftoff, InMobi, Chartboost, Mintegral, AppLovin, Pangle, DT Exchange. Puis `Assets → External Dependency Manager → iOS Resolver` si Unity le propose. Un adaptateur absent du build ne s'active jamais depuis LevelPlay : il faudrait une nouvelle version.
+
 ## Tous les liens pour brancher les réseaux
 
 Dans LevelPlay : **Setup → SDK Networks**, choisir le réseau, entrer ses identifiants, puis ses blocs (interstitiel et récompensé) pour iPhone et pour Android. Guide général : https://docs.unity.com/grow/levelplay/platform/get-started/networks
