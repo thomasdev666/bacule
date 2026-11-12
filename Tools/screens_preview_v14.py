@@ -8,6 +8,7 @@ Aperçus des écrans de la 1.4 (sans Unity), avec les mêmes positions que le co
   python3 Tools/screens_preview_v14.py Exports/art docs/apercu
 """
 import math
+import random
 import os
 import sys
 
@@ -445,30 +446,81 @@ def shop_video():
 
 # ============================================================================ Roue, quête, événement, accueil
 
-def side_widget(img, side, y, icon_name, color, label, ring=None, badge_on=False):
-    r = sp.place(0 if side < 0 else 1, 1, 92 if side < 0 else -92, y, 160, 190)
+# SideWidget (LiveOpsScreens.cs) : médaillon rond + dessin en couleur, anneau doré, étiquette sombre, ancré en bas.
+WIDGET_W, WIDGET_H, MEDAL, ROW1, ROW2 = 200, 214, 150, 590, 370
+
+
+def side_widget(img, side, y, picture, color, label, ring=None, badge_on=False, wheel=False):
+    r = sp.place(0 if side < 0 else 1, 0, 106 if side < 0 else -106, y, WIDGET_W, WIDGET_H)
     cx = (r[0] + r[2]) / 2
-    top = r[1] + 66
+    my = r[1] + 6 + MEDAL / 2 + (8 if ring is not None else 0)
+    d = ImageDraw.Draw(img)
     if ring is not None:
-        bb = (cx - 75, top - 75 + 0, cx + 75, top + 75)
-        ImageDraw.Draw(img).ellipse(bb, outline=(255, 255, 255, 70), width=12)
-        ImageDraw.Draw(img).arc(bb, -90, -90 + 360 * ring, fill=c("Accent"), width=12)
-    bb = (cx - 61, top - 64, cx + 61, top + 64)
-    sp.button(img, bb, color, None, icon_name, 44)
+        rr = (MEDAL + 28) / 2
+        bb = (cx - rr, my - rr, cx + rr, my + rr)
+        d.ellipse(bb, outline=(255, 255, 255, 102), width=13)
+        d.arc(bb, -90, -90 + 360 * ring, fill=c("Accent"), width=13)
+    m = MEDAL / 2
+    disc(img, (cx - m, my - m, cx + m, my + m), sp.OUTLINE)
+    m2 = m - 7
+    disc(img, (cx - m2, my - m2, cx + m2, my + m2), c(color) if color in sp.COL else sp.rgb(color))
+    glow(img, (cx - MEDAL * 0.3, my - m2 + 6, cx + MEDAL * 0.3, my - m2 + 6 + MEDAL * 0.3), (255, 255, 255, 70), 14)
+    ps = MEDAL - (34 if wheel else 26)
+    pic = sp.load(picture).resize((ps, ps), Image.LANCZOS)
+    if wheel:
+        pic = pic.rotate(14, resample=Image.BICUBIC)
+    img.alpha_composite(pic, (int(cx - ps / 2), int(my - ps / 2 + (2 if wheel else 0))))
+    if wheel:
+        disc(img, (cx - 17, my - 15, cx + 17, my + 19), sp.OUTLINE)
+        disc(img, (cx - 12, my - 10, cx + 12, my + 14), c("Accent"))
+        pt = Image.new("RGBA", (50, 50), (0, 0, 0, 0))
+        sp.tinted_icon(pt, "Play", (0, 0, 50, 50), "Primary")
+        pt = pt.rotate(-90)
+        img.alpha_composite(pt, (int(cx - 25), int(my - m - 8 - 25)))
     if badge_on:
-        bd = (bb[2] - 30, bb[1] - 18, bb[2] + 18, bb[1] + 30)
-        disc(img, (bd[0] - 3, bd[1] - 3, bd[2] + 3, bd[3] + 3), (255, 255, 255))
-        disc(img, bd, c("Primary"))
-        sp.title(img, "!", bd, 32)
-    sp.title(img, label, (cx - 85, r[3] - 44, cx + 85, r[3]), 32)
+        bx, by = cx + m - 10, my - m + 10
+        disc(img, (bx - 28, by - 28, bx + 28, by + 28), (255, 255, 255))
+        disc(img, (bx - 25, by - 25, bx + 25, by + 25), c("Primary"))
+        sp.title(img, "!", (bx - 25, by - 25, bx + 25, by + 22), 34)
+    lb = (cx - (WIDGET_W - 6) / 2, r[3] - 58, cx + (WIDGET_W - 6) / 2, r[3])
+    sp.pill(img, lb, color=(31, 18, 71, 224))
+    sp.title(img, label, (lb[0] + 12, lb[1] + 4, lb[2] - 12, lb[3] - 2), 36)
 
 
 def home_widgets():
     s = sp.home_screen()
     img = s.img
-    side_widget(img, -1, -470, "Wheel", "Accent", "Roue", badge_on=True)
-    side_widget(img, -1, -1090, "Flag", "Purple", "Semaine", ring=0.42)
-    side_widget(img, 1, -470, "Target", "Success", "Quête 1/3", ring=1 / 3)
+    side_widget(img, -1, ROW1, "ui/wheel_small.png", "#2E2A6B", "Roue", badge_on=True, wheel=True)
+    side_widget(img, 1, ROW1, "ui/quest.png", "Success", "Quête 1/3", ring=1 / 3)
+    side_widget(img, 1, ROW2, "ui/week.png", "Purple", "Semaine", ring=0.49)
+    return s
+
+
+def balloon_screen():
+    """Un 128 s'envole (UI/BalloonBanner.cs) : grande bannière dorée sous la planche, conseil au-dessus."""
+    s = sp.world(1)
+    sp.mascot_scene(s, angle=4.0, expression="Calm")
+    sp.hud(s, angle=4.0)
+    img = s.img
+    sp.title(img, "Le 128 est le plus gros coup du jeu :\nrefais-en pour exploser ton record !", at(0.5, 0.5, 0, 330, 900, 150), 48)
+    rb = at(0.5, 0, 0, 300, 1000, 230)
+    lay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sp.pill(lay, (rb[0] - 10, rb[1] - 10 + 14, rb[2] + 10, rb[3] + 10 + 14), color=(64, 20, 5, 115))
+    sp.pill(lay, (rb[0] - 10, rb[1] - 10, rb[2] + 10, rb[3] + 10), color=hexc("#D9480F"))
+    sp.pill(lay, rb, color=hexc("#FFB703"))
+    glow(lay, (rb[0] + 60, rb[1] + 18, rb[2] - 60, rb[1] + 90), (255, 255, 255, 80), 12)
+    lay = lay.rotate(2.5, resample=Image.BICUBIC, center=((rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2))
+    img.alpha_composite(lay)
+    bx, by = rb[0] + 120, (rb[1] + rb[3]) / 2 - 30
+    b = sp.load("balloon.png").resize((230, 230), Image.LANCZOS)
+    img.alpha_composite(b, (int(bx - 115), int(by - 115)))
+    sp.title(img, "128", (bx - 80, by - 34 - 30, bx + 80, by - 34 + 30), 46)
+    tc = (rb[0] + rb[2]) / 2 + 90
+    sp.title(img, "MONTGOLFIÈRE !", (tc - 350, (rb[1] + rb[3]) / 2 - 36 - 55, tc + 350, (rb[1] + rb[3]) / 2 - 36 + 55), 92)
+    sp.title(img, "+984 points d'un coup", (tc - 350, (rb[1] + rb[3]) / 2 + 54 - 40, tc + 350, (rb[1] + rb[3]) / 2 + 54 + 40), 62, color=sp.rgb("#FFF4C2"))
+    for (x, y) in [(-430, 96), (392, 104), (456, -64), (-300, -100), (150, 118)]:
+        cx, cy = (rb[0] + rb[2]) / 2 + x, (rb[1] + rb[3]) / 2 - y
+        sp.tinted_icon(img, "Star", (cx - 32, cy - 32, cx + 32, cy + 32), "#FFFFFF")
     return s
 
 
@@ -485,18 +537,29 @@ def wheel_screen(spun=False):
     rays(img, (cx - size * 0.85, cy - size * 0.85, cx + size * 0.85, cy + size * 0.85), (255, 217, 102, 77))
     layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     layer.alpha_composite(sp.load("ui/wheel.png").resize((size, size), Image.LANCZOS))
-    labels = [("Coin", "50"), ("chest", "Coffre"), ("Coin", "100"), ("Gift", "Surprise"), ("Coin", "250"), ("Calendar", "Série"), ("Coin", "×2"), ("head65", "JACKPOT")]
-    for i, (ic, txt) in enumerate(labels):
+    # Comme LiveOpsScreens.SlotLabel : le lot en image au milieu de la part (IconR), son nom près du bord (TextR).
+    icon_r, text_r = size * 0.238, size * 0.37
+    labels = [("coins_1", "50", 116), ("chest", "Coffre", 0), ("coins_2", "100", 134), ("Gift", "Surprise", 108),
+              ("coins_3", "250", 150), ("Flame", "Série", 108), ("boost", "Boost", 118), ("head65", "JACKPOT", 136)]
+    for i, (ic, txt, w) in enumerate(labels):
         arm = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         acx, acy = size / 2, size / 2
+        iy = acy - icon_r
         if ic == "chest":
-            sp.mini_chest(arm, acx - 60, acy - 268, 120)
+            sp.mini_chest(arm, acx - 62, iy - 56, 124)
         elif ic == "head65":
-            arm.alpha_composite(sp.load("heads/65.png").resize((140, 140), Image.LANCZOS), (int(acx - 70), int(acy - 270 - 70)))
+            arm.alpha_composite(sp.load("heads/65.png").resize((w, w), Image.LANCZOS), (int(acx - w / 2), int(iy - w / 2)))
+        elif ic.startswith("coins"):
+            arm.alpha_composite(sp.load(f"ui/{ic}.png").resize((w, w), Image.LANCZOS), (int(acx - w / 2), int(iy - 4 - w / 2)))
+        elif ic == "boost":
+            arm.alpha_composite(sp.load("ui/coins_1.png").resize((w, w), Image.LANCZOS), (int(acx - w / 2), int(iy - 4 - w / 2)))
+            sp.title(arm, "×2", (acx - 55, iy - 4 - 6 - 35, acx + 55, iy - 4 - 6 + 35), 56)
         else:
-            col = "#FFF1B8" if ic == "Coin" else "#FFFFFF"
-            sp.tinted_icon(arm, ic, (acx - 55, acy - 270 - 55, acx + 55, acy - 270 + 55), col)
-        sp.title(arm, txt, (acx - 85, acy - 172 - 30, acx + 85, acy - 172 + 30), 42)
+            sp.tinted_icon(arm, ic, (acx - w / 2, iy - w / 2, acx + w / 2, iy + w / 2), "#FFB347" if ic == "Flame" else "#FFFFFF")
+        number = ic.startswith("coins")
+        tw = 200 if number else 226
+        sp.title(arm, txt, (acx - tw / 2, acy - text_r - 31, acx + tw / 2, acy - text_r + 31), 54 if number else 40,
+                 color=sp.rgb("#FFD447") if ic == "head65" else (255, 255, 255))
         layer.alpha_composite(arm.rotate(-i * 45, resample=Image.BICUBIC))
     br = size * 0.5 * 0.914
     d = ImageDraw.Draw(layer)
@@ -506,7 +569,7 @@ def wheel_screen(spun=False):
         col = (255, 248, 190) if i % 2 == 0 else (255, 158, 51)
         d.ellipse((bx - 17, by - 17, bx + 17, by + 17), fill=col)
     if spun:
-        layer = layer.rotate(-3 * 45 + 12, resample=Image.BICUBIC)
+        layer = layer.rotate(4 * 45 - 10, resample=Image.BICUBIC)
     img.alpha_composite(layer, (int(hb[0]), int(hb[1])))
     disc(img, (cx - 100, cy - 100, cx + 100, cy + 100), sp.OUTLINE)
     disc(img, (cx - 88, cy - 88, cx + 88, cy + 88), c("Accent"))
@@ -523,10 +586,21 @@ def wheel_screen(spun=False):
         masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, -300, 1100, 1100), (255, 217, 102, 102)))
         sp.title(img, "Tu gagnes…", child(cb, 0.5, 1, 0, -80, 800, 90), 60, color=c("Accent"))
         glow(img, child(cb, 0.5, 1, 0, -300, 420, 420), (255, 217, 102, 160), 60)
-        sp.tinted_icon(img, "Gift", child(cb, 0.5, 1, 0, -300, 260, 260), "#FFFFFF")
-        sp.title(img, "Une surprise gratuite", child(cb, 0.5, 1, 0, -500, 800, 100), 64)
-        sp.title(img, "Une ouverture gratuite de la machine à surprises.", child(cb, 0.5, 1, 0, -590, 780, 90), 34, color=SOFT, outline=False)
+        ib = child(cb, 0.5, 1, 0, -300, 260, 260)
+        img.alpha_composite(sp.load("ui/coins_3.png").resize((260, 260), Image.LANCZOS), (int(ib[0]), int(ib[1])))
+        sp.title(img, "250 pièces", child(cb, 0.5, 1, 0, -500, 800, 100), 68)
+        sp.title(img, "Elles sont déjà dans ta tirelire.", child(cb, 0.5, 1, 0, -590, 780, 90), 40, color=SOFT, outline=False)
         sp.button(img, child(cb, 0.5, 0, 0, 80, 600, 150), "Play", "Super !", "Check", 58)
+        # Pluie de pièces (WheelScreen.StartRain) : 18 pièces pour 250, figées à mi-course.
+        rnd = random.Random(7)
+        ccx, ccy = (ib[0] + ib[2]) / 2, (ib[1] + ib[3]) / 2
+        coin = sp.load("ui/coins_1.png")
+        for k in range(18):
+            a = math.radians(rnd.uniform(25, 155)); v = rnd.uniform(950, 1750); t = rnd.uniform(0.22, 0.62)
+            x = ccx + math.cos(a) * v * t; y = ccy - (math.sin(a) * v * t - 1500 * t * t)
+            w = int(rnd.uniform(62, 96))
+            cimg = coin.resize((w, w), Image.LANCZOS).rotate(rnd.uniform(-180, 180), resample=Image.BICUBIC)
+            img.alpha_composite(cimg, (int(x - w / 2), int(y - w / 2)))
     return s
 
 
@@ -539,7 +613,7 @@ def quest_screen():
     masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, -260, 1300, 1300), (255, 217, 102, 64)))
     ib = child(cb, 0.5, 1, 0, -150, 170, 170)
     disc(img, ib, c("Success"))
-    sp.tinted_icon(img, "Target", (ib[0] + 30, ib[1] + 30, ib[2] - 30, ib[3] - 30), "#FFFFFF")
+    img.alpha_composite(sp.load("ui/quest.png").resize((138, 138), Image.LANCZOS), (int(ib[0] + 16), int(ib[1] + 16)))
     sp.title(img, "Quête du débutant", child(cb, 0.5, 1, 0, -300, 900, 110), 76, color=c("Accent"))
     sp.title(img, "1 / 3 étapes : une récompense à chacune !", child(cb, 0.5, 1, 0, -380, 860, 70), 38, color=SOFT, outline=False)
     rows = [("Joue ta première partie", "Récompense gagnée !", True, False), ("Fais 500 points en une partie", "Un coffre  ·  380 / 500", False, True), ("Joue 5 parties", "La planche Bambou", False, False)]
@@ -571,11 +645,11 @@ def event_screen():
     tg = child(bn, 0.5, 1, 0, -50, 420, 70)
     sp.pill(img, tg, color=c("Primary") + (255,))
     sp.title(img, "ÉVÉNEMENT DE LA SEMAINE", tg, 30)
-    sp.title(img, "Semaine du volcan", child(bn, 0.5, 0.5, 0, -10, 860, 110), 70)
+    sp.title(img, "Semaine brûlante", child(bn, 0.5, 0.5, 0, -10, 860, 110), 70)
     sp.title(img, "Se termine dans 3 j 7 h", child(bn, 0.5, 0, 0, 40, 860, 56), 36, color=sp.rgb("#FFF1B8"))
-    sp.title(img, "Cumule 15 000 points en plusieurs parties", child(cb, 0.5, 1, 0, -400, 900, 120), 46, color=c("Accent"))
+    sp.title(img, "Cumule 50 000 points en plusieurs parties", child(cb, 0.5, 1, 0, -400, 900, 120), 46, color=c("Accent"))
     sp.bar(img, child(cb, 0.5, 1, 0, -500, 860, 56), 0.49, "Accent")
-    sp.title(img, "7 340 / 15 000", child(cb, 0.5, 1, 0, -572, 860, 64), 44)
+    sp.title(img, "24 460 / 50 000", child(cb, 0.5, 1, 0, -572, 860, 64), 44)
     for i in range(3):
         x = (i - 1) * 300
         tb = child(cb, 0.5, 1, x, -640, 280, 340, 0.5, 1)
@@ -584,7 +658,7 @@ def event_screen():
         disc(img, db, (92, 209, 110, 115) if i == 0 else (255, 255, 255, 38))
         ib = child(tb, 0.5, 1, 0, -120, 150, 150)
         if i == 0:
-            sp.tinted_icon(img, "Coin", ib, "Accent"); lab = "+150 pièces"
+            img.alpha_composite(sp.load("ui/coins_2.png").resize((150, 150), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = "+150 pièces"
         elif i == 1:
             sp.tinted_icon(img, "Gift", ib, "#FFFFFF"); lab = "Surprise gratuite"
         else:
@@ -611,6 +685,7 @@ if __name__ == "__main__":
     shots.update({"accueil_rendez_vous": home_widgets(), "roue": wheel_screen(), "roue_lot": wheel_screen(True), "quete": quest_screen(), "evenement": event_screen()})
     for name in ("accueil_rendez_vous", "roue", "roue_lot", "quete", "evenement"):
         shots[name].img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
+    balloon_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_montgolfiere.png"))
     keys = list(shots)
     for part, names in (("ecrans_duel_1_4", keys[:4]), ("ecrans_accueil_1_4", keys[4:8]), ("ecrans_rendez_vous", keys[8:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))

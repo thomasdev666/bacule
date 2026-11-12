@@ -75,6 +75,10 @@ File.WriteAllText(Path.Combine(outDir, "scene", "plank_border.txt"), plankBorder
 Directory.CreateDirectory(Path.Combine(outDir, "ui"));
 Png.Save(UiArtist.Button(), Path.Combine(outDir, "ui", "button.png"));
 Png.Save(UiArtist.WheelBoard(720), Path.Combine(outDir, "ui", "wheel.png"));
+Png.Save(UiArtist.WheelBoard(256), Path.Combine(outDir, "ui", "wheel_small.png"));
+Png.Save(UiArtist.QuestBadge(256), Path.Combine(outDir, "ui", "quest.png"));
+Png.Save(UiArtist.WeekBadge(256), Path.Combine(outDir, "ui", "week.png"));
+foreach (int count in ArtCatalog.CoinPiles) Png.Save(UiArtist.CoinPile(count, 256), Path.Combine(outDir, "ui", $"coins_{count}.png"));
 Png.Save(UiArtist.Panel(), Path.Combine(outDir, "ui", "panel.png"));
 Png.Save(UiArtist.Pill(), Path.Combine(outDir, "ui", "pill.png"));
 Png.Save(UiArtist.Glass(), Path.Combine(outDir, "ui", "glass.png"));

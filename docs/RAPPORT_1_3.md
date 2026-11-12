@@ -125,7 +125,7 @@ Une petite barre « Quête du débutant 2/3 » en haut de l'accueil, qui dispara
 
 ### Événement de la semaine (contre la lassitude)
 
-Chaque lundi, un thème et un objectif commun. Par exemple : « Semaine du volcan : cumule 20 000 points », ou « 30 fusions de 64 ».
+Chaque lundi, un thème et un objectif commun. Par exemple : « Semaine brûlante : cumule 50 000 points », ou « 30 fusions de 64 ».
 - La récompense est cosmétique et limitée à la semaine : une tête, une planche, un fond de profil.
 - Un petit classement de la semaine est possible : un nouveau classement `bascule_semaine`, remis à zéro chaque lundi.
 - Le **défi du jour** existe déjà. L'événement donne une raison de revenir **plusieurs jours de suite**.

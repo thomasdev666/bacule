@@ -53,6 +53,8 @@ namespace Bascule.Core
         public bool tutorialDone;
         /// <summary>L'explication du 128 (« il s'envole : gros bonus… ») a déjà été montrée.</summary>
         public bool balloonTipShown;
+        /// <summary>Nombre de parties où le conseil « deux 64 = un 128 » a été montré (jusqu'à 3, tant que le joueur n'en a pas fait).</summary>
+        public int balloonTips;
         /// <summary>Première rafale : on explique quoi faire (une seule fois).</summary>
         public bool windTipShown;
         /// <summary>Code ami court publié en ligne (vide tant qu'il ne l'est pas : on partage alors le code long).</summary>
@@ -224,6 +226,7 @@ namespace Bascule.Core
             // Ce qui s'apprend une fois pour toutes : pas besoin de le réexpliquer.
             fresh.tutorialDone = old.tutorialDone;
             fresh.balloonTipShown = old.balloonTipShown;
+            fresh.balloonTips = old.balloonTips;
             fresh.windTipShown = old.windTipShown;
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);

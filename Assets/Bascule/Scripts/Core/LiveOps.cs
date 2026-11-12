@@ -133,9 +133,14 @@ namespace Bascule.Core
             public HeadDef Head;
         }
 
+        /// <summary>
+        /// Objectifs de même difficulté (environ 25 à 30 parties dans la semaine) : un bon joueur fait près de 40 points
+        /// par poids posé (simulation : 3 100 points pour 76 poids), soit 50 000 points ≈ 1 200 poids ≈ 900 fusions
+        /// ≈ 40 minutes de jeu.
+        /// </summary>
         static readonly (Kind kind, int target)[] Goals =
         {
-            (Kind.TotalScore, 15000), (Kind.Merges, 120), (Kind.Games, 15), (Kind.Drops, 350), (Kind.HoldSeconds, 900),
+            (Kind.TotalScore, 50000), (Kind.Merges, 900), (Kind.Games, 30), (Kind.Drops, 1200), (Kind.HoldSeconds, 2400),
         };
 
         public static readonly float[] TierFractions = { 1f / 3f, 2f / 3f, 1f };

@@ -309,6 +309,145 @@ namespace Bascule.Core
             return img;
         }
 
+        // ------------------------------------------------------------------ Pièces d'or et badges de l'accueil
+
+        static readonly Rgba CoinGold = Rgba.FromHex("#FFC83D"), CoinEdge = Rgba.FromHex("#E08E0B"), CoinDeep = Rgba.FromHex("#B86A00");
+        static readonly Toon.Style CoinStyle = new Toon.Style { Outline = 0.045f, Shade = 0.1f, Soft = 0.06f, ShadeStrength = 0.86f, Rim = 0.06f, RimOpacity = 0.8f, SpecSize = 0.12f };
+        static readonly Toon.Style BadgeStyle = new Toon.Style { Outline = 0.03f, Shade = 0.07f, Soft = 0.045f, ShadeStrength = 0.86f, Rim = 0.04f, RimOpacity = 0.7f, SpecSize = 0.06f };
+
+        /// <summary>Étoile à cinq branches (pointe vers le haut par défaut).</summary>
+        public static Shape StarShape(float cx, float cy, float r, float inner = 0.48f, float rotDeg = 90f)
+        {
+            var pts = new float[20];
+            for (int i = 0; i < 10; i++)
+            {
+                double a = (rotDeg + i * 36) * Math.PI / 180;
+                float rr = i % 2 == 0 ? r : r * inner;
+                pts[i * 2] = cx + (float)Math.Cos(a) * rr;
+                pts[i * 2 + 1] = cy + (float)Math.Sin(a) * rr;
+            }
+            return Shape.Poly(pts);
+        }
+
+        /// <summary>Une pièce d'or de face : tranche visible dessous, rebord en relief, étoile frappée, reflet.</summary>
+        static void Coin(Raster img, float cx, float cy, float r)
+        {
+            float size = r * 2f;
+            var edge = Shape.Circle(cx, cy - r * 0.17f, r);
+            img.Fill(edge.Grow(size * 0.045f), CoinDeep.Outline());
+            img.Fill(edge, Paint.Linear(CoinEdge, 0, cy, CoinDeep, 0, cy - r * 1.2f));
+            // Crans sur la tranche.
+            for (int i = -3; i <= 3; i++)
+            {
+                float x = cx + i * r * 0.27f;
+                img.FillClipped(edge, Shape.Box(x, cy - r * 0.9f, r * 0.035f, r * 0.3f), CoinDeep.WithAlpha(0.55f), 1f);
+            }
+            var face = Shape.Circle(cx, cy, r);
+            Toon.Part(img, face, CoinGold, size, CoinStyle);
+            // Rebord intérieur en creux, puis étoile en relief (ombre en bas à droite, lumière en haut à gauche).
+            img.Fill(Shape.Arc(cx, cy, r * 0.76f, 0f, 360f, r * 0.07f), CoinEdge.WithAlpha(0.85f));
+            var star = StarShape(cx, cy - r * 0.02f, r * 0.46f);
+            img.Fill(star.Move(r * 0.05f, -r * 0.06f), CoinDeep.WithAlpha(0.7f), 1.2f);
+            img.Fill(star, Paint.Linear(Rgba.FromHex("#FFF0A8"), 0, cy + r * 0.5f, Rgba.FromHex("#FFC93C"), 0, cy - r * 0.5f), 1.2f);
+            // Reflet en biais.
+            img.FillClipped(face, Shape.Box(cx - r * 0.38f, cy + r * 0.2f, r * 0.09f, r * 0.9f, r * 0.05f, -38f), Rgba.White.WithAlpha(0.5f), 1.5f);
+        }
+
+        /// <summary>
+        /// Tas de pièces d'or : 1, 2, 3 ou 6 pièces (plus le lot est gros, plus il y en a). Image n × n.
+        /// </summary>
+        public static Raster CoinPile(int count, int n = 256)
+        {
+            var img = new Raster(n, n);
+            (float x, float y, float r)[] spots;
+            switch (count)
+            {
+                case 1: spots = new[] { (0.5f, 0.54f, 0.34f) }; break;
+                case 2: spots = new[] { (0.63f, 0.62f, 0.26f), (0.38f, 0.44f, 0.29f) }; break;
+                case 3: spots = new[] { (0.5f, 0.66f, 0.24f), (0.29f, 0.4f, 0.25f), (0.71f, 0.4f, 0.25f) }; break;
+                default:
+                    spots = new[] { (0.3f, 0.7f, 0.18f), (0.7f, 0.7f, 0.18f), (0.5f, 0.76f, 0.19f), (0.22f, 0.4f, 0.2f), (0.78f, 0.4f, 0.2f), (0.5f, 0.42f, 0.23f) };
+                    break;
+            }
+            foreach (var (x, y, r) in spots) Coin(img, x * n, y * n, r * n);
+            Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            return img;
+        }
+
+        /// <summary>
+        /// Badge « Quête » de l'accueil : un bloc-notes sur sa planchette, pince en métal, trois cases dont deux cochées
+        /// en vert, et une médaille dorée dans le coin. Image n × n.
+        /// </summary>
+        public static Raster QuestBadge(int n = 256)
+        {
+            var img = new Raster(n, n);
+            float c = n * 0.5f, size = n * 0.8f;
+            var board = Shape.Box(c - n * 0.03f, n * 0.47f, n * 0.3f, n * 0.39f, n * 0.06f, 4f);
+            Toon.Part(img, board, Rgba.FromHex("#C9874A"), size, BadgeStyle);
+            var paper = Shape.Box(c - n * 0.03f, n * 0.44f, n * 0.24f, n * 0.31f, n * 0.03f, 4f);
+            Toon.Part(img, paper, Rgba.FromHex("#FFF8EA"), size, BadgeStyle);
+            // Pince en métal en haut.
+            var clip = Shape.Union(Shape.Box(c - n * 0.01f, n * 0.82f, n * 0.13f, n * 0.055f, n * 0.03f, 4f), Shape.Circle(c - n * 0.01f, n * 0.87f, n * 0.05f));
+            Toon.Part(img, clip, Rgba.FromHex("#AEB8C6"), size, BadgeStyle);
+            img.Fill(Shape.Circle(c - n * 0.01f, n * 0.875f, n * 0.02f), Rgba.FromHex("#5B6575"));
+            // Trois lignes : case + trait ; les deux premières cochées.
+            var green = Rgba.FromHex("#3BB54A");
+            for (int i = 0; i < 3; i++)
+            {
+                float y = n * (0.63f - i * 0.17f) + (i - 1) * n * 0.012f;
+                float bx = c - n * 0.18f + i * n * 0.012f;
+                var box = Shape.Box(bx, y, n * 0.05f, n * 0.05f, n * 0.014f, 4f);
+                img.Fill(box.Grow(n * 0.012f), UiArtist.Ink);
+                img.Fill(box, Rgba.White);
+                img.Fill(Shape.Capsule(bx + n * 0.08f, y, bx + n * 0.3f - i * n * 0.04f, y + n * 0.016f, n * 0.017f), Rgba.FromHex("#B9B2CC"));
+                if (i < 2)
+                {
+                    var check = Shape.Union(Shape.Capsule(bx - n * 0.035f, y + n * 0.005f, bx - n * 0.005f, y - n * 0.035f, n * 0.022f),
+                        Shape.Capsule(bx - n * 0.005f, y - n * 0.035f, bx + n * 0.06f, y + n * 0.065f, n * 0.022f));
+                    img.Fill(check.Grow(n * 0.012f), green.Outline());
+                    img.Fill(check, green);
+                }
+            }
+            // Médaille dorée (étoile) en bas à droite : la récompense au bout.
+            float mx = c + n * 0.25f, my = n * 0.2f;
+            Toon.Part(img, Shape.Circle(mx, my, n * 0.13f), Rgba.FromHex("#FFC83D"), size, CoinStyle);
+            img.Fill(Shape.Arc(mx, my, n * 0.095f, 0f, 360f, n * 0.012f), CoinEdge);
+            img.Fill(StarShape(mx, my, n * 0.075f), Rgba.FromHex("#FFF3B0"), 1.2f);
+            Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            return img;
+        }
+
+        /// <summary>
+        /// Badge « Semaine » de l'accueil : une page de calendrier (bandeau rouge, anneaux), une grande étoile dorée
+        /// au milieu (l'événement de la semaine) et trois points pour les paliers. Image n × n.
+        /// </summary>
+        public static Raster WeekBadge(int n = 256)
+        {
+            var img = new Raster(n, n);
+            float c = n * 0.5f, size = n * 0.8f;
+            var page = Shape.Box(c, n * 0.45f, n * 0.36f, n * 0.34f, n * 0.07f);
+            Toon.Part(img, page, Rgba.FromHex("#FFF8EA"), size, BadgeStyle);
+            // Bandeau rouge du haut.
+            var band = Shape.Intersect(page, Shape.HalfPlane(0, -1, -n * 0.64f));
+            img.Fill(band, Paint.Linear(Rgba.FromHex("#FF6B6B"), 0, n * 0.79f, Rgba.FromHex("#E8434F"), 0, n * 0.64f));
+            img.Fill(Shape.Box(c, n * 0.64f, n * 0.355f, n * 0.008f), Rgba.FromHex("#B8323C"));
+            // Anneaux.
+            foreach (float x in new[] { c - n * 0.18f, c + n * 0.18f })
+            {
+                var ring = Shape.Box(x, n * 0.8f, n * 0.035f, n * 0.08f, n * 0.035f);
+                Toon.Part(img, ring, Rgba.FromHex("#AEB8C6"), size, BadgeStyle);
+            }
+            // Grande étoile dorée.
+            var star = StarShape(c, n * 0.4f, n * 0.2f, 0.5f);
+            Toon.Part(img, star, Rgba.FromHex("#FFC83D"), size, CoinStyle);
+            img.FillClipped(star, Shape.Circle(c - n * 0.06f, n * 0.47f, n * 0.05f), Rgba.White.WithAlpha(0.55f), n * 0.03f);
+            // Trois paliers sous l'étoile.
+            for (int i = -1; i <= 1; i++)
+                img.Fill(Shape.Circle(c + i * n * 0.08f, n * 0.165f, n * 0.022f), i < 1 ? Rgba.FromHex("#7C5CFF") : Rgba.FromHex("#D9D2EE"));
+            Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            return img;
+        }
+
         /// <summary>Tube du niveau à bulle (jauge de stabilité) : vert au centre, orange puis rouge aux bouts.</summary>
         public static Raster LevelTube(int w = 640, int h = 96, float k = 1f)
         {

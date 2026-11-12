@@ -203,6 +203,7 @@ namespace Bascule
             Session.RunEnded += OnRunEnded;
             Session.Dropped += () => _hud.OnDropped();
             Session.Merged += v => _hud.OnMerged(v);
+            Session.Ballooned += pts => _hud.OnBalloon(pts);
             Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
             Session.WeightLost += v => _hud.OnWeightLost(v);
             Session.Combo += c => _hud.OnCombo(c);
@@ -2136,7 +2137,28 @@ namespace Bascule
         {
             Stats.Event("rate_yes");
 #if UNITY_IOS && !UNITY_EDITOR
-            if (!UnityEngine.iOS.Device.RequestStoreReview()) Application.OpenURL("itms-apps://itunes.apple.com/app/id" + AppStoreId + "?action=write-review");
+            if (!UnityEngine.iOS.Device.RequestStoreReview()) OpenWriteReview();
+#else
+            OpenWriteReview();
+#endif
+        }
+
+        /// <summary>
+        /// Réglages → « Noter Bascule » : la page « Écrire un avis » de l'App Store (étoiles + avis), toujours disponible.
+        /// La fenêtre d'Apple, elle, peut ne pas s'afficher (Apple la limite à 3 fois par an et le joueur peut la couper).
+        /// </summary>
+        public void RateFromSettings()
+        {
+            Stats.Event("rate_settings");
+            Profile.ratingAsked = true;
+            SaveProfile();
+            OpenWriteReview();
+        }
+
+        void OpenWriteReview()
+        {
+#if UNITY_IOS
+            Application.OpenURL("itms-apps://apps.apple.com/app/id" + AppStoreId + "?action=write-review");
 #else
             Application.OpenURL("market://details?id=" + Application.identifier);
 #endif

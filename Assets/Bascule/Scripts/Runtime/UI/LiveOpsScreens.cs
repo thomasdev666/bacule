@@ -6,43 +6,90 @@ using UnityEngine.UI;
 
 namespace Bascule.UI
 {
-    /// <summary>Petits boutons ronds sur les côtés de l'accueil : roue, événement de la semaine, quête du débutant.</summary>
+    /// <summary>
+    /// Rendez-vous de l'accueil (roue, événement de la semaine, quête du débutant) : un médaillon rond avec son dessin
+    /// en couleur (petite roue qui tourne doucement, bloc-notes coché, calendrier étoilé), un anneau d'avancement doré,
+    /// une étiquette sombre dessous et une pastille « ! » quand il y a quelque chose à prendre.
+    /// Ancrés en bas, sur les côtés, sous la planche de Basile : ils restent à côté de ses jambes sur tous les écrans
+    /// (sur un iPhone haut, la planche paraît plus large et plus haute ; plus bas, rien ne la touche).
+    /// </summary>
     public sealed class SideWidget
     {
+        public const float Width = 200f, Height = 214f, Medal = 150f;
+        /// <summary>Hauteurs (depuis le bas de l'écran) des deux rangées : au-dessus du dock, sous la planche.</summary>
+        public const float Row1 = 590f, Row2 = 370f;
+
         public RectTransform Root;
         public Button Button;
         public Text Label;
         public GameObject Badge;
         public Image Ring;
 
-        public static SideWidget Create(Transform parent, ArtCache art, Icon icon, Color color, Action onTap, string name, float side, float y, bool ring)
+        public static SideWidget Create(Transform parent, ArtCache art, Sprite picture, Color color, Action onTap, string name, float side, float y, bool ring, bool wheel = false)
         {
             var w = new SideWidget();
             w.Root = Ui.Rect(name, parent);
-            Ui.Place(w.Root, side < 0 ? 0 : 1, 1, side < 0 ? 92 : -92, y, 160, 190);
+            Ui.Place(w.Root, side < 0 ? 0 : 1, 0, side < 0 ? 106 : -106, y, Width, Height);
+            float my = -6f - Medal * 0.5f - (ring ? 8f : 0f); // centre du médaillon, depuis le haut
             if (ring)
             {
-                // Anneau d'avancement (événement de la semaine).
-                var track = Ui.Image(w.Root, art.Ring, new Color(1, 1, 1, 0.25f), "Piste");
-                Ui.Place(track.rectTransform, 0.5f, 1, 0, -66, 150, 150);
+                // Anneau d'avancement (événement de la semaine, quête) autour du médaillon.
+                var track = Ui.Image(w.Root, art.Ring, new Color(1f, 1f, 1f, 0.4f), "Piste");
+                Ui.Place(track.rectTransform, 0.5f, 1, 0, my, Medal + 28, Medal + 28);
                 w.Ring = Ui.Image(w.Root, art.Ring, Palette.Accent, "Anneau");
-                Ui.Place(w.Ring.rectTransform, 0.5f, 1, 0, -66, 150, 150);
+                Ui.Place(w.Ring.rectTransform, 0.5f, 1, 0, my, Medal + 28, Medal + 28);
                 w.Ring.type = Image.Type.Filled; w.Ring.fillMethod = Image.FillMethod.Radial360; w.Ring.fillOrigin = 2; w.Ring.fillClockwise = true;
             }
-            w.Button = Ui.IconButton(w.Root, icon, color, onTap, "Bouton");
-            Ui.Place((RectTransform)w.Button.transform, 0.5f, 1, 0, -66, 122, 128);
-            w.Label = Ui.Title(w.Root, "", 32, Color.white, "Legende");
-            Ui.Place(w.Label.rectTransform, 0.5f, 0, 0, 22, 170, 44, 0.5f, 0.5f);
-            var badge = Ui.Image(w.Button.transform, art.Circle, Palette.Primary, "Pastille");
-            Ui.Place(badge.rectTransform, 1, 1, 18, 18, 48, 48, 1, 1);
+            // Médaillon : contour sombre, disque de couleur, reflet clair en haut, dessin au centre.
+            var rim = Ui.Image(w.Root, art.Circle, Palette.Outline, "Medaillon");
+            Ui.Place(rim.rectTransform, 0.5f, 1, 0, my, Medal, Medal);
+            rim.raycastTarget = true;
+            var disc = Ui.Image(rim.transform, art.Circle, color, "Fond");
+            Ui.Place(disc.rectTransform, 0.5f, 0.5f, 0, 0, Medal - 14, Medal - 14);
+            var shine = Ui.Image(disc.transform, art.SoftDisc, new Color(1f, 1f, 1f, 0.3f), "Reflet");
+            Ui.Place(shine.rectTransform, 0.5f, 1, 0, -6, Medal * 0.72f, Medal * 0.4f, 0.5f, 1);
+            var pic = Ui.Icon(disc.transform, picture, "Dessin");
+            Ui.Place(pic.rectTransform, 0.5f, 0.5f, 0, wheel ? -2 : 0, wheel ? Medal - 34 : Medal - 26, wheel ? Medal - 34 : Medal - 26);
+            if (wheel)
+            {
+                // Petite roue qui tourne doucement, avec son moyeu et son repère rouge (qui, eux, ne tournent pas).
+                pic.gameObject.AddComponent<Spin>().Speed = -18f;
+                var hub = Ui.Image(disc.transform, art.Circle, Palette.Outline, "Moyeu");
+                Ui.Place(hub.rectTransform, 0.5f, 0.5f, 0, -2, 34, 34);
+                var hubIn = Ui.Image(hub.transform, art.Circle, Palette.Accent, "Centre");
+                Ui.Place(hubIn.rectTransform, 0.5f, 0.5f, 0, 0, 24, 24);
+                var pointer = Ui.Icon(rim.transform, art.IconSprite(Icon.Play), "Repere");
+                pointer.color = Palette.Primary;
+                Ui.Place(pointer.rectTransform, 0.5f, 1, 0, 8, 50, 50, 0.5f, 0.5f);
+                pointer.rectTransform.localRotation = Quaternion.Euler(0, 0, -90f);
+            }
+            w.Button = rim.gameObject.AddComponent<Button>();
+            w.Button.transition = Selectable.Transition.None;
+            w.Button.onClick.AddListener(() => onTap?.Invoke());
+            rim.gameObject.AddComponent<PressScale>();
+
+            // Étiquette sombre, lisible sur n'importe quel décor.
+            var pill = Ui.Image(w.Root, art.Pill, new Color(0.12f, 0.07f, 0.28f, 0.88f), "Etiquette", true);
+            Ui.Place(pill.rectTransform, 0.5f, 0, 0, 0, Width - 6, 58, 0.5f, 0);
+            w.Label = Ui.Title(pill.transform, "", 36, Color.white, "Legende");
+            Ui.Stretch(w.Label.rectTransform, 12, 2, 12, 4);
+
+            // Pastille « ! » sur le coin du médaillon.
+            var badge = Ui.Image(rim.transform, art.Circle, Palette.Primary, "Pastille");
+            Ui.Place(badge.rectTransform, 1, 1, -10, -10, 50, 50, 0.5f, 0.5f);
             var o = badge.gameObject.AddComponent<Outline>();
             o.effectColor = Color.white; o.effectDistance = new Vector2(3, -3);
-            var t = Ui.Title(badge.transform, "!", 32);
+            var t = Ui.Title(badge.transform, "!", 34);
             Ui.Stretch(t.rectTransform, 0, 0, 0, 3);
             badge.gameObject.AddComponent<Pulse>().Amount = 0.1f;
             w.Badge = badge.gameObject;
+            Ui.Isolate(w.Root.gameObject);
             return w;
         }
+
+        /// <summary>Change de rangée (l'événement monte à la place de la quête une fois celle-ci finie).</summary>
+        public void MoveTo(float side, float y) =>
+            Ui.Place(Root, side < 0 ? 0 : 1, 0, side < 0 ? 106 : -106, y, Width, Height);
     }
 
     // ===================================================================== Roue de la chance
@@ -136,30 +183,60 @@ namespace Bascule.UI
             BuildCard();
         }
 
+        // Disposition d'une part, depuis le centre (en part de la taille de la roue) : le lot en image au milieu
+        // de la part, son nom tout près du bord doré, là où la part est la plus large (les mots longs y tiennent).
+        const float IconR = 0.238f, TextR = 0.37f;
+
         void SlotLabel(int i)
         {
             var slot = Wheel.Slots[i];
             var arm = Ui.Rect("Lot" + i, _wheel);
             Ui.Place(arm, 0.5f, 0.5f, 0, 0, 10, 10);
             arm.localRotation = Quaternion.Euler(0, 0, -i * 360f / Wheel.Slots.Length);
-            if (slot.Kind == WheelPrize.Chest)
+            float iconY = Size * IconR, textY = Size * TextR;
+            switch (slot.Kind)
             {
-                var chest = MetaUi.MiniChest(arm, Art, 120);
-                Ui.Place(chest, 0.5f, 0.5f, 0, 268, 120, 108);
+                case WheelPrize.Coins:
+                {
+                    // Plus le lot est gros, plus il y a de pièces : 1 pièce, 2 pièces, puis un tas de 3.
+                    float w = slot.Coins >= 200 ? 150f : slot.Coins >= 100 ? 134f : 116f;
+                    var pile = Ui.Icon(arm, Art.CoinPile(slot.Coins), "Pieces");
+                    Ui.Place(pile.rectTransform, 0.5f, 0.5f, 0, iconY + 4, w, w);
+                    break;
+                }
+                case WheelPrize.Boost:
+                {
+                    // Pièces doublées : une pièce marquée « ×2 ».
+                    var coin = Ui.Icon(arm, Art.CoinPile(1), "Piece");
+                    Ui.Place(coin.rectTransform, 0.5f, 0.5f, 0, iconY + 4, 118, 118);
+                    var x2 = Ui.Title(coin.transform, "×2", 56, Color.white);
+                    Ui.Place(x2.rectTransform, 0.5f, 0.5f, 0, 6, 110, 70);
+                    break;
+                }
+                case WheelPrize.Chest:
+                {
+                    var chest = MetaUi.MiniChest(arm, Art, 124);
+                    Ui.Place(chest, 0.5f, 0.5f, 0, iconY, 124, 112);
+                    break;
+                }
+                case WheelPrize.Jackpot when Wheel.LuckyHead != null:
+                {
+                    var face = Ui.Icon(arm, Art.Portrait(Wheel.LuckyHead), "Tete");
+                    Ui.Place(face.rectTransform, 0.5f, 0.5f, 0, iconY, 136, 136);
+                    break;
+                }
+                default:
+                {
+                    var ic = Ui.Icon(arm, Art.IconSprite(SlotIcon(slot)), "Icone");
+                    ic.color = slot.Kind == WheelPrize.Shield ? ArtCache.Hex("#FFB347") : Color.white;
+                    Ui.Place(ic.rectTransform, 0.5f, 0.5f, 0, iconY, 108, 108);
+                    break;
+                }
             }
-            else if (slot.Kind == WheelPrize.Jackpot && Wheel.LuckyHead != null)
-            {
-                var face = Ui.Icon(arm, Art.Portrait(Wheel.LuckyHead), "Tete");
-                Ui.Place(face.rectTransform, 0.5f, 0.5f, 0, 270, 140, 140);
-            }
-            else
-            {
-                var ic = Ui.Icon(arm, Art.IconSprite(SlotIcon(slot)), "Icone");
-                ic.color = slot.Kind == WheelPrize.Coins || slot.Kind == WheelPrize.Boost ? ArtCache.Hex("#FFF1B8") : Color.white;
-                Ui.Place(ic.rectTransform, 0.5f, 0.5f, 0, 270, 110, 110);
-            }
-            var t = Ui.Title(arm, SlotText(slot), 42, Color.white);
-            Ui.Place(t.rectTransform, 0.5f, 0.5f, 0, 172, 170, 60);
+            bool number = slot.Kind == WheelPrize.Coins;
+            var color = slot.Kind == WheelPrize.Jackpot ? ArtCache.Hex("#FFD447") : Color.white;
+            var t = Ui.Title(arm, SlotText(slot), number ? 54 : 40, color);
+            Ui.Place(t.rectTransform, 0.5f, 0.5f, 0, textY, number ? 200 : 226, 62);
         }
 
         static Icon SlotIcon(WheelSlot s)
@@ -167,7 +244,7 @@ namespace Bascule.UI
             switch (s.Kind)
             {
                 case WheelPrize.Ticket: return Icon.Gift;
-                case WheelPrize.Shield: return Icon.Calendar;
+                case WheelPrize.Shield: return Icon.Flame;
                 case WheelPrize.Jackpot: return Icon.Crown;
                 default: return Icon.Coin;
             }
@@ -245,6 +322,8 @@ namespace Bascule.UI
             Ui.Place(_cardGlow.rectTransform, 0.5f, 1, 0, -300, 420, 420);
             _cardIcon = Ui.Icon(card.transform, null, "Lot");
             Ui.Place(_cardIcon.rectTransform, 0.5f, 1, 0, -300, 260, 260);
+            _cardX2 = Ui.Title(_cardIcon.transform, "×2", 110);
+            Ui.Place(_cardX2.rectTransform, 0.5f, 0.5f, 0, 14, 220, 130);
             _cardIcon.gameObject.AddComponent<Rock>().Angle = 5f;
             _cardTitle = Ui.Title(card.transform, "", 68, Color.white);
             Ui.Place(_cardTitle.rectTransform, 0.5f, 1, 0, -500, 800, 100);
@@ -253,12 +332,86 @@ namespace Bascule.UI
             var ok = Ui.Button(card.transform, Loc.Get("chest_ok"), Palette.Play, CloseCard, Icon.Check, 58, "Super");
             Ui.Place((RectTransform)ok.transform, 0.5f, 0, 0, 80, 600, 150);
             card.gameObject.SetActive(false);
+
+            // Pluie de pièces qui jaillit du lot (hors de la carte, pour qu'elles débordent) : plus le gain est gros, plus il y en a.
+            _rain = Ui.Rect("PluieDePieces", Safe);
+            Ui.Place(_rain, 0.5f, 0.5f, 0, 60 + 410 - 300, 10, 10);
+            for (int i = 0; i < RainMax; i++)
+            {
+                var c = Ui.Icon(_rain, Art.CoinPile(1), "Piece");
+                _rainCoins[i] = c.rectTransform;
+                c.raycastTarget = false;
+                c.gameObject.SetActive(false);
+            }
+            Ui.Isolate(_rain.gameObject);
+            _rain.gameObject.SetActive(false);
+        }
+
+        const int RainMax = 28;
+        const float RainLife = 1.5f;
+        RectTransform _rain;
+        Text _cardX2;
+        readonly RectTransform[] _rainCoins = new RectTransform[RainMax];
+        readonly Vector2[] _rainPos = new Vector2[RainMax], _rainVel = new Vector2[RainMax];
+        readonly float[] _rainSpin = new float[RainMax], _rainDelay = new float[RainMax], _rainSize = new float[RainMax];
+        int _rainCount;
+        float _rainT = -1f;
+
+        /// <summary>Nombre de pièces qui jaillissent : 6 pour 50, 10 pour 100, 18 pour 250, 28 pour le jackpot.</summary>
+        static int RainFor(int coins) => coins <= 0 ? 0 : coins < 100 ? 6 : coins < 200 ? 10 : coins < 1000 ? 18 : RainMax;
+
+        void StartRain(int coins)
+        {
+            _rainCount = App.Profile.settings.reducedMotion ? 0 : RainFor(coins);
+            if (_rainCount == 0) return;
+            for (int i = 0; i < RainMax; i++)
+            {
+                bool on = i < _rainCount;
+                _rainCoins[i].gameObject.SetActive(on);
+                if (!on) continue;
+                float a = UnityEngine.Random.Range(25f, 155f) * Mathf.Deg2Rad;
+                float speed = UnityEngine.Random.Range(950f, 1750f);
+                _rainPos[i] = new Vector2(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-30f, 30f));
+                _rainVel[i] = new Vector2(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed);
+                _rainSpin[i] = UnityEngine.Random.Range(-420f, 420f);
+                _rainDelay[i] = i * 0.025f;
+                _rainSize[i] = UnityEngine.Random.Range(62f, 96f);
+                _rainCoins[i].sizeDelta = new Vector2(_rainSize[i], _rainSize[i]);
+                _rainCoins[i].anchoredPosition = _rainPos[i];
+                _rainCoins[i].localScale = Vector3.zero;
+            }
+            _rain.gameObject.SetActive(true);
+            _rain.SetAsLastSibling();
+            _rainT = 0f;
+        }
+
+        void TickRain(float dt)
+        {
+            if (_rainT < 0f) return;
+            _rainT += dt;
+            bool any = false;
+            for (int i = 0; i < _rainCount; i++)
+            {
+                float t = _rainT - _rainDelay[i];
+                var rt = _rainCoins[i];
+                if (t < 0f) { any = true; continue; }
+                if (t > RainLife) { if (rt.gameObject.activeSelf) rt.gameObject.SetActive(false); continue; }
+                any = true;
+                _rainVel[i].y -= 3000f * dt;
+                _rainPos[i] += _rainVel[i] * dt;
+                rt.anchoredPosition = _rainPos[i];
+                rt.localRotation = Quaternion.Euler(0, 0, _rainSpin[i] * t);
+                float grow = Mathf.Clamp01(t / 0.12f), fade = 1f - Mathf.Clamp01((t - (RainLife - 0.4f)) / 0.4f);
+                rt.localScale = Vector3.one * grow * Mathf.Max(0.01f, fade);
+            }
+            if (!any) { _rainT = -1f; _rain.gameObject.SetActive(false); }
         }
 
         public override void Refresh()
         {
             _odds.gameObject.SetActive(false);
             _card.gameObject.SetActive(_pending != null);
+            if (_pending == null) { _rainT = -1f; _rain.gameObject.SetActive(false); }
             UpdateButtons();
         }
 
@@ -358,6 +511,7 @@ namespace Bascule.UI
             _pointerKick = Mathf.MoveTowards(_pointerKick, 0f, dt * 6f);
             _pointer.localRotation = Quaternion.Euler(0, 0, -90f + _pointerKick * 18f);
             if (_card.gameObject.activeSelf) _cardGlow.rectTransform.localScale = Vector3.one * (1f + 0.06f * Mathf.Sin(_clock * 4f));
+            TickRain(dt);
             if (!_card.gameObject.activeSelf && _t < 0f && ((int)(_clock * 2f) % 2 == 0)) UpdateButtons(); // compte à rebours
         }
 
@@ -368,9 +522,18 @@ namespace Bascule.UI
             _card.gameObject.SetActive(true);
             _card.SetAsLastSibling();
             _cardIcon.color = Color.white;
+            _cardX2.gameObject.SetActive(r.Kind == WheelPrize.Boost);
             if (r.Head != null) _cardIcon.sprite = Art.Portrait(r.Head);
             else if (r.Kind == WheelPrize.Chest) _cardIcon.sprite = Art.ChestBase;
-            else { _cardIcon.sprite = Art.IconSprite(SlotIcon(slot)); if (r.Kind == WheelPrize.Coins || r.Kind == WheelPrize.Boost) _cardIcon.color = Palette.Accent; }
+            else if (r.Kind == WheelPrize.Boost) _cardIcon.sprite = Art.CoinPile(1);
+            else if (r.Coins > 0) _cardIcon.sprite = Art.CoinPile(r.Coins);
+            else
+            {
+                _cardIcon.sprite = Art.IconSprite(SlotIcon(slot));
+                if (r.Kind == WheelPrize.Shield) _cardIcon.color = ArtCache.Hex("#FFB347");
+            }
+            // Les pièces gagnées jaillissent du lot (le gros lot en fait pleuvoir le plus).
+            if (r.Kind != WheelPrize.Boost) StartRain(r.Coins);
             _cardTitle.text = r.Head != null ? r.Head.Name(Loc.Language)
                 : r.Coins > 0 && r.Kind != WheelPrize.Coins ? Loc.Format("wheel_prize_coins", Loc.FormatScore(r.Coins))
                 : PrizeName(slot);
@@ -420,8 +583,8 @@ namespace Bascule.UI
             Ui.Isolate(rays.gameObject);
             var icon = Ui.Image(card.transform, Art.Circle, Palette.Success, "Pastille");
             Ui.Place(icon.rectTransform, 0.5f, 1, 0, -150, 170, 170);
-            var ic = Ui.Icon(icon.transform, Art.IconSprite(Icon.Target), "Cible");
-            Ui.Stretch(ic.rectTransform, 30, 30, 30, 30);
+            var ic = Ui.Icon(icon.transform, Art.QuestBadge, "BlocNotes");
+            Ui.Stretch(ic.rectTransform, 16, 16, 16, 16);
             var title = Ui.Title(card.transform, Loc.Get("quest_title"), 76, Palette.Accent);
             Ui.Place(title.rectTransform, 0.5f, 1, 0, -300, 900, 110);
             _sub = Ui.Label(card.transform, "", 40, ArtCache.Hex("#D8E9FF"));
@@ -560,14 +723,14 @@ namespace Bascule.UI
                 bool done = p.week.tiers > i;
                 check.gameObject.SetActive(done);
                 icon.color = Color.white;
-                if (i == 0) { icon.sprite = Art.IconSprite(Icon.Coin); icon.color = Palette.Accent; label.text = Loc.Format("quest_reward_coins", WeeklyEvent.TierCoins); }
+                if (i == 0) { icon.sprite = Art.CoinPile(WeeklyEvent.TierCoins); icon.color = Color.white; label.text = Loc.Format("quest_reward_coins", WeeklyEvent.TierCoins); }
                 else if (i == 1) { icon.sprite = Art.IconSprite(Icon.Gift); label.text = Loc.Get("event_reward_ticket"); }
                 else if (d.Head != null && !p.unlockedHeads.Contains(d.Head.Id) || (done && d.Head != null))
                 {
                     icon.sprite = Art.Portrait(d.Head);
                     label.text = Loc.Format("event_reward_head", d.Head.Name(Loc.Language));
                 }
-                else { icon.sprite = Art.IconSprite(Icon.Coin); icon.color = Palette.Accent; label.text = Loc.Format("quest_reward_coins", WeeklyEvent.OwnedHeadCoins); }
+                else { icon.sprite = Art.CoinPile(WeeklyEvent.OwnedHeadCoins); icon.color = Color.white; label.text = Loc.Format("quest_reward_coins", WeeklyEvent.OwnedHeadCoins); }
                 disc.color = done ? new Color(0.36f, 0.82f, 0.43f, 0.45f) : new Color(1, 1, 1, 0.15f);
             }
             UpdateLeft();

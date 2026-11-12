@@ -104,6 +104,9 @@ namespace Bascule.UI
             _streaks[i].sizeDelta = new Vector2(Random.Range(90f, 220f), Random.Range(7f, 13f));
         }
 
+        /// <summary>L'annonce est à l'écran (la bannière du 128 se pose alors plus haut).</summary>
+        public bool Visible => _root.gameObject.activeSelf;
+
         public void Hide()
         {
             _shown = WindPhase.None;

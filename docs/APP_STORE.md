@@ -141,3 +141,13 @@ Duels, amis et récompenses : grosse mise à jour !
 • Choisis ton pseudo dès le premier lancement.
 • 14 mondes jusqu'à la Lune, une tenue pour chacune des 64 têtes, un défi chaque jour.
 ```
+
+## Notes et avis : pourquoi ils n'apparaissent pas tout de suite
+
+- **Dans le jeu, la fenêtre de notation est celle d'Apple** (`RequestStoreReview`, après un record, à partir de 5 parties, au plus 3 fois à 4 jours d'écart). Une note donnée là compte vraiment. Mais Apple décide seul de l'afficher : au plus 3 fois par an et par appareil, et jamais si le joueur a coupé « Notes et avis intégrés » (Réglages de l'iPhone → App Store).
+- **Avec TestFlight ou une version de test, rien n'est envoyé** : la fenêtre s'affiche mais la note ne part nulle part. Seule la version téléchargée sur l'App Store compte.
+- **Pays par pays** : une note donnée en France n'apparaît que sur la page française. Apple n'affiche la moyenne qu'à partir de quelques notes dans le pays (« Pas assez de notes » avant), avec un délai d'environ 24 à 48 h.
+- **Une note seule (étoiles) n'est jamais affichée en texte** : elle compte dans la moyenne. Les avis écrits passent par une vérification d'Apple avant d'apparaître.
+- **Nouvelle version** : dans App Store Connect, ne pas cocher « Réinitialiser le résumé des notes » en envoyant la 1.3, sinon la moyenne repart de zéro.
+- **Où les voir** : App Store Connect → l'app → onglet App Store → **Notes et avis** (menu de gauche), par pays.
+- **Toujours possible** : Réglages → Aide → « Noter Bascule » ouvre la page « Écrire un avis » de l'App Store, même quand la fenêtre d'Apple ne s'affiche plus.

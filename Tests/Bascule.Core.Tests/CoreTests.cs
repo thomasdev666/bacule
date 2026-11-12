@@ -960,6 +960,24 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void WeeklyScoreGoalIsFiftyThousandPoints()
+        {
+            // Une semaine entière de jeu : 50 000 points cumulés (15 000 se faisaient en deux jours).
+            bool seen = false;
+            var day = new DateTime(2026, 11, 9);
+            for (int w = 0; w < 10; w++)
+            {
+                var d = WeeklyEvent.For(WeeklyEvent.WeekKey(day.AddDays(7 * w)));
+                if (d.Kind != WeeklyEvent.Kind.TotalScore) continue;
+                seen = true;
+                Assert.AreEqual(50000, d.Target);
+            }
+            Assert.True(seen, "l'objectif de points revient au moins une fois en dix semaines");
+            Loc.Language = "fr";
+            Assert.AreEqual("Semaine brûlante", Loc.Get("event_name_11"));
+        }
+
+        [Test]
         public void WeeklyEventChangesEveryMondayAndPaysThreeTiers()
         {
             Assert.AreEqual("2026-11-09", WeeklyEvent.WeekKey(new DateTime(2026, 11, 12, 10, 0, 0)), "jeudi : lundi de la semaine");

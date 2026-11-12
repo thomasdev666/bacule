@@ -463,7 +463,7 @@ def home_screen():
             pill(img, tg, color=(255, 255, 255, 255))
             tin = (tg[0] + 4, tg[1] + 4, tg[2] - 4, tg[3] - 4)
             pill(img, tin, color=rgb(COL["Primary"]) + (255,))
-            title(img, "Bientôt", tin, 30)
+            title(img, "Direct", tin, 30)
         if i == 1:
             badge(img, bb, "2")
         if i == 2:
@@ -835,10 +835,12 @@ def settings_screen():
     row(box, top, 1, "Bag", "Primary", "Boutique", ("link",))
     row(box, top, 2, "Film", "Purple", "Retirer les publicités", ("link",))
     row(box, top, 3, "Replay", "Dark", "Restaurer mes achats", ("link",))
-    box, top = section("Aide", 3)
-    row(box, top, 0, "Bell", "Secondary", "Aide et contact", ("link",))
-    row(box, top, 1, "Lock", "Dark", "Confidentialité", ("link",))
-    row(box, top, 2, "Close", "Primary", "Supprimer mes données en ligne", ("link",), danger=True)
+    box, top = section("Aide", 5)
+    row(box, top, 0, "Star", "Accent", "Noter Bascule", ("link",))
+    row(box, top, 1, "Bell", "Secondary", "Aide et contact", ("link",))
+    row(box, top, 2, "Lock", "Dark", "Confidentialité", ("link",))
+    row(box, top, 3, "Film", "Purple", "Pubs personnalisées", ("switch", True))
+    row(box, top, 4, "Close", "Primary", "Supprimer mes données en ligne", ("link",), danger=True)
     return c
 
 

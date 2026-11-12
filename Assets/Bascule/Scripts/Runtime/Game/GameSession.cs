@@ -142,6 +142,8 @@ namespace Bascule
         public event Action Dropped;
         /// <summary>Une fusion vient de créer ce poids (tutoriel).</summary>
         public event Action<int> Merged;
+        /// <summary>Un 128 vient de s'envoler : points gagnés d'un coup (fusion + bonus), pour la grande bannière.</summary>
+        public event Action<int> Ballooned;
         /// <summary>Éclair de couleur plein écran (gros combo, gros poids, 128) : intensité, couleur.</summary>
         public event Action<float, Color> ScreenFlash;
         /// <summary>Combo de N fusions enchaînées (N ≥ 2) : néon sur le contour de l'écran.</summary>
@@ -1033,7 +1035,8 @@ namespace Bascule
                 int bonus = _score.OnBalloon();
                 _fx.Balloon(pos);
                 _fx.Confetti(pos, 30);
-                _fx.Text(pos + new Vector2(0, 2.2f), Loc.Format("balloon", Loc.FormatScore(bonus)), Palette.Accent, 1.2f, 1.8f);
+                _fx.Text(pos + new Vector2(0, 2.2f), "+" + Loc.FormatScore(bonus), Palette.Accent, 1.2f, 1.8f);
+                Ballooned?.Invoke(points + bonus);
                 _fx.Shake(0.5f);
                 ScreenFlash?.Invoke(0.4f, new Color(1f, 0.9f, 0.5f));
                 _mascot.Cheer();

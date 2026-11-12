@@ -54,6 +54,9 @@ namespace Bascule.Core
             yield return new Job("balloon", () => ShapeArtist.Balloon(256, WeightCatalog.Color(128)));
         }
 
+        /// <summary>Tailles des tas de pièces dessinés (1, 2, 3 ou 6 pièces).</summary>
+        public static readonly int[] CoinPiles = { 1, 2, 3, 6 };
+
         public static IEnumerable<Job> Ui()
         {
             const float k = UiDensity;
@@ -70,6 +73,11 @@ namespace Bascule.Core
             yield return new Job("ui_vignette", () => UiArtist.Vignette());
             yield return new Job("ui_rays", () => UiArtist.Rays());
             yield return new Job("ui_wheel", () => UiArtist.WheelBoard(720));
+            // 1.3 : petite roue et badges des rendez-vous de l'accueil, tas de pièces de la roue.
+            yield return new Job("ui_wheel_small", () => UiArtist.WheelBoard(256));
+            yield return new Job("ui_quest", () => UiArtist.QuestBadge(256));
+            yield return new Job("ui_week", () => UiArtist.WeekBadge(256));
+            foreach (int count in CoinPiles) yield return new Job("ui_coins" + count, () => UiArtist.CoinPile(count, 256));
             foreach (Icon icon in Enum.GetValues(typeof(Icon)))
             {
                 var ic = icon;

@@ -165,14 +165,14 @@ namespace Bascule.UI
             _daily = Ui.Button(Safe, Loc.Get("daily"), Palette.Secondary, App.ShowDailyIntro, Icon.Calendar, 54, "Defi");
             Ui.Place((RectTransform)_daily.transform, 0.5f, 1, 0, -920, 700, 130);
 
-            // Rendez-vous sur les côtés du bouton Jouer : la roue et l'événement à gauche, la quête du débutant à droite.
-            // Au-dessus et au-dessous de la rangée Jouer / Défi du jour, jamais à côté : rien ne se chevauche.
-            _wheelW = SideWidget.Create(Safe, Art, Icon.Wheel, Palette.Accent, App.ShowWheel, "Roue", -1, -470, false);
+            // Rendez-vous de l'accueil, sur les côtés sous la planche de Basile (ancrés en bas : ils ne touchent ni la
+            // planche ni les boutons, quelle que soit la hauteur de l'écran). Roue à gauche ; quête du débutant à droite
+            // tant qu'elle dure, l'événement de la semaine dessous (puis à sa place).
+            _wheelW = SideWidget.Create(Safe, Art, Art.WheelSmall, ArtCache.Hex("#2E2A6B"), App.ShowWheel, "Roue", -1, SideWidget.Row1, false, true);
             _wheelW.Label.text = Loc.Get("wheel_short");
-            Ui.Isolate(_wheelW.Root.gameObject);
-            _eventW = SideWidget.Create(Safe, Art, Icon.Flag, Palette.Purple, App.ShowEvent, "Semaine", -1, -1090, true);
+            _eventW = SideWidget.Create(Safe, Art, Art.WeekBadge, Palette.Purple, App.ShowEvent, "Semaine", 1, SideWidget.Row2, true);
             _eventW.Label.text = Loc.Get("event_short");
-            _questW = SideWidget.Create(Safe, Art, Icon.Target, Palette.Success, App.ShowQuest, "Quete", 1, -470, true);
+            _questW = SideWidget.Create(Safe, Art, Art.QuestBadge, Palette.Success, App.ShowQuest, "Quete", 1, SideWidget.Row1, true);
 
             // Barre du bas, sous les pieds de Basile : les cinq accès secondaires, comme un dock d'application.
             var dock = Ui.Glass(Safe, "Dock");
@@ -275,6 +275,7 @@ namespace Bascule.UI
             // Quête du débutant : seulement tant qu'elle n'est pas finie.
             bool quest = BeginnerQuest.Active(p);
             _questW.Root.gameObject.SetActive(quest);
+            _eventW.MoveTo(1, quest ? SideWidget.Row2 : SideWidget.Row1);
             if (quest)
             {
                 _questW.Label.text = Loc.Format("quest_short", p.quest.done, BeginnerQuest.Steps.Length);
@@ -334,6 +335,10 @@ namespace Bascule.UI
         Text _tubeLabel;
         // Annonce de rafale : grande banderole animée (UI/GustBanner.cs).
         GustBanner _gust;
+        // Envol d'un 128 : grande bannière dorée avec les points gagnés (UI/BalloonBanner.cs).
+        BalloonBanner _balloonBanner;
+        // Le conseil « deux 64 = un 128 » a été donné pendant cette partie.
+        bool _tip128Run;
         readonly Vector3[] _corners = new Vector3[4];
 
         NeonEdge _neon;
@@ -469,6 +474,7 @@ namespace Bascule.UI
             Ui.Place(_mark.rectTransform, 0.5f, 0, 0, 34, 1000, 56, 0.5f, 0);
             _mark.horizontalOverflow = HorizontalWrapMode.Overflow;
             _gust = new GustBanner(Safe, Art);
+            _balloonBanner = new BalloonBanner(Safe, Art);
             _hand = Ui.Icon(Safe, Art.IconSprite(Icon.Hand), "Main");
             Ui.Place(_hand.rectTransform, 0.5f, 0.5f, 0, 120, 150, 150);
         }
@@ -492,11 +498,13 @@ namespace Bascule.UI
         /// Affiche un conseil au-dessus de la planche. Un conseil important (l'explication du 128) ne peut pas être
         /// remplacé par un conseil moins important tant qu'il n'a pas eu le temps d'être lu.
         /// </summary>
-        void Say(string key, float seconds, int priority = 0)
+        void Say(string key, float seconds, int priority = 0) => SayText(Loc.Get(key), seconds, priority);
+
+        void SayText(string text, float seconds, int priority = 0)
         {
             if (_hintTimer > 0.3f && priority < _hintPriority) return;
             _hintPriority = priority;
-            _hint.text = Loc.Get(key);
+            _hint.text = text;
             _hintTimer = seconds;
             _hintRt.localScale = Vector3.one * 1.08f;
         }
@@ -510,16 +518,33 @@ namespace Bascule.UI
 
         public void OnMerged(int value)
         {
-            if (_tuto == Tuto.Merge || _tuto == Tuto.Aim) { _tuto = Tuto.Good; Say("tuto_good", 2.5f); return; }
-            // Le 128 : expliqué une seule fois, dès le premier 64 (on sait alors ce qui arrive en en fusionnant deux),
-            // ou au premier 128 si le joueur n'a jamais eu de 64 à l'écran.
+            if (_tuto == Tuto.Merge || _tuto == Tuto.Aim) { _tuto = Tuto.Good; Say("tuto_good", 4.5f, 1); return; }
+            // Le 128 : dès le premier 64 de la partie, on dit ce qui arrive en en fusionnant deux, avec les points en jeu.
+            // Répété sur 3 parties tant que le joueur n'a jamais fait de 128 (une seule fois ne suffit pas à retenir).
             var p = App.Profile;
-            if (!p.balloonTipShown && value >= 64)
+            if (value == 64 && !_tip128Run && p.balloonTips < 3 && p.totalBalloons == 0)
             {
+                _tip128Run = true;
+                p.balloonTips++;
                 p.balloonTipShown = true;
-                Say("tip_128", 6f, 2);
+                var t = App.Tuning.score;
+                int worth = 128 * t.pointsPerValue + t.balloonBonus;
+                SayText(Loc.Format("tip_128", Loc.FormatScore(worth)), 6.5f, 2);
             }
         }
+
+        /// <summary>Un 128 s'envole : grande bannière dorée, et la première fois, ce qu'il faut en retenir.</summary>
+        public void OnBalloon(int points)
+        {
+            _balloonBanner.Show(points, _gust.Visible, App.Profile.settings.reducedMotion);
+            var p = App.Profile;
+            if (p.totalBalloons == 0 && !_firstBalloonSaid)
+            {
+                _firstBalloonSaid = true;
+                Say("tip_128_done", 5.5f, 2);
+            }
+        }
+        bool _firstBalloonSaid;
 
         public void OnWeightLost(int value)
         {
@@ -551,6 +576,9 @@ namespace Bascule.UI
             _shownGoal = -2;
             UpdateGoal(s);
             _gust.Hide();
+            _balloonBanner.Hide();
+            // Nouvelle partie (pas une reprise après la pause) : le conseil du 128 peut revenir.
+            if (s0.Drops == 0) _tip128Run = false;
             _neon.Off();
             _flashA = 0f; _flash.gameObject.SetActive(false); // pas d'éclair resté de la partie précédente
             // La barre du défi du jour repart cachée : elle se replace (avec le repère du poids tenu) à la première image.
@@ -644,6 +672,7 @@ namespace Bascule.UI
         {
             var s = App.Session;
             UpdateWind(s, dt);
+            _balloonBanner.Tick(dt);
             // Canvas en superposition : les coins sont directement en pixels d'écran.
             _hudBottom.GetWorldCorners(_corners);
             WorldLayout.HudBottomScreenY = _corners[0].y;
@@ -1992,8 +2021,10 @@ namespace Bascule.UI
 
             bool online = App.Leaderboard.Service.IsOnline;
             bool blocked = App.Profile.blocked.Count > 0;
-            var help = Section(Loc.Get("sec_help"), (online ? 4 : 3) + (blocked ? 1 : 0));
+            var help = Section(Loc.Get("sec_help"), (online ? 5 : 4) + (blocked ? 1 : 0));
             int h = 0;
+            // Noter le jeu à tout moment : ouvre directement la page « Écrire un avis » de l'App Store (ou Google Play).
+            LinkRow(help, h++, Icon.Star, Palette.Accent, Loc.Get("rate_row"), App.RateFromSettings);
             LinkRow(help, h++, Icon.Bell, Palette.Secondary, Loc.Get("support"), App.OpenSupport);
             LinkRow(help, h++, Icon.Lock, Palette.Dark, Loc.Get("privacy"), App.OpenPrivacy);
             // Pubs personnalisées : le choix du premier lancement, modifiable à tout moment (RGPD).

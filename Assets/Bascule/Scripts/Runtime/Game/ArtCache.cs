@@ -44,6 +44,18 @@ namespace Bascule
         public Sprite Rays { get; private set; }
         /// <summary>Plateau de la roue de la chance (720 px).</summary>
         public Sprite WheelBoard { get; private set; }
+        /// <summary>Petite roue du badge de l'accueil (dessinée à sa taille : nette, même en tournant).</summary>
+        public Sprite WheelSmall { get; private set; }
+        public Sprite QuestBadge { get; private set; }
+        public Sprite WeekBadge { get; private set; }
+        readonly Sprite[] _coinPiles = new Sprite[ArtCatalog.CoinPiles.Length];
+
+        /// <summary>Tas de pièces pour un nombre de pièces gagnées : 1 pièce pour un petit lot, jusqu'à 6 pour un gros.</summary>
+        public Sprite CoinPile(int coins)
+        {
+            int i = coins >= 1000 ? 3 : coins >= 200 ? 2 : coins >= 100 ? 1 : 0;
+            return _coinPiles[i];
+        }
         public Sprite ChestBase { get; private set; }
         public Sprite ChestLid { get; private set; }
 
@@ -85,6 +97,14 @@ namespace Bascule
             Vignette = Cached("ui_vignette", () => UiArtist.Vignette(), 100, Vector4.zero);
             Rays = Cached("ui_rays", () => UiArtist.Rays(), 100, Vector4.zero);
             WheelBoard = Cached("ui_wheel", () => UiArtist.WheelBoard(720), 100, Vector4.zero);
+            WheelSmall = Cached("ui_wheel_small", () => UiArtist.WheelBoard(256), 100, Vector4.zero);
+            QuestBadge = Cached("ui_quest", () => UiArtist.QuestBadge(256), 100, Vector4.zero);
+            WeekBadge = Cached("ui_week", () => UiArtist.WeekBadge(256), 100, Vector4.zero);
+            for (int i = 0; i < _coinPiles.Length; i++)
+            {
+                int count = ArtCatalog.CoinPiles[i];
+                _coinPiles[i] = Cached("ui_coins" + count, () => UiArtist.CoinPile(count, 256), 100, Vector4.zero);
+            }
             ChestBase = Cached("ui_chest_base", () => UiArtist.ChestBase(512), 100, Vector4.zero);
             ChestLid = Cached("ui_chest_lid", () => UiArtist.ChestLid(512), 100, Vector4.zero, new Vector2(0.5f, 0.03f / 0.42f));
         }
@@ -358,7 +378,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 20;
+        public const int ArtVersion = 21;
 
         static string _cacheDir;
 
