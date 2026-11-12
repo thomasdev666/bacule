@@ -24,7 +24,7 @@ GOLD = sp.rgb("#FFC93C")
 
 def idea_tag(img):
     """Étiquette « IDÉE » : ces écrans n'existent pas encore."""
-    b = (W / 2 - 110, H - 86, W / 2 + 110, H - 26)
+    b = (16, 196, 176, 248)
     sp.pill(img, b, color=(255, 90, 95, 255))
     sp.title(img, "IDÉE", b, 34)
 
