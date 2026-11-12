@@ -20,8 +20,10 @@ namespace Bascule.Core
     /// - jamais deux rafales à moins de 25 s, jamais pendant le souffle du 128 ou la stabilisation d'un 64,
     ///   jamais quand la planche est déjà en danger (on veut de la tension, pas une défaite injuste).
     ///
-    /// Force : exprimée en part du couple de défaite. Le vent seul ne pousse jamais l'équilibre au-delà de
-    /// maxPeakRatio (85 %) : il ne fait pas perdre une planche stable, mais il punit un joueur qui n'a pas réagi.
+    /// Force : exprimée en part du couple de défaite, de 22 % (première rafale) à 52 %. Le vent seul ne pousse jamais
+    /// l'équilibre au-delà de maxPeakRatio (85 %) : il ne fait pas perdre une planche stable, mais il punit un joueur
+    /// qui n'a pas réagi. Les trois premières rafales sont douces : au plus 55 %, et le vent s'efface dès que la
+    /// planche penche (danger de 50 % à 80 %) : elles font découvrir le vent sans jamais faire perdre.
     /// </summary>
     public sealed class Gusts
     {
@@ -166,11 +168,15 @@ namespace Bascule.Core
             if (!due || blocked || _sinceLast < _t.minGap || danger > _t.maxDangerToStart) return WindPhase.None;
 
             // Nouvelle rafale.
-            Direction = _rng.NextFloat() < 0.5f ? -1 : 1;
+            int dir = _rng.NextFloat() < 0.5f ? -1 : 1;
             float baseStrength = Math.Min(_t.strengthMax, _t.strengthStart + _t.strengthStep * Count);
-            // Équité : le vent seul n'emmène pas l'équilibre au-delà de maxPeakRatio.
-            float toward = signedRatio * Direction; // > 0 : la planche penche déjà du côté où le vent pousse
-            Strength = Math.Max(_t.strengthMin, Math.Min(baseStrength, _t.maxPeakRatio - Math.Max(0f, toward)));
+            // Équité : le vent seul n'emmène pas l'équilibre au-delà de maxPeakRatio (moins loin pour les rafales douces).
+            // La limite passe avant la force minimale ; si elle ne laisse presque rien, la rafale attend un meilleur moment.
+            float toward = signedRatio * dir; // > 0 : la planche penche déjà du côté où le vent pousse
+            float cap = PeakFor(Count + 1, _t.maxPeakRatio) - Math.Max(0f, toward);
+            if (cap < _t.strengthMin * 0.5f) return WindPhase.None;
+            Direction = dir;
+            Strength = Math.Min(cap, Math.Max(_t.strengthMin, baseStrength));
             Phase = WindPhase.Warning;
             PhaseTime = 0f;
             _pending = false;
@@ -198,7 +204,8 @@ namespace Bascule.Core
             var g = _script[_scriptIndex++];
             Direction = g.Direction >= 0 ? 1 : -1;
             float toward = signedRatio * Direction;
-            Strength = Math.Max(_t.strengthMin, Math.Min(g.Strength, _scriptPeak - Math.Max(0f, toward)));
+            float cap = Math.Max(0f, PeakFor(Count + 1, _scriptPeak) - Math.Max(0f, toward));
+            Strength = Math.Min(cap, Math.Max(_t.strengthMin, g.Strength));
             Phase = WindPhase.Warning;
             PhaseTime = 0f;
             Count++;
@@ -225,8 +232,24 @@ namespace Bascule.Core
         /// <summary>Avancement de l'annonce (0..1).</summary>
         public float WarningProgress => Phase == WindPhase.Warning ? Clamp01(PhaseTime / Math.Max(0.01f, _t.warningSeconds)) : 0f;
 
-        /// <summary>Couple ajouté par le vent (même unité que celui des poids).</summary>
-        public float Torque(float losingTorque) => Direction * Strength * losingTorque * Envelope;
+        /// <summary>Rafale en cours parmi les premières, « douces » (découverte du vent : elles ne font jamais perdre).</summary>
+        public bool Gentle => Count > 0 && Count <= _t.gentleGusts;
+
+        /// <summary>Limite d'équité de la rafale numéro <paramref name="number"/> (1 = la première).</summary>
+        float PeakFor(int number, float normal) => number <= _t.gentleGusts ? Math.Min(normal, _t.gentlePeakRatio) : normal;
+
+        /// <summary>
+        /// Couple ajouté par le vent (même unité que celui des poids). Rafale douce : le vent s'efface quand la planche
+        /// penche (<paramref name="danger"/> de gentleFadeFrom à gentleFadeTo) : seul, il ne peut pas la faire tomber.
+        /// </summary>
+        public float Torque(float losingTorque, float danger = 0f) => Direction * Strength * losingTorque * Envelope * Safety(danger);
+
+        float Safety(float danger)
+        {
+            if (!Gentle) return 1f;
+            float a = _t.gentleFadeFrom, b = Math.Max(a + 0.01f, _t.gentleFadeTo);
+            return 1f - Smooth((danger - a) / (b - a));
+        }
 
         static float Smooth(float x) { x = Clamp01(x); return x * x * (3f - 2f * x); }
         static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);

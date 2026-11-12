@@ -126,12 +126,21 @@ namespace Bascule.Core
         public float blowSeconds = 3f;
         public float rampSeconds = 0.7f;
         /// <summary>Force (part du couple de défaite) : première rafale, gain par rafale, maximum, minimum.</summary>
-        public float strengthStart = 0.42f;
-        public float strengthStep = 0.04f;
-        public float strengthMax = 0.6f;
-        public float strengthMin = 0.3f;
+        public float strengthStart = 0.22f;
+        public float strengthStep = 0.05f;
+        public float strengthMax = 0.52f;
+        public float strengthMin = 0.12f;
         /// <summary>Le vent seul n'emmène jamais l'équilibre au-delà de cette part de l'angle max.</summary>
         public float maxPeakRatio = 0.85f;
+        /// <summary>
+        /// Premières rafales « douces » (gentleGusts) : elles servent à découvrir le vent, jamais à faire perdre. Le vent
+        /// seul ne dépasse pas gentlePeakRatio de l'angle max, et il s'efface quand la planche penche : plein de
+        /// gentleFadeFrom de danger, plus rien à gentleFadeTo.
+        /// </summary>
+        public int gentleGusts = 3;
+        public float gentlePeakRatio = 0.55f;
+        public float gentleFadeFrom = 0.5f;
+        public float gentleFadeTo = 0.8f;
         /// <summary>Pas de nouvelle rafale si la planche est déjà au-delà de ce danger.</summary>
         public float maxDangerToStart = 0.5f;
     }

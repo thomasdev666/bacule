@@ -954,7 +954,7 @@ namespace Bascule
                 _haptics.Medium();
                 WindBlowing?.Invoke(_wind.Direction);
             }
-            return _wind.Torque(_plank.LosingTorque);
+            return _wind.Torque(_plank.LosingTorque, _plank.Danger);
         }
 
         void ComputeTorque(float dt, out float torque, out float load)

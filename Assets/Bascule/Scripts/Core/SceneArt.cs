@@ -24,7 +24,7 @@ namespace Bascule.Core
         /// <summary>
         /// Les mondes, dans l'ordre où on les découvre en montant le score (Difficulty.ThemeScores) : la prairie au fil
         /// de la journée, puis la plage, la forêt, le désert, la montagne, la ville (jour et nuit), le volcan, la banquise
-        /// et enfin la Lune vers 30 000. Toujours ajouter à la fin.
+        /// et enfin la Lune (15 000). Toujours ajouter à la fin.
         /// </summary>
         public static readonly Theme[] All =
         {
@@ -44,10 +44,10 @@ namespace Bascule.Core
             T("Lune", Biome.Moon, "#05050F", "#1C1B3A", "#4CC9F0", "#5C5F78", "#8D90A6", "#A9ABBE", night: true, space: true),
         };
 
-        /// <summary>Premier monde réutilisé après 30 000 (la boucle reprend à la plage).</summary>
+        /// <summary>Premier monde réutilisé après la Lune (la boucle reprend à la plage).</summary>
         public const int LoopStart = 5;
 
-        /// <summary>Teintes des mondes revisités après 30 000 : le même décor, d'autres couleurs.</summary>
+        /// <summary>Teintes des mondes revisités après la Lune : le même décor, d'autres couleurs.</summary>
         public static readonly Rgba[] Tints =
         {
             Rgba.FromHex("#FFC9DC"), // rose bonbon

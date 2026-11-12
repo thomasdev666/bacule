@@ -25,9 +25,14 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(0, Difficulty.BackgroundIndex(0));
             Assert.AreEqual(0, Difficulty.BackgroundIndex(299));
             Assert.AreEqual(1, Difficulty.BackgroundIndex(300), "premier changement dès 300");
-            Assert.AreEqual(4, Difficulty.BackgroundIndex(4000));
-            Assert.AreEqual(Biome.Beach, Theme.All[Difficulty.BackgroundIndex(5500)].Biome);
-            Assert.AreEqual(Biome.Moon, Theme.All[Difficulty.BackgroundIndex(29999)].Biome, "la Lune avant 30 000");
+            Assert.AreEqual(Biome.Beach, Theme.All[Difficulty.BackgroundIndex(2500)].Biome, "la plage dès 2 500");
+            // Avant 8 000 (là où s'arrêtent la plupart des parties), on voit déjà la plupart des mondes.
+            var early = new HashSet<Biome>();
+            for (int sc = 0; sc < 8000; sc += 100) early.Add(Theme.All[Theme.ArtOf(Difficulty.BackgroundIndex(sc))].Biome);
+            Assert.That(early.Count, Is.GreaterThanOrEqualTo(6), "prairie, plage, forêt, désert, montagne, ville avant 8 000");
+            Assert.AreEqual(Biome.City, Theme.All[Difficulty.BackgroundIndex(7999)].Biome);
+            Assert.AreEqual(Biome.Moon, Theme.All[Difficulty.BackgroundIndex(Difficulty.LoopScore - 1)].Biome, "la Lune avant la boucle");
+            Assert.That(Difficulty.LoopScore, Is.LessThanOrEqualTo(20000), "les 20 000 sont rares : tous les mondes avant");
             Assert.AreEqual(Difficulty.ThemeScores.Length, Theme.All.Length, "un palier par monde");
             // Chaque palier change de monde ou de teinte ; au-delà de 30 000, des mondes déjà vus, recolorés.
             var seen = new HashSet<string>();
@@ -38,7 +43,7 @@ namespace Bascule.Core.Tests
                 seen.Add(Theme.ArtOf(st) + "/" + Theme.TintOf(st).r + "," + Theme.TintOf(st).g);
             }
             Assert.That(seen.Count, Is.GreaterThan(Theme.All.Length + 20));
-            int after = Difficulty.BackgroundIndex(30000);
+            int after = Difficulty.BackgroundIndex(Difficulty.LoopScore);
             Assert.AreNotEqual(Biome.Meadow, Theme.All[Theme.ArtOf(after)].Biome);
             var tn = Theme.TintOf(after);
             Assert.False(tn.r == 255 && tn.g == 255 && tn.b == 255, "variante colorée");
@@ -648,6 +653,66 @@ namespace Bascule.Core.Tests
                 Assert.AreEqual(1, g.Count);
                 float peak = 0.45f * g.Direction + g.Strength;
                 Assert.That(peak, Is.LessThanOrEqualTo(t.maxPeakRatio + 1e-4), "seed " + seed);
+            }
+        }
+
+        /// <summary>Fait souffler la rafale en cours jusqu'au plein du souffle.</summary>
+        static void ToPeak(Gusts g, WindTuning t) => Run(g, t.warningSeconds + t.rampSeconds + 0.2f, g.Count > 0 ? 5100 : 5100);
+
+        [Test]
+        public void FirstGustsAreGentleAndCannotTopple()
+        {
+            var t = new WindTuning();
+            var g = new Gusts(t, 11);
+            g.Reset(4900);
+            Assert.AreEqual(WindPhase.Warning, Run(g, 60f, 5100, stop: true));
+            Assert.True(g.Gentle, "première rafale : douce");
+            Assert.That(g.Strength, Is.LessThanOrEqualTo(t.gentlePeakRatio + 1e-4));
+            Assert.That(g.Strength, Is.LessThan(0.3f), "bien plus douce qu'avant (0,42)");
+            ToPeak(g, t);
+            Assert.AreEqual(WindPhase.Blowing, g.Phase);
+            Assert.That(Math.Abs(g.Torque(100f, 0.2f)), Is.GreaterThan(5f), "planche droite : le vent se sent");
+            Assert.AreEqual(0f, g.Torque(100f, t.gentleFadeTo), 1e-4, "planche qui penche : le vent s'efface");
+            Assert.That(Math.Abs(g.Torque(100f, 0.65f)), Is.LessThan(Math.Abs(g.Torque(100f, 0.2f))));
+        }
+
+        [Test]
+        public void LaterGustsGrowButStaySofterThanBefore()
+        {
+            var t = new WindTuning();
+            var g = new Gusts(t, 4);
+            g.Reset(4900);
+            float last = 0f;
+            for (int i = 1; i <= 8; i++)
+            {
+                Assert.AreEqual(WindPhase.Warning, Run(g, 200f, 5100, stop: true), "rafale " + i);
+                Assert.That(g.Strength, Is.GreaterThanOrEqualTo(last - 1e-4), "de plus en plus fortes");
+                Assert.That(g.Strength, Is.LessThanOrEqualTo(t.strengthMax + 1e-4));
+                last = g.Strength;
+                Assert.AreEqual(i <= t.gentleGusts, g.Gentle, "rafale " + i);
+                if (i == t.gentleGusts + 1)
+                {
+                    ToPeak(g, t);
+                    Assert.That(Math.Abs(g.Torque(100f, t.gentleFadeTo)), Is.GreaterThan(1f), "après la découverte, le vent ne s'efface plus");
+                }
+                Run(g, t.warningSeconds + t.blowSeconds + 0.5f, 5100);
+            }
+            Assert.That(t.strengthMax, Is.LessThan(0.6f), "un peu moins violentes qu'avant (0,6)");
+        }
+
+        [Test]
+        public void FairLimitWinsOverMinimumStrength()
+        {
+            var t = new WindTuning { gentleGusts = 0 };
+            for (uint seed = 1; seed < 30; seed++)
+            {
+                var g = new Gusts(t, seed);
+                g.Reset(4900);
+                // Planche déjà penchée à 80 % : une rafale du même côté attend ; jamais au-delà de la limite.
+                Run(g, 120f, 5100, danger: 0.4f, ratio: 0.8f, stop: true);
+                if (g.Count == 0) continue;
+                float toward = 0.8f * g.Direction;
+                Assert.That(toward + g.Strength, Is.LessThanOrEqualTo(t.maxPeakRatio + 1e-4), "seed " + seed);
             }
         }
 

@@ -32,9 +32,9 @@ namespace Bascule.Core
         public float gustGapMin = 20f;
         public float gustGapMax = 28f;
         /// <summary>Force des rafales du duel : première, gain à chaque rafale, maximum (part du couple de défaite).</summary>
-        public float gustStrengthStart = 0.45f;
+        public float gustStrengthStart = 0.3f;
         public float gustStrengthStep = 0.05f;
-        public float gustStrengthMax = 0.72f;
+        public float gustStrengthMax = 0.64f;
         /// <summary>Le vent seul ne pousse jamais l'équilibre au-delà de cette part de l'angle max (équité, par joueur).</summary>
         public float gustMaxPeakRatio = 0.92f;
         /// <summary>Quand l'adversaire lâche : temps laissé pour poser un dernier poids (s).</summary>

@@ -135,12 +135,14 @@ namespace Bascule.Core
         }
 
         /// <summary>
-        /// Paliers de décor (Theme.All) : la prairie au fil de la journée jusqu'à 4 000, puis un nouveau monde à chaque
-        /// palier jusqu'à la Lune (27 000).
+        /// Paliers de décor (Theme.All). 1.3 : bien plus tôt, car la plupart des parties s'arrêtent avant 8 000 et les
+        /// 20 000 sont rares. La prairie au fil de la journée jusqu'à 1 800, puis un nouveau monde environ tous les
+        /// 1 000 points : plage 2 500, forêt, désert, montagne, ville 6 300, ville la nuit 7 500, puis le volcan, la
+        /// banquise et la Lune (15 000). Le décor seul change : la difficulté ne dépend pas de ces paliers.
         /// </summary>
-        public static readonly int[] ThemeScores = { 0, 300, 800, 2000, 4000, 5500, 7000, 9000, 11500, 14000, 17000, 20000, 23500, 27000 };
-        /// <summary>Après 30 000, un monde déjà vu revient tous les 3 000 points, dans d'autres couleurs.</summary>
-        public const int LoopScore = 30000, ThemeCycle = 3000;
+        public static readonly int[] ThemeScores = { 0, 300, 700, 1200, 1800, 2500, 3300, 4200, 5200, 6300, 7500, 9500, 12000, 15000 };
+        /// <summary>Après 18 000, un monde déjà vu revient tous les 2 500 points, dans d'autres couleurs.</summary>
+        public const int LoopScore = 18000, ThemeCycle = 2500;
 
         /// <summary>
         /// Étape du décor selon le score : index dans Theme.All jusqu'à la Lune, puis au-delà (Theme.ArtOf et
