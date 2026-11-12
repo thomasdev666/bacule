@@ -76,6 +76,8 @@ headback60
 headback61
 headback62
 headback63
+headback64
+headback65
 headback7
 headback8
 headback9
@@ -140,6 +142,8 @@ headfront60
 headfront61
 headfront62
 headfront63
+headfront64
+headfront65
 headfront7
 headfront8
 headfront9
@@ -173,6 +177,7 @@ icon_Swords
 icon_Target
 icon_Trophy
 icon_Vibrate
+icon_Wheel
 locked0
 locked1
 locked10
@@ -234,6 +239,8 @@ locked60
 locked61
 locked62
 locked63
+locked64
+locked65
 locked7
 locked8
 locked9
@@ -408,6 +415,15 @@ mascot_C68642_h45_shorts
 mascot_C68642_h45_thigh
 mascot_C68642_h45_torso
 mascot_C68642_h45_upperArm
+mascot_C68642_h64_cushion
+mascot_C68642_h64_forearm
+mascot_C68642_h64_hand
+mascot_C68642_h64_shin
+mascot_C68642_h64_shoe
+mascot_C68642_h64_shorts
+mascot_C68642_h64_thigh
+mascot_C68642_h64_torso
+mascot_C68642_h64_upperArm
 mascot_C9D3E0_h57_cushion
 mascot_C9D3E0_h57_forearm
 mascot_C9D3E0_h57_hand
@@ -732,6 +748,15 @@ mascot_FFD9B3_h55_shorts
 mascot_FFD9B3_h55_thigh
 mascot_FFD9B3_h55_torso
 mascot_FFD9B3_h55_upperArm
+mascot_FFD9B3_h65_cushion
+mascot_FFD9B3_h65_forearm
+mascot_FFD9B3_h65_hand
+mascot_FFD9B3_h65_shin
+mascot_FFD9B3_h65_shoe
+mascot_FFD9B3_h65_shorts
+mascot_FFD9B3_h65_thigh
+mascot_FFD9B3_h65_torso
+mascot_FFD9B3_h65_upperArm
 mascot_FFD9B3_h7_cushion
 mascot_FFD9B3_h7_forearm
 mascot_FFD9B3_h7_hand
@@ -874,6 +899,8 @@ portrait60
 portrait61
 portrait62
 portrait63
+portrait64
+portrait65
 portrait7
 portrait8
 portrait9
@@ -1008,6 +1035,7 @@ ui_panel
 ui_pill
 ui_rays
 ui_vignette
+ui_wheel
 weight1
 weight128
 weight16

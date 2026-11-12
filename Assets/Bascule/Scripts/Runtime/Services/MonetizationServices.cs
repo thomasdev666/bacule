@@ -30,7 +30,8 @@ namespace Bascule.Services
     {
         public const string Revive = "revive", DoubleCoins = "double_coins", GiftDouble = "gift_double", FreeCoins = "free_coins", Reroll = "mission_reroll",
             // 1.4 : boutique (tête et planche exclusives, coffre gratuit) et coffre de fin de partie doublé
-            ExclusiveHead = "exclusive_head", ExclusivePlank = "exclusive_plank", VideoChest = "video_chest", ChestDouble = "chest_double";
+            ExclusiveHead = "exclusive_head", ExclusivePlank = "exclusive_plank", VideoChest = "video_chest", ChestDouble = "chest_double",
+            WheelSpin = "wheel_spin";
     }
 
     /// <summary>Pub simulée (éditeur, ou tant que la régie n'est pas branchée) : un écran noir avec un compte à rebours.</summary>

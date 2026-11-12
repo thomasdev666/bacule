@@ -3,6 +3,16 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## 1.3 (build 7) – duel, amis, pubs mieux payées, Superstar
+- **Rendez-vous qui font revenir** (rapport `docs/RAPPORT_1_3.md`, `Core/LiveOps.cs`) :
+  - **Quête du débutant** : 3 étapes récompensées (1re partie : 150 pièces ; 500 points : un coffre ; 5 parties : la planche Bambou), bouton « Quête 1/3 » sur l'accueil et écran dédié ;
+  - **Premier coffre dès la 1re partie** (ensuite toutes les 3 parties) ;
+  - **Âge et pubs demandés à la fin de la 1re partie** (le pseudo reste au premier lancement) ; la régie démarre seulement après ;
+  - **Rappels** demandés juste après le premier coffre, au plus un par jour (roue prête, cadeau, Superstar, fin d'événement, série, retour) ;
+  - **Événement de la semaine** (lundi 00:00 UTC) : un monde à l'honneur, un objectif commun (points, fusions, parties, poids posés, temps de tenue), 3 paliers (150 pièces, surprise gratuite, tête de la semaine) ;
+  - **Roue de la chance** : un tour gratuit toutes les 24 h, 2 tours en plus par jour en vidéo ; 8 lots avec chances affichées (pièces 50/100/250, coffre, surprise, protège-série, pièces ×2 pendant 3 parties, jackpot : tête « Chanceux », introuvable ailleurs) ; ampoules, cliquetis à chaque part, rebond, lot révélé en grand ;
+  - **Parrainage « Duo »** : tête Duo dès qu'un ami et toi êtes amis tous les deux ; « Inviter un ami » après chaque duel (code ami et lien du jeu).
+- **Nouvelles têtes** (ajoutées à la fin) : 64 Duo, 65 Chanceux (trèfle à quatre feuilles). 66 têtes.
+- **Arène (plus tard)** : plan complet dans `docs/ARENE.md` (divisions, matchmaking Unity, saisons de 4 semaines, récompenses cosmétiques), à lancer vers 1 500 joueurs par jour.
 - **Premier lancement** : après « Bienvenue ! », choix du pseudo (idée au hasard avec le dé, « Plus tard » possible), année de naissance (grille neutre), puis « Des pubs qui te ressemblent ? » pour les 15 ans et plus (Accepter / Refuser, même taille). Un joueur déjà installé ne voit que ce qui lui manque (`UI/OnboardScreens.cs`, `Core/Privacy.cs`).
 - **Pubs personnalisées** : consentement transmis à LevelPlay et aux réseaux ; demande de suivi d'iPhone (ATT) seulement après l'accord ; moins de 15 ans : jamais personnalisées, signalé « enfant » à toutes les régies. Réglage « Pubs personnalisées » dans Réglages → Aide. La régie ne démarre qu'une fois l'âge et le choix connus.
 - **Réseaux publicitaires** : 84 identifiants SKAdNetwork, identifiant AdMob ajouté au build s'il est rempli (`Editor/AdNetworkSettings.cs`), guide `docs/PUBS.md`.

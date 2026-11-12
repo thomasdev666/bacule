@@ -275,14 +275,18 @@ namespace Bascule.UI
         // ------------------------------------------------------------------ Enchaînement
 
         /// <summary>Ouvre les étapes qui manquent à ce joueur ; <paramref name="done"/> à la fin (ou tout de suite s'il n'y a rien).</summary>
-        public void Open(Action done)
+        /// <summary>
+        /// Ouvre les étapes demandées qui manquent : le pseudo au premier lancement, l'âge et les pubs à la fin de la
+        /// première partie (rapport 1.3 : le joueur a joué avant de répondre).
+        /// </summary>
+        public void Open(Action done, bool pseudo = true, bool privacy = true)
         {
             _done = done;
             _steps.Clear();
             var p = App.Profile;
-            if (string.IsNullOrEmpty(p.pseudo) && !p.pseudoAsked) _steps.Add(Step.Pseudo);
-            if (!PrivacyRules.AgeKnown(p)) _steps.Add(Step.Age);
-            if (PrivacyRules.NeedsAsking(p, GameApp.CurrentYear) && (!PrivacyRules.AgeKnown(p) || !PrivacyRules.IsMinor(p, GameApp.CurrentYear)))
+            if (pseudo && string.IsNullOrEmpty(p.pseudo) && !p.pseudoAsked) _steps.Add(Step.Pseudo);
+            if (privacy && !PrivacyRules.AgeKnown(p)) _steps.Add(Step.Age);
+            if (privacy && PrivacyRules.NeedsAsking(p, GameApp.CurrentYear) && (!PrivacyRules.AgeKnown(p) || !PrivacyRules.IsMinor(p, GameApp.CurrentYear)))
                 _steps.Add(Step.Ads);
             if (_steps.Count == 0) { done?.Invoke(); return; }
             _stepIndex = -1;

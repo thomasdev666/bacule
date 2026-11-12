@@ -6,6 +6,8 @@ namespace Bascule.Core
     {
         Pause, Play, Home, Trophy, Gear, Face, Share, Replay, Film, Flame, Star, Lock, Check, Back, Crown, Sound, SoundOff, Vibrate, Calendar, Close, Swords, Heart,
         Coin, Gift, Bag, Target, Hand, Bell, Plus, Flag,
+        // 1.3 : roue de la chance (toujours ajouter à la fin)
+        Wheel,
     }
 
     /// <summary>
@@ -237,12 +239,73 @@ namespace Bascule.Core
                             c + 4 * u, c - 6 * u, c - 22 * u, c + 2 * u).Grow(2 * u)); break;
                 case Core.Icon.Plus:
                     s = Shape.Union(Shape.Capsule(c - 28 * u, c, c + 28 * u, c, 9 * u), Shape.Capsule(c, c - 28 * u, c, c + 28 * u, 9 * u)); break;
+                case Core.Icon.Wheel:
+                {
+                    // Roue : anneau, quatre rayons, moyeu, et le petit repère en haut.
+                    float cy = c - 4 * u;
+                    s = Shape.Union(Shape.Subtract(Shape.Circle(c, cy, 32 * u), Shape.Circle(c, cy, 24 * u)), Shape.Circle(c, cy, 8 * u));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        double a = i * Math.PI / 4;
+                        float dx = (float)Math.Cos(a) * 24 * u, dy = (float)Math.Sin(a) * 24 * u;
+                        s = Shape.Union(s, Shape.Capsule(c - dx, cy - dy, c + dx, cy + dy, 3.5f * u));
+                    }
+                    s = Shape.Union(s, Shape.Poly(c - 10 * u, c + 38 * u, c + 10 * u, c + 38 * u, c, c + 24 * u).Grow(2 * u));
+                    break;
+                }
                 default:
                     s = Shape.Union(Shape.Capsule(c - 24 * u, c - 24 * u, c + 24 * u, c + 24 * u, 8 * u), Shape.Capsule(c - 24 * u, c + 24 * u, c + 24 * u, c - 24 * u, 8 * u)); break;
             }
             img.Fill(s.Grow(6 * u), Ink);
             img.Fill(s, Paint.Linear(Rgba.White, 0, n, Rgba.FromHex("#E3E6F0"), 0, 0));
             Toon.DropShadow(img, 0, -(int)(4 * u), (int)(3 * u) + 1, 0.35f);
+            return img;
+        }
+
+        /// <summary>
+        /// Plateau de la roue de la chance (Core/LiveOps.cs, Wheel.Slots) : 8 parts de couleur séparées de liserés
+        /// blancs, reflet doux, anneau doré avec 16 douilles d'ampoules (les ampoules qui clignotent sont dans
+        /// l'interface). La part 0 est en haut, les suivantes dans le sens des aiguilles d'une montre.
+        /// </summary>
+        public static Raster WheelBoard(int n = 720)
+        {
+            var img = new Raster(n, n);
+            float c = n * 0.5f, R = n * 0.5f - 4f, rim = n * 0.075f, r = R - rim;
+            var gold = Rgba.FromHex("#FFC93C");
+            img.Fill(Shape.Circle(c, c, R), Ink);
+            img.Fill(Shape.Circle(c, c, R - 5f), Paint.Linear(Rgba.FromHex("#FFE27A"), 0, n, Rgba.FromHex("#D98E04"), 0, 0));
+            img.Fill(Shape.Circle(c, c, r + 3f), Ink);
+            int count = Wheel.Slots.Length;
+            float seg = 360f / count;
+            for (int i = 0; i < count; i++)
+            {
+                var col = Rgba.FromHex(Wheel.Slots[i].Color);
+                // Angles mathématiques (0 = droite, sens inverse des aiguilles) : la part 0 centrée en haut (90°).
+                float mid = 90f - i * seg;
+                float a0 = (mid - seg * 0.5f) * (float)Math.PI / 180f, a1 = (mid + seg * 0.5f) * (float)Math.PI / 180f;
+                var wedge = Shape.Intersect(Shape.Circle(c, c, r), Shape.Poly(c, c,
+                    c + (float)Math.Cos(a0) * r * 1.5f, c + (float)Math.Sin(a0) * r * 1.5f,
+                    c + (float)Math.Cos((a0 + a1) * 0.5f) * r * 1.6f, c + (float)Math.Sin((a0 + a1) * 0.5f) * r * 1.6f,
+                    c + (float)Math.Cos(a1) * r * 1.5f, c + (float)Math.Sin(a1) * r * 1.5f));
+                img.Fill(wedge, Paint.Custom((x, y) =>
+                {
+                    float d = (float)Math.Sqrt((x - c) * (x - c) + (y - c) * (y - c)) / r;
+                    return Rgba.Lerp(col.Light(1.18f), col.Shade(0.86f), d);
+                }), 1.2f);
+                // Liseré blanc entre deux parts.
+                img.Fill(Shape.Capsule(c, c, c + (float)Math.Cos(a0) * r, c + (float)Math.Sin(a0) * r, n * 0.006f), Rgba.FromHex("#FFF6E5"));
+            }
+            // Reflet en haut à gauche, comme du verre.
+            img.FillClipped(Shape.Circle(c, c, r), Shape.Ellipse(c - r * 0.3f, c + r * 0.38f, r * 0.62f, r * 0.34f, 20f), Rgba.White.WithAlpha(0.16f), 6f);
+            // Douilles des ampoules sur l'anneau.
+            for (int i = 0; i < 16; i++)
+            {
+                double a = i * Math.PI / 8 + Math.PI / 16;
+                float bx = c + (float)Math.Cos(a) * (r + rim * 0.5f), by = c + (float)Math.Sin(a) * (r + rim * 0.5f);
+                img.Fill(Shape.Circle(bx, by, rim * 0.3f), Rgba.FromHex("#8A5A00"));
+            }
+            _ = gold;
+            Toon.DropShadow(img, 0, -(int)(n * 0.012f), (int)(n * 0.01f) + 1, 0.35f);
             return img;
         }
 

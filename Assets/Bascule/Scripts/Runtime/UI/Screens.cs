@@ -79,6 +79,8 @@ namespace Bascule.UI
     public sealed class HomeScreen : UiScreen
     {
         Text _best, _level, _coins, _missionBadge, _shopBadge, _headBadge, _special;
+        SideWidget _wheelW, _eventW, _questW;
+        float _widgetClock;
         GameObject _specialGo;
         Button _resume, _daily;
         RectTransform _xpFill;
@@ -163,6 +165,15 @@ namespace Bascule.UI
             _daily = Ui.Button(Safe, Loc.Get("daily"), Palette.Secondary, App.ShowDailyIntro, Icon.Calendar, 54, "Defi");
             Ui.Place((RectTransform)_daily.transform, 0.5f, 1, 0, -920, 700, 130);
 
+            // Rendez-vous sur les côtés du bouton Jouer : la roue et l'événement à gauche, la quête du débutant à droite.
+            // Au-dessus et au-dessous de la rangée Jouer / Défi du jour, jamais à côté : rien ne se chevauche.
+            _wheelW = SideWidget.Create(Safe, Art, Icon.Wheel, Palette.Accent, App.ShowWheel, "Roue", -1, -470, false);
+            _wheelW.Label.text = Loc.Get("wheel_short");
+            Ui.Isolate(_wheelW.Root.gameObject);
+            _eventW = SideWidget.Create(Safe, Art, Icon.Flag, Palette.Purple, App.ShowEvent, "Semaine", -1, -1090, true);
+            _eventW.Label.text = Loc.Get("event_short");
+            _questW = SideWidget.Create(Safe, Art, Icon.Target, Palette.Success, App.ShowQuest, "Quete", 1, -470, true);
+
             // Barre du bas, sous les pieds de Basile : les cinq accès secondaires, comme un dock d'application.
             var dock = Ui.Glass(Safe, "Dock");
             var dockRt = dock.rectTransform;
@@ -246,8 +257,30 @@ namespace Bascule.UI
             var next = SpecialRun.Next(p);
             _specialGo.SetActive(next != SpecialKind.None);
             if (next != SpecialKind.None) _special.text = Loc.Get("special_short_" + next);
+            RefreshWidgets();
             _shownCoins = -1;
             Tick(0);
+        }
+
+        void RefreshWidgets()
+        {
+            var p = App.Profile;
+            bool free = Wheel.FreeReady(p.wheel, App.Now);
+            _wheelW.Badge.SetActive(free);
+            // Événement : avancement de la semaine en anneau ; pastille tant qu'un palier reste à gagner et rien n'est fait.
+            var ev = App.CurrentEvent;
+            WeeklyEvent.Roll(p.week, ev.Week);
+            _eventW.Ring.fillAmount = ev.Target > 0 ? p.week.progress / (float)ev.Target : 0f;
+            _eventW.Badge.SetActive(p.week.progress == 0 && p.gamesPlayed >= 1);
+            // Quête du débutant : seulement tant qu'elle n'est pas finie.
+            bool quest = BeginnerQuest.Active(p);
+            _questW.Root.gameObject.SetActive(quest);
+            if (quest)
+            {
+                _questW.Label.text = Loc.Format("quest_short", p.quest.done, BeginnerQuest.Steps.Length);
+                _questW.Ring.fillAmount = p.quest.done / (float)BeginnerQuest.Steps.Length;
+                _questW.Badge.SetActive(p.quest.done == 0);
+            }
         }
 
         public override void Tick(float dt)
@@ -260,6 +293,9 @@ namespace Bascule.UI
                 float need = _corners[1].y + 24f - s.FeetScreenY;
                 s.HomeLift = Mathf.Clamp(need / Mathf.Max(1f, s.PixelsPerUnit), 0f, 1.2f);
             }
+            // La roue devient prête pendant que l'accueil est affiché : la pastille apparaît.
+            _widgetClock += dt;
+            if (_widgetClock >= 5f) { _widgetClock = 0f; _wheelW.Badge.SetActive(Wheel.FreeReady(App.Profile.wheel, App.Now)); }
             int c = App.Profile.coins;
             if (c == _shownCoins) return;
             _shownCoins = c;

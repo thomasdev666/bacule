@@ -17,6 +17,8 @@ namespace Bascule.Core
         ThinMustache,
         // 1.4 : lunettes en étoile de la tête exclusive (gagnée avec des vidéos)
         StarGlasses,
+        // Trèfle à quatre feuilles de la tête « Chanceux » (roue de la chance)
+        Clover,
     }
 
     public enum UnlockKind
@@ -33,6 +35,8 @@ namespace Bascule.Core
         Shop,         // achetée avec des pièces (UnlockValue = prix)
         DuelWins,     // gagner X duels en temps réel
         Ads,          // regarder X vidéos dans la boutique (tête exclusive, Core/AdRewards.cs)
+        Friends,      // avoir X amis réciproques (parrainage « Duo »)
+        Wheel,        // gros lot de la roue de la chance (Core/LiveOps.cs)
     }
 
     public enum Rarity { Common, Rare, Epic, Legendary }
@@ -73,8 +77,8 @@ namespace Bascule.Core
     }
 
     /// <summary>
-    /// 64 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
-    /// 16 à acheter avec des pièces, 6 premium (achats), la Challenger (duels) et la Superstar (vidéos). Les visuels sont dessinés par le code (HeadArtist).
+    /// 66 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
+    /// 16 à acheter avec des pièces, 6 premium (achats), la Challenger (duels), la Superstar (vidéos), Duo (amis) et Chanceux (roue). Les visuels sont dessinés par le code (HeadArtist).
     /// Simulation (docs/RAPPORT.md) : avec les anciens paliers (jusqu'à 60 000 points), 25 têtes sur 33 étaient
     /// hors de portée de presque tous les joueurs ; les niveaux et la boutique donnent un objectif à chaque partie.
     /// </summary>
@@ -131,6 +135,8 @@ namespace Bascule.Core
                 case UnlockKind.NearMiss: return Rarity.Epic;
                 case UnlockKind.DuelWins: return Rarity.Epic;
                 case UnlockKind.Ads: return Rarity.Legendary; // exclusive : on ne l'obtient que comme ça
+                case UnlockKind.Friends: return Rarity.Rare;
+                case UnlockKind.Wheel: return Rarity.Epic;
                 default: return Rarity.Legendary; // classement mondial, têtes premium
             }
         }
@@ -318,6 +324,10 @@ namespace Bascule.Core
             list.Add(challenger);
             // 1.4 : tête exclusive, gagnée en regardant des vidéos dans la boutique (AdRewards). Rien d'autre ne la donne.
             list.Add(H(id++, "Superstar", "Superstar", UnlockKind.Ads, 8, S3, HairStyle.Swoosh, "#FF4FA3", Accessory.StarGlasses, Expression.Grin));
+            // Parrainage : dès qu'un ami et toi êtes amis tous les deux, vous gagnez chacun la tête « Duo ».
+            list.Add(H(id++, "Duo", "Duo", UnlockKind.Friends, 1, S4, HairStyle.Pigtails, "#3A86FF", Accessory.Headband, Expression.Wink));
+            // Gros lot de la roue de la chance (rien d'autre ne la donne).
+            list.Add(H(id++, "Chanceux", "Lucky", UnlockKind.Wheel, 0, S1, HairStyle.Swoosh, "#2D6A4F", Accessory.Clover, Expression.Grin));
             return list;
         }
 

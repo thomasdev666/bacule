@@ -792,7 +792,10 @@ namespace Bascule.UI
             _rematch = Ui.Button(Safe, Loc.Get("duel_rematch"), Palette.Play, App.DuelRematch, Icon.Replay, 60, "Revanche");
             Ui.Place((RectTransform)_rematch.transform, 0.5f, 0, 0, 300, 860, 180, 0.5f, 0);
             var home = Ui.Button(Safe, Loc.Get("home"), Palette.Muted, App.DuelHome, Icon.Home, 50, "Accueil");
-            Ui.Place((RectTransform)home.transform, 0.5f, 0, 0, 120, 560, 140, 0.5f, 0);
+            Ui.Place((RectTransform)home.transform, 0.5f, 0, -232, 120, 440, 140, 0.5f, 0);
+            // Parrainage : défier un autre ami (code ami et lien du jeu), surtout après une victoire.
+            var invite = Ui.Button(Safe, Loc.Get("duel_brag"), Palette.Purple, App.ShareDuelBrag, Icon.Share, 46, "Inviter");
+            Ui.Place((RectTransform)invite.transform, 0.5f, 0, 232, 120, 440, 140, 0.5f, 0);
         }
 
         RectTransform Column(float x, Color ring, out Image face, out Text name, out Text time, out Text score)

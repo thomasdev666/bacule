@@ -127,6 +127,8 @@ namespace Bascule.Core
     /// <summary>Ce qu'une partie a apporté à l'économie, pour l'écran de fin.</summary>
     public sealed class EconomyGain
     {
+        /// <summary>Pièces de la partie doublées par le lot de la roue.</summary>
+        public bool Boosted;
         public int Coins;
         public int Xp;
         public int LevelsGained;
@@ -467,6 +469,8 @@ namespace Bascule.Core
             Missions.Refresh(p, localDay);
             g.Special = r.Special;
             g.Coins = Wallet.CoinsForScore(t, r.Score) * SpecialRun.CoinsMultiplier(r.Special);
+            // Lot « pièces ×2 » de la roue : les pièces de la partie seulement (jamais le score).
+            if (g.Coins > 0 && Wheel.UseBoost(p)) { g.Coins *= 2; g.Boosted = true; }
             Wallet.Add(p, g.Coins);
             if (r.Goal > 0 && r.Score >= r.Goal)
             {

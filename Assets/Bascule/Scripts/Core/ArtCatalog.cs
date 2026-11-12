@@ -69,6 +69,7 @@ namespace Bascule.Core
             yield return new Job("ui_bubble", () => UiArtist.Bubble((int)(96 * k)));
             yield return new Job("ui_vignette", () => UiArtist.Vignette());
             yield return new Job("ui_rays", () => UiArtist.Rays());
+            yield return new Job("ui_wheel", () => UiArtist.WheelBoard(720));
             foreach (Icon icon in Enum.GetValues(typeof(Icon)))
             {
                 var ic = icon;

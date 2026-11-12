@@ -107,6 +107,9 @@ namespace Bascule
         DailyScreen _daily;
         WelcomeScreen _welcome;
         OnboardScreen _onboard;
+        WheelScreen _wheelScreen;
+        QuestScreen _questScreen;
+        EventScreen _eventScreen;
         DuelLobbyScreen _duelLobby;
         DuelHudScreen _duelHud;
         DuelResultScreen _duelResult;
@@ -444,6 +447,9 @@ namespace Bascule
             _duelInvite = Make<DuelInviteScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.9f));
             _welcome = Make<WelcomeScreen>(t, Palette.Shade);
             _onboard = Make<OnboardScreen>(t, Palette.Shade);
+            _wheelScreen = Make<WheelScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.95f));
+            _questScreen = Make<QuestScreen>(t, Palette.Shade);
+            _eventScreen = Make<EventScreen>(t, Palette.Shade);
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
@@ -515,7 +521,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _onboard, _friendPicker, _duelInvite, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _onboard, _friendPicker, _duelInvite, _wheelScreen, _questScreen, _eventScreen, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -562,7 +568,14 @@ namespace Bascule
                 return;
             }
             // Puis pseudo, âge et pubs (seulement ce qui manque ; un joueur déjà installé ne voit que l'âge et les pubs).
-            if (NeedsOnboarding) { _onboard.Open(AfterOnboarding); return; }
+            if (NeedsOnboarding) { _onboard.Open(AfterOnboarding, NeedsPseudo, NeedsPrivacyNow); return; }
+            // Coffres gagnés en route (quête du débutant, roue) : ouverts maintenant, devant le joueur.
+            if (_bonusChests.Count > 0)
+            {
+                var (loot, title) = _bonusChests.Dequeue();
+                _chest.PresentLoot(loot.Coins, loot.Head, title, () => { _home.Refresh(); HomePopups(); });
+                return;
+            }
             // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.
             if (Profile.gamesPlayed >= 1 && DailyGift.Available(Profile.gift, LocalDay)) { _gift.Show(); return; }
             if (_starterPopupPending && Offers.StarterActive(Profile, Now))
@@ -602,7 +615,7 @@ namespace Bascule
 #endif
                 return;
             }
-            if (!Profile.notificationsAsked && _notifications.IsSupported && Profile.gamesPlayed >= 3)
+            if (!Profile.notificationsAsked && _notifications.IsSupported && Profile.chestsOpened >= 1)
             {
                 Profile.notificationsAsked = true;
                 SaveProfile();
@@ -840,8 +853,20 @@ namespace Bascule
             {
                 var me = Leaderboard.Service.PlayerId;
                 int added = 0;
+                bool mutual = false;
                 foreach (var id in await Leaderboard.Service.FindPlayersWhoAddedMeAsync())
+                {
                     if (FriendCode.AddedBy(Profile, id, me)) added++;
+                    if (Profile.friends.Contains(id)) mutual = true;
+                }
+                // Parrainage « Duo » : la tête se gagne dès qu'un ami et toi êtes amis tous les deux.
+                if (mutual && DuoHead.Grant(Profile))
+                {
+                    SaveProfile();
+                    Stats.Event("duo_head");
+                    _toast.Reward(Icon.Heart, Palette.Secondary, Loc.Format("new_head", DuoHead.Head.Name(Loc.Language)), Loc.Get("duo_detail"), 0);
+                    if (_home.Visible) _home.Refresh();
+                }
                 if (added > 0)
                 {
                     SaveProfile();
@@ -891,7 +916,7 @@ namespace Bascule
             && !_chest.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
 
         /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
-        bool SocialScreen => _home.Visible || _leaderboard.Visible || _shop.Visible || _collection.Visible || _missions.Visible
+        bool SocialScreen => _home.Visible || _wheelScreen.Visible || _leaderboard.Visible || _shop.Visible || _collection.Visible || _missions.Visible
             || _settings.Visible || (_duelLobby.Visible && !Duel.InDuel);
 
         public void DuelCancel()
@@ -921,6 +946,22 @@ namespace Bascule
             _confirm.Ask(Loc.Get("duel_quit_title"), Loc.Format("duel_quit_body", Duel.TheirName), Art.IconSprite(Icon.Flag),
                 Loc.Get("duel_quit_ok"), () => Duel.Forfeit(), Loc.Get("duel_quit_no"), null);
         }
+
+        /// <summary>Après une victoire : inviter un autre ami à venir jouer (code ami et lien du jeu).</summary>
+        public void ShareDuelBrag()
+        {
+            Stats.Event("duel_brag");
+            string code = MyFriendCode;
+            _share.ShareText(Loc.Format("duel_brag_text", string.IsNullOrEmpty(code) ? "" : code, StoreLink));
+        }
+
+        /// <summary>Lien du jeu sur le store de ce téléphone.</summary>
+        string StoreLink =>
+#if UNITY_ANDROID
+            "https://play.google.com/store/apps/details?id=" + Application.identifier;
+#else
+            "https://apps.apple.com/app/id" + AppStoreId;
+#endif
 
         public void DuelRematch()
         {
@@ -1116,6 +1157,7 @@ namespace Bascule
             if (rewards.NewBest) _ratePending = true;
             if (tutorial) Stats.Event("tutorial_done", ("score", r.Score));
             SaveProfile();
+            ShowLiveRewards();
             Leaderboard.Flush(TodayKey);
             if (rewards.NewHeads.Count > 0 || gain.LevelHeads.Count > 0) Session.SetHead(HeadCatalog.Get(Profile.selectedHead));
 
@@ -1139,6 +1181,45 @@ namespace Bascule
             AdPolicy.OnRunEnded(p.ads);
             starterStarted = Offers.CheckStarter(Tuning.ads, p, Now);
             p.tutorialDone = true;
+            // Quête du débutant et événement de la semaine (récompenses données ici ; affichées par FinalizeRun).
+            var quest = BeginnerQuest.OnRun(p, r.Stats.Seed);
+            var week = WeeklyEvent.OnRun(p, CurrentEvent, r.Stats);
+            if (p == Profile) { _lastQuest = quest; _lastWeek = week; }
+        }
+
+        bool _privacyAskedHere;
+        List<BeginnerQuest.Result> _lastQuest;
+        List<WeeklyEvent.Reward> _lastWeek;
+        /// <summary>Coffres gagnés hors fin de partie (quête, roue…), ouverts devant le joueur au retour à l'accueil.</summary>
+        readonly Queue<(Chest.Loot loot, string title)> _bonusChests = new Queue<(Chest.Loot, string)>();
+
+        /// <summary>Événement de la semaine en cours (lundi 00:00 UTC).</summary>
+        public WeeklyEvent.Def CurrentEvent => WeeklyEvent.For(WeeklyEvent.WeekKey(DateTime.UtcNow));
+
+        /// <summary>Récompenses de la quête et de l'événement : un bandeau chacune, les coffres attendent l'accueil.</summary>
+        void ShowLiveRewards()
+        {
+            if (_lastQuest != null)
+                foreach (var q in _lastQuest)
+                {
+                    string title = Loc.Format("quest_done", q.Step.Index + 1, BeginnerQuest.Steps.Length);
+                    Stats.Event("quest_step", ("step", q.Step.Index + 1));
+                    if (q.Chest != null) { _bonusChests.Enqueue((q.Chest, Loc.Get("quest_chest_title"))); _toast.Reward(Icon.Gift, Palette.Accent, title, Loc.Get("quest_chest_detail"), 0); }
+                    else if (q.Plank != null) _toast.Reward(Icon.Star, Palette.Play, title, Loc.Format("quest_plank_detail", q.Plank.Name(Loc.Language)), 0);
+                    else _toast.Reward(Icon.Coin, Palette.Accent, title, Loc.Get(q.Step.Key), q.Coins);
+                    if (q.Plank != null) Session.SetPlank(q.Plank);
+                }
+            if (_lastWeek != null)
+                foreach (var w in _lastWeek)
+                {
+                    string title = Loc.Format("event_tier_done", w.Tier + 1, WeeklyEvent.TierFractions.Length);
+                    Stats.Event("event_tier", ("tier", w.Tier + 1));
+                    if (w.Head != null) _toast.Reward(Icon.Crown, Palette.Purple, title, Loc.Format("event_head_won", w.Head.Name(Loc.Language)), 0);
+                    else if (w.Ticket) _toast.Reward(Icon.Gift, Palette.Primary, title, Loc.Get("event_ticket_won"), 0);
+                    else _toast.Reward(Icon.Coin, Palette.Accent, title, Loc.Get("event_coins_won"), w.Coins);
+                }
+            _lastQuest = null;
+            _lastWeek = null;
         }
 
         /// <summary>
@@ -1193,6 +1274,15 @@ namespace Bascule
 
         void LeaveGameOver(Action next)
         {
+            // Rapport 1.3 : l'âge et le choix des pubs se demandent à la fin de la première partie (le joueur a déjà
+            // joué), avant la toute première pub.
+            if (!_onboard.Visible && !_privacyAskedHere && PrivacyRules.NeedsAsking(Profile, CurrentYear))
+            {
+                _privacyAskedHere = true; // une fois par lancement : jamais de boucle
+                FinalizeRun();
+                _onboard.Open(() => { AfterOnboarding(); LeaveGameOver(next); }, false, true);
+                return;
+            }
             _leavingGameOver = true;
             _toast.Clear(); // le bilan de la partie ne suit pas le joueur sur l'écran suivant
             FinalizeRun();
@@ -1557,6 +1647,37 @@ namespace Bascule
             });
         }
 
+        // ------------------------------------------------------------------ Roue, quête, événement (Core/LiveOps.cs)
+
+        public void ShowWheel()
+        {
+            FinalizeRun();
+            Stats.Event("wheel_open", ("free", Wheel.FreeReady(Profile.wheel, Now) ? 1 : 0));
+            Show(_wheelScreen);
+        }
+
+        public void ShowQuest() => _questScreen.Show();
+        public void ShowEvent() => _eventScreen.Show();
+
+        /// <summary>Tour de roue (gratuit, ou après une vidéo) : le lot est tiré et donné ; l'écran l'annonce à l'arrêt.</summary>
+        public Wheel.Result SpinWheel(bool viaAd)
+        {
+            var r = Wheel.Spin(Profile, viaAd, Now, LocalDay, (uint)Environment.TickCount ^ (uint)Profile.wheel.spins * 7919u);
+            if (r == null) return null;
+            SaveProfile();
+            Stats.Event("wheel_spin", ("ad", viaAd ? 1 : 0), ("prize", r.Kind.ToString()), ("coins", r.Coins));
+            ScheduleNotifications();
+            return r;
+        }
+
+        /// <summary>Le joueur a vu son lot : coffre ouvert devant lui, tête portée, accueil à jour.</summary>
+        public void AfterWheelPrize(Wheel.Result r, bool viaAd)
+        {
+            if (r == null) return;
+            if (r.Head != null) { SelectHead(r.Head.Id); _toast.Reward(Icon.Crown, Palette.Purple, Loc.Format("new_head", r.Head.Name(Loc.Language)), Loc.Get("wheel_detail_Jackpot"), 0); }
+            if (r.Chest != null) _chest.PresentLoot(r.Chest.Coins, r.Chest.Head, Loc.Get("wheel_chest_title"), () => { if (_wheelScreen.Visible) _wheelScreen.Refresh(); });
+        }
+
         // ------------------------------------------------------------------ Vidéos de la boutique (Core/AdRewards.cs)
 
         /// <summary>Une vidéo pour la Superstar (tête exclusive) : chaque vidéo vue compte, même des jours après.</summary>
@@ -1654,12 +1775,40 @@ namespace Bascule
             if (!_notifications.IsSupported || !Profile.settings.notifications) return;
             _notifications.CancelAll();
             var today = DateTime.Now.Date;
-            int nextDay = DailyGift.NextDay(Profile.gift, today.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), DailyGift.Cycle(Tuning.economy));
-            _notifications.Schedule("cadeau", Loc.Get("notif_gift_title"), Loc.Format("notif_gift_body", GiftWords(nextDay)), today.AddDays(1).AddHours(18).AddMinutes(30));
+            var now = DateTime.Now;
+            // Au plus un rappel par jour (promis dans la politique de confidentialité) : le plus utile du jour gagne.
+            var plan = new SortedDictionary<DateTime, (string id, string title, string body, DateTime at)>();
+            void Add(string id, string title, string body, DateTime at)
+            {
+                if (at <= now.AddMinutes(5) || plan.ContainsKey(at.Date)) return;
+                plan[at.Date] = (id, title, body, at);
+            }
             int streak = Daily.CurrentStreak(Profile.daily, TodayKey);
             if (streak >= 2 && !Daily.PlayedToday(Profile.daily, TodayKey))
-                _notifications.Schedule("serie", Loc.Format("notif_streak_title", streak), Loc.Get("notif_streak_body"), today.AddHours(19));
-            _notifications.Schedule("retour", Loc.Get("notif_comeback_title"), Loc.Format("notif_comeback_body", Loc.FormatScore(Profile.bestScore)), today.AddDays(3).AddHours(18).AddMinutes(30));
+                Add("serie", Loc.Format("notif_streak_title", streak), Loc.Get("notif_streak_body"), today.AddHours(19));
+            // Roue de la chance : prête 24 h après le dernier tour gratuit (jamais en pleine nuit).
+            double wheelIn = Wheel.FreeIn(Profile.wheel, Now);
+            if (Profile.wheel.spins > 0 && wheelIn > 0)
+            {
+                var at = now.AddSeconds(wheelIn);
+                if (at.Hour < 9) at = at.Date.AddHours(9);
+                else if (at.Hour >= 21) at = at.Date.AddDays(1).AddHours(9);
+                Add("roue", Loc.Get("notif_wheel_title"), Loc.Get("notif_wheel_body"), at);
+            }
+            int nextDay = DailyGift.NextDay(Profile.gift, today.AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), DailyGift.Cycle(Tuning.economy));
+            Add("cadeau", Loc.Get("notif_gift_title"), Loc.Format("notif_gift_body", GiftWords(nextDay)), today.AddDays(1).AddHours(18).AddMinutes(30));
+            // Superstar : plus que quelques vidéos (seulement si le joueur a commencé).
+            int views = Profile.adRewards.headViews, need = AdRewards.HeadNeeded(Tuning.ads);
+            if (views > 0 && !AdRewards.HeadOwned(Profile))
+                Add("superstar", Loc.Get("notif_superstar_title"), Loc.Format("notif_superstar_body", need - views), today.AddDays(2).AddHours(18).AddMinutes(15));
+            // Événement : les derniers jours de la semaine, s'il reste des paliers.
+            if (Profile.week.week == WeeklyEvent.WeekKey(DateTime.UtcNow) && Profile.week.tiers < WeeklyEvent.TierFractions.Length)
+            {
+                var left = WeeklyEvent.Left(DateTime.UtcNow);
+                if (left.TotalHours > 30) Add("semaine", Loc.Get("notif_event_title"), Loc.Get("notif_event_body"), now.Add(left).AddHours(-30).Date.AddHours(18));
+            }
+            Add("retour", Loc.Get("notif_comeback_title"), Loc.Format("notif_comeback_body", Loc.FormatScore(Profile.bestScore)), today.AddDays(3).AddHours(18).AddMinutes(30));
+            foreach (var n in plan.Values) _notifications.Schedule(n.id, n.title, n.body, n.at);
         }
 
         public void AskPseudo()
@@ -1686,19 +1835,23 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Premier lancement : pseudo, âge, pubs
 
-        bool NeedsOnboarding => (string.IsNullOrEmpty(Profile.pseudo) && !Profile.pseudoAsked) || PrivacyRules.NeedsAsking(Profile, CurrentYear);
+        bool NeedsPseudo => string.IsNullOrEmpty(Profile.pseudo) && !Profile.pseudoAsked;
+        /// <summary>Âge et pubs : demandés une fois que le joueur a fait sa première partie.</summary>
+        bool NeedsPrivacyNow => PrivacyRules.NeedsAsking(Profile, CurrentYear) && Profile.gamesPlayed >= 1;
+        bool NeedsOnboarding => NeedsPseudo || NeedsPrivacyNow;
 
-        /// <summary>« C'est parti ! » sur l'écran de bienvenue : on enchaîne sur le pseudo, l'âge et les pubs.</summary>
+        /// <summary>« C'est parti ! » sur l'écran de bienvenue : on enchaîne sur le pseudo (l'âge et les pubs viendront après la 1re partie).</summary>
         public void AfterWelcome()
         {
-            if (NeedsOnboarding) _onboard.Open(AfterOnboarding);
+            if (NeedsOnboarding) _onboard.Open(AfterOnboarding, NeedsPseudo, NeedsPrivacyNow);
             else AfterOnboarding();
         }
 
         void AfterOnboarding()
         {
             SaveProfile();
-            StartAds(); // la régie démarre maintenant, avec le choix du joueur (sans effet si elle tourne déjà)
+            // La régie démarre une fois l'âge et le choix connus (sans effet si elle tourne déjà).
+            if (!PrivacyRules.NeedsAsking(Profile, CurrentYear)) StartAds();
         }
 
         /// <summary>
@@ -2038,6 +2191,8 @@ namespace Bascule
             // Le duel a commencé : l'invitation envoyée à l'ami n'a plus lieu d'être.
             if (_inviteSent && Duel.InMatch) ClearDuelInvite();
             if (_shop.Visible) _shop.Tick(dt);
+            if (_wheelScreen.Visible) _wheelScreen.Tick(dt);
+            if (_eventScreen.Visible) _eventScreen.Tick(dt);
             if (_missions.Visible) _missions.Tick(dt);
             if (_collection.Visible) _collection.Tick(dt);
             if (_leaderboard.Visible) _leaderboard.Tick(dt);
@@ -2065,6 +2220,9 @@ namespace Bascule
                 else if (_welcome.Visible) { _welcome.Hide(); AfterWelcome(); }
                 else if (_onboard.Visible) { /* questions du premier lancement : on y répond */ }
                 else if (_duelInvite.Visible) _duelInvite.Hide();
+                else if (_wheelScreen.Visible) _wheelScreen.Back();
+                else if (_questScreen.Visible) _questScreen.Hide();
+                else if (_eventScreen.Visible) _eventScreen.Hide();
                 else if (_daily.Visible) _daily.Hide();
                 else if (_current == _hud && Session.Mode == GameMode.Duel && Duel.InMatch) DuelAskQuit();
                 else if (_current == _duelLobby) DuelCancel();

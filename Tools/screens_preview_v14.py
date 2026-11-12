@@ -7,6 +7,7 @@ Aperçus des écrans de la 1.4 (sans Unity), avec les mêmes positions que le co
 
   python3 Tools/screens_preview_v14.py Exports/art docs/apercu
 """
+import math
 import os
 import sys
 
@@ -442,6 +443,163 @@ def shop_video():
     return s
 
 
+# ============================================================================ Roue, quête, événement, accueil
+
+def side_widget(img, side, y, icon_name, color, label, ring=None, badge_on=False):
+    r = sp.place(0 if side < 0 else 1, 1, 92 if side < 0 else -92, y, 160, 190)
+    cx = (r[0] + r[2]) / 2
+    top = r[1] + 66
+    if ring is not None:
+        bb = (cx - 75, top - 75 + 0, cx + 75, top + 75)
+        ImageDraw.Draw(img).ellipse(bb, outline=(255, 255, 255, 70), width=12)
+        ImageDraw.Draw(img).arc(bb, -90, -90 + 360 * ring, fill=c("Accent"), width=12)
+    bb = (cx - 61, top - 64, cx + 61, top + 64)
+    sp.button(img, bb, color, None, icon_name, 44)
+    if badge_on:
+        bd = (bb[2] - 30, bb[1] - 18, bb[2] + 18, bb[1] + 30)
+        disc(img, (bd[0] - 3, bd[1] - 3, bd[2] + 3, bd[3] + 3), (255, 255, 255))
+        disc(img, bd, c("Primary"))
+        sp.title(img, "!", bd, 32)
+    sp.title(img, label, (cx - 85, r[3] - 44, cx + 85, r[3]), 32)
+
+
+def home_widgets():
+    s = sp.home_screen()
+    img = s.img
+    side_widget(img, -1, -470, "Wheel", "Accent", "Roue", badge_on=True)
+    side_widget(img, -1, -1090, "Flag", "Purple", "Semaine", ring=0.42)
+    side_widget(img, 1, -470, "Target", "Success", "Quête 1/3", ring=1 / 3)
+    return s
+
+
+def wheel_screen(spun=False):
+    s = sp.home_screen()
+    img = s.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (20, 13, 46, 242)))
+    back_and_header(img, "Roue de la chance")
+    sp.title(img, "Ton tour gratuit est prêt !", at(0.5, 1, 0, -228, 900, 70), 40, color=SOFT, outline=False)
+    size = 860
+    hb = at(0.5, 0.5, 0, 70, size, size)
+    cx, cy = (hb[0] + hb[2]) / 2, (hb[1] + hb[3]) / 2
+    glow(img, (cx - size * 0.62, cy - size * 0.62, cx + size * 0.62, cy + size * 0.62), (255, 199, 77, 120), 80)
+    rays(img, (cx - size * 0.85, cy - size * 0.85, cx + size * 0.85, cy + size * 0.85), (255, 217, 102, 77))
+    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    layer.alpha_composite(sp.load("ui/wheel.png").resize((size, size), Image.LANCZOS))
+    labels = [("Coin", "50"), ("chest", "Coffre"), ("Coin", "100"), ("Gift", "Surprise"), ("Coin", "250"), ("Calendar", "Série"), ("Coin", "×2"), ("head65", "JACKPOT")]
+    for i, (ic, txt) in enumerate(labels):
+        arm = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        acx, acy = size / 2, size / 2
+        if ic == "chest":
+            sp.mini_chest(arm, acx - 60, acy - 268, 120)
+        elif ic == "head65":
+            arm.alpha_composite(sp.load("heads/65.png").resize((140, 140), Image.LANCZOS), (int(acx - 70), int(acy - 270 - 70)))
+        else:
+            col = "#FFF1B8" if ic == "Coin" else "#FFFFFF"
+            sp.tinted_icon(arm, ic, (acx - 55, acy - 270 - 55, acx + 55, acy - 270 + 55), col)
+        sp.title(arm, txt, (acx - 85, acy - 172 - 30, acx + 85, acy - 172 + 30), 42)
+        layer.alpha_composite(arm.rotate(-i * 45, resample=Image.BICUBIC))
+    br = size * 0.5 * 0.914
+    d = ImageDraw.Draw(layer)
+    for i in range(16):
+        a = i * math.pi / 8 + math.pi / 16
+        bx, by = size / 2 + math.cos(a) * br, size / 2 - math.sin(a) * br
+        col = (255, 248, 190) if i % 2 == 0 else (255, 158, 51)
+        d.ellipse((bx - 17, by - 17, bx + 17, by + 17), fill=col)
+    if spun:
+        layer = layer.rotate(-3 * 45 + 12, resample=Image.BICUBIC)
+    img.alpha_composite(layer, (int(hb[0]), int(hb[1])))
+    disc(img, (cx - 100, cy - 100, cx + 100, cy + 100), sp.OUTLINE)
+    disc(img, (cx - 88, cy - 88, cx + 88, cy + 88), c("Accent"))
+    sp.title(img, "GO", (cx - 88, cy - 88, cx + 88, cy + 82), 56)
+    pt = Image.new("RGBA", (130, 130), (0, 0, 0, 0))
+    sp.tinted_icon(pt, "Play", (0, 0, 130, 130), "Primary")
+    pt = pt.rotate(-90)
+    img.alpha_composite(pt, (int(cx - 65), int(hb[1] - 6 - 130 * 0.3 - 40)))
+    sp.button(img, at(0.5, 0, 0, 260, 820, 170), "Play", "Tourner la roue !", "Wheel", 60)
+    sp.button(img, at(0.5, 0, 0, 100, 420, 110), "Muted", "Chances", None, 40)
+    if spun:
+        cb = at(0.5, 0.5, 0, 60, 860, 820)
+        sp.card(img, cb, tint=hexc("#1E1240"))
+        masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, -300, 1100, 1100), (255, 217, 102, 102)))
+        sp.title(img, "Tu gagnes…", child(cb, 0.5, 1, 0, -80, 800, 90), 60, color=c("Accent"))
+        glow(img, child(cb, 0.5, 1, 0, -300, 420, 420), (255, 217, 102, 160), 60)
+        sp.tinted_icon(img, "Gift", child(cb, 0.5, 1, 0, -300, 260, 260), "#FFFFFF")
+        sp.title(img, "Une surprise gratuite", child(cb, 0.5, 1, 0, -500, 800, 100), 64)
+        sp.title(img, "Une ouverture gratuite de la machine à surprises.", child(cb, 0.5, 1, 0, -590, 780, 90), 34, color=SOFT, outline=False)
+        sp.button(img, child(cb, 0.5, 0, 0, 80, 600, 150), "Play", "Super !", "Check", 58)
+    return s
+
+
+def quest_screen():
+    s = home_widgets()
+    img = s.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    cb = at(0.5, 0.5, 0, 20, 980, 1300)
+    sp.card(img, cb, tint=hexc("#2B1B54"))
+    masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, -260, 1300, 1300), (255, 217, 102, 64)))
+    ib = child(cb, 0.5, 1, 0, -150, 170, 170)
+    disc(img, ib, c("Success"))
+    sp.tinted_icon(img, "Target", (ib[0] + 30, ib[1] + 30, ib[2] - 30, ib[3] - 30), "#FFFFFF")
+    sp.title(img, "Quête du débutant", child(cb, 0.5, 1, 0, -300, 900, 110), 76, color=c("Accent"))
+    sp.title(img, "1 / 3 étapes : une récompense à chacune !", child(cb, 0.5, 1, 0, -380, 860, 70), 38, color=SOFT, outline=False)
+    rows = [("Joue ta première partie", "Récompense gagnée !", True, False), ("Fais 500 points en une partie", "Un coffre  ·  380 / 500", False, True), ("Joue 5 parties", "La planche Bambou", False, False)]
+    for i, (t, r, done, cur) in enumerate(rows):
+        rb = child(cb, 0.5, 1, 0, -450 - i * 170, 900, 150, 0.5, 1)
+        sp.pill(img, rb)
+        db = child(rb, 0, 0.5, 70, 0, 96, 96)
+        disc(img, db, c("Play") if done else c("Accent") if cur else (255, 255, 255, 64))
+        if done:
+            sp.tinted_icon(img, "Check", (db[0] + 16, db[1] + 16, db[2] - 16, db[3] - 16), "#FFFFFF")
+        else:
+            sp.title(img, str(i + 1), (db[0], db[1], db[2], db[3] - 4), 50)
+        sp.title(img, t, child(rb, 0, 1, 140, -46, 500, 60, 0, 0.5), 42, color=(255, 255, 255, 160) if done else (255, 255, 255), align="lm")
+        sp.title(img, r, child(rb, 0, 0, 140, 42, 520, 50, 0, 0.5), 34, color=c("Accent"), align="lm", outline=False)
+    sp.button(img, child(cb, 0.5, 0, 0, 220, 760, 166), "Play", "Jouer", "Play", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 74, 460, 112), "Muted", "Retour", None, 46)
+    return s
+
+
+def event_screen():
+    s = home_widgets()
+    img = s.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    cb = at(0.5, 0.5, 0, 20, 980, 1400)
+    sp.card(img, cb, tint=hexc("#2B1B54"))
+    bn = child(cb, 0.5, 1, 0, -30, 920, 300, 0.5, 1)
+    sp.card(img, bn, tint=hexc("#3A1220"))
+    masked(img, bn, lambda layer: rays(layer, child(bn, 0.5, 0.5, 0, 0, 1100, 1100), (255, 255, 255, 56)), 40)
+    tg = child(bn, 0.5, 1, 0, -50, 420, 70)
+    sp.pill(img, tg, color=c("Primary") + (255,))
+    sp.title(img, "ÉVÉNEMENT DE LA SEMAINE", tg, 30)
+    sp.title(img, "Semaine du volcan", child(bn, 0.5, 0.5, 0, -10, 860, 110), 70)
+    sp.title(img, "Se termine dans 3 j 7 h", child(bn, 0.5, 0, 0, 40, 860, 56), 36, color=sp.rgb("#FFF1B8"))
+    sp.title(img, "Cumule 15 000 points en plusieurs parties", child(cb, 0.5, 1, 0, -400, 900, 120), 46, color=c("Accent"))
+    sp.bar(img, child(cb, 0.5, 1, 0, -500, 860, 56), 0.49, "Accent")
+    sp.title(img, "7 340 / 15 000", child(cb, 0.5, 1, 0, -572, 860, 64), 44)
+    for i in range(3):
+        x = (i - 1) * 300
+        tb = child(cb, 0.5, 1, x, -640, 280, 340, 0.5, 1)
+        sp.pill(img, tb)
+        db = child(tb, 0.5, 1, 0, -120, 170, 170)
+        disc(img, db, (92, 209, 110, 115) if i == 0 else (255, 255, 255, 38))
+        ib = child(tb, 0.5, 1, 0, -120, 150, 150)
+        if i == 0:
+            sp.tinted_icon(img, "Coin", ib, "Accent"); lab = "+150 pièces"
+        elif i == 1:
+            sp.tinted_icon(img, "Gift", ib, "#FFFFFF"); lab = "Surprise gratuite"
+        else:
+            img.alpha_composite(sp.load("heads/46.png").resize((150, 150), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = "Tête Viking"
+        sp.title(img, lab, child(tb, 0.5, 0, 0, 70, 260, 90), 34)
+        sp.title(img, f"Palier {i + 1}", child(tb, 0.5, 0, 0, 24, 260, 44), 30, color=SKY)
+        if i == 0:
+            ch = child(tb, 1, 1, -20, -20, 64, 64, 1, 1)
+            disc(img, ch, c("Play"))
+            sp.tinted_icon(img, "Check", (ch[0] + 10, ch[1] + 10, ch[2] - 10, ch[3] - 10), "#FFFFFF")
+    sp.button(img, child(cb, 0.5, 0, 0, 220, 760, 166), "Play", "Jouer", "Play", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 74, 460, 112), "Muted", "Retour", None, 46)
+    return s
+
+
 if __name__ == "__main__":
     shots = {
         "duel_entree": duel_choice(), "duel_attente": duel_hosting(), "duel_invitation": duel_invite(),
@@ -450,8 +608,11 @@ if __name__ == "__main__":
     }
     for name, s in shots.items():
         s.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
+    shots.update({"accueil_rendez_vous": home_widgets(), "roue": wheel_screen(), "roue_lot": wheel_screen(True), "quete": quest_screen(), "evenement": event_screen()})
+    for name in ("accueil_rendez_vous", "roue", "roue_lot", "quete", "evenement"):
+        shots[name].img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
     keys = list(shots)
-    for part, names in (("ecrans_duel_1_4", keys[:4]), ("ecrans_accueil_1_4", keys[4:])):
+    for part, names in (("ecrans_duel_1_4", keys[:4]), ("ecrans_accueil_1_4", keys[4:8]), ("ecrans_rendez_vous", keys[8:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))
         for i, k in enumerate(names):
             strip.paste(shots[k].img.convert("RGB"), (20 + i * (W + 20), 20))

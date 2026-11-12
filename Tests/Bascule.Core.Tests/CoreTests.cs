@@ -916,13 +916,174 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class LiveOpsTests
+    {
+        [Test]
+        public void BeginnerQuestRewardsEachStepOnce()
+        {
+            var p = new Profile();
+            p.Sanitize();
+            Assert.True(BeginnerQuest.Active(p));
+            p.gamesPlayed = 1; p.bestScore = 200;
+            var r = BeginnerQuest.OnRun(p, 1);
+            Assert.AreEqual(1, r.Count);
+            Assert.AreEqual(150, r[0].Coins);
+            Assert.AreEqual(150, p.coins);
+            Assert.AreEqual(0, BeginnerQuest.OnRun(p, 2).Count, "rien de plus sans progrès");
+            // Un gros score et 5 parties d'un coup : les deux étapes suivantes, dans l'ordre.
+            p.gamesPlayed = 5; p.bestScore = 800;
+            r = BeginnerQuest.OnRun(p, 3);
+            Assert.AreEqual(2, r.Count);
+            Assert.NotNull(r[0].Chest, "étape 2 : un coffre");
+            Assert.NotNull(r[1].Plank, "étape 3 : la planche Bambou");
+            Assert.True(Cosmetics.OwnsPlank(p, BeginnerQuest.BambooPlank));
+            Assert.False(BeginnerQuest.Active(p));
+            Assert.AreEqual(0, BeginnerQuest.OnRun(p, 4).Count);
+        }
+
+        [Test]
+        public void VeteransDoNotSeeTheBeginnerQuest()
+        {
+            var p = new Profile { gamesPlayed = 40, bestScore = 3000 };
+            p.Sanitize();
+            Assert.False(BeginnerQuest.Active(p));
+        }
+
+        [Test]
+        public void FirstChestOpensAfterTheFirstGame()
+        {
+            var p = new Profile();
+            Assert.NotNull(Chest.OnGameFinished(p, 5), "le tout premier coffre dès la 1re partie");
+            Assert.Null(Chest.OnGameFinished(p, 6));
+            Assert.Null(Chest.OnGameFinished(p, 7));
+            Assert.NotNull(Chest.OnGameFinished(p, 8), "ensuite, toutes les 3 parties");
+        }
+
+        [Test]
+        public void WeeklyEventChangesEveryMondayAndPaysThreeTiers()
+        {
+            Assert.AreEqual("2026-11-09", WeeklyEvent.WeekKey(new DateTime(2026, 11, 12, 10, 0, 0)), "jeudi : lundi de la semaine");
+            Assert.AreEqual("2026-11-16", WeeklyEvent.WeekKey(new DateTime(2026, 11, 16, 0, 0, 1)));
+            Assert.AreEqual("2026-11-09", WeeklyEvent.WeekKey(new DateTime(2026, 11, 15, 23, 59, 0)), "dimanche soir : même semaine");
+            var a = WeeklyEvent.For("2026-11-09");
+            var b = WeeklyEvent.For("2026-11-16");
+            Assert.AreNotEqual(a.Kind, b.Kind, "un autre objectif chaque semaine");
+            Assert.That(a.Theme, Is.InRange(5, Theme.All.Length - 1));
+            Assert.NotNull(a.Head);
+            Assert.AreEqual(UnlockKind.Shop, a.Head.Unlock);
+            var p = new Profile();
+            var d = new WeeklyEvent.Def { Week = "2026-11-09", Kind = WeeklyEvent.Kind.Games, Target = 3, Head = a.Head };
+            Assert.AreEqual(1, WeeklyEvent.OnRun(p, d, new RunStats()).Count, "palier 1 à 1/3");
+            Assert.AreEqual(WeeklyEvent.TierCoins, p.coins);
+            var r2 = WeeklyEvent.OnRun(p, d, new RunStats());
+            Assert.True(r2[0].Ticket);
+            Assert.AreEqual(1, p.surpriseTickets);
+            var r3 = WeeklyEvent.OnRun(p, d, new RunStats());
+            Assert.AreEqual(a.Head, r3[0].Head);
+            Assert.True(p.unlockedHeads.Contains(a.Head.Id));
+            Assert.AreEqual(0, WeeklyEvent.OnRun(p, d, new RunStats()).Count, "tout gagné");
+            // Nouvelle semaine : tout recommence.
+            var d2 = new WeeklyEvent.Def { Week = "2026-11-16", Kind = WeeklyEvent.Kind.Games, Target = 3, Head = a.Head };
+            var r4 = WeeklyEvent.OnRun(p, d2, new RunStats());
+            Assert.AreEqual(1, p.week.progress);
+            Assert.AreEqual(1, r4.Count);
+            Assert.That(WeeklyEvent.Left(new DateTime(2026, 11, 15, 12, 0, 0)).TotalHours, Is.EqualTo(12).Within(0.01));
+        }
+
+        [Test]
+        public void WheelGivesOneFreeSpinPerDayPlusTwoWithVideos()
+        {
+            var p = new Profile();
+            double now = 1_800_000_000;
+            Assert.True(Wheel.FreeReady(p.wheel, now));
+            Assert.NotNull(Wheel.Spin(p, false, now, "2027-01-15", 1));
+            Assert.False(Wheel.FreeReady(p.wheel, now + 3600));
+            Assert.Null(Wheel.Spin(p, false, now + 3600, "2027-01-15", 2), "pas deux tours gratuits en 24 h");
+            Assert.NotNull(Wheel.Spin(p, true, now + 3600, "2027-01-15", 3));
+            Assert.NotNull(Wheel.Spin(p, true, now + 3700, "2027-01-15", 4));
+            Assert.Null(Wheel.Spin(p, true, now + 3800, "2027-01-15", 5), "2 tours en vidéo par jour");
+            Assert.AreEqual(2, Wheel.AdSpinsLeft(p.wheel, "2027-01-16"), "le lendemain : de nouveau");
+            Assert.True(Wheel.FreeReady(p.wheel, now + Wheel.Cooldown));
+        }
+
+        [Test]
+        public void WheelOddsAreHonestAndEveryPrizeIsGiven()
+        {
+            float sum = 0f;
+            for (int i = 0; i < Wheel.Slots.Length; i++) sum += Wheel.Chance(i);
+            Assert.AreEqual(1f, sum, 1e-4);
+            Assert.AreEqual(8, Wheel.Slots.Length);
+            Assert.AreEqual(0, Wheel.Pick(0.0));
+            Assert.AreEqual(Wheel.Slots.Length - 1, Wheel.Pick(0.99999));
+            // Tirage sur beaucoup de tours : chaque lot sort, à peu près à sa chance affichée.
+            var counts = new int[Wheel.Slots.Length];
+            var rng = new GameRng(42);
+            for (int i = 0; i < 20000; i++) counts[Wheel.Pick(rng.NextFloat())]++;
+            for (int i = 0; i < counts.Length; i++) Assert.AreEqual(Wheel.Chance(i), counts[i] / 20000f, 0.015f, "part " + i);
+            // Chaque lot est vraiment donné.
+            var seen = new HashSet<WheelPrize>();
+            for (uint s = 1; s < 400 && seen.Count < 6; s++)
+            {
+                var p = new Profile();
+                var r = Wheel.Spin(p, false, 1e9, "d", s);
+                seen.Add(r.Kind);
+                switch (r.Kind)
+                {
+                    case WheelPrize.Coins: Assert.AreEqual(r.Coins, p.coins); break;
+                    case WheelPrize.Chest: Assert.NotNull(r.Chest); break;
+                    case WheelPrize.Ticket: Assert.AreEqual(1, p.surpriseTickets); break;
+                    case WheelPrize.Shield: Assert.AreEqual(1, p.streakShields); break;
+                    case WheelPrize.Boost: Assert.AreEqual(Wheel.BoostGames, p.coinBoostGames); break;
+                    case WheelPrize.Jackpot: Assert.True(p.unlockedHeads.Contains(Wheel.LuckyHead.Id)); break;
+                }
+            }
+            Assert.AreEqual(6, seen.Count, "tous les types de lots sortent");
+        }
+
+        [Test]
+        public void CoinBoostDoublesCoinsButNeverTheScore()
+        {
+            var t = new EconomyTuning();
+            var p = new Profile { coinBoostGames = 1 };
+            var g = EconomyRun.Apply(t, p, new RunStats { Score = 4000 }, "2027-01-15");
+            Assert.True(g.Boosted);
+            Assert.AreEqual(2 * Wallet.CoinsForScore(t, 4000), g.Coins);
+            Assert.AreEqual(0, p.coinBoostGames);
+            var g2 = EconomyRun.Apply(t, p, new RunStats { Score = 4000 }, "2027-01-15");
+            Assert.False(g2.Boosted);
+            Assert.AreEqual(Wallet.CoinsForScore(t, 4000), g2.Coins);
+        }
+
+        [Test]
+        public void DuoHeadIsGrantedOnce()
+        {
+            var p = new Profile();
+            Assert.True(DuoHead.Grant(p));
+            Assert.False(DuoHead.Grant(p));
+            Assert.AreEqual(Rarity.Rare, HeadCatalog.RarityOf(DuoHead.Head));
+            Assert.AreEqual(Rarity.Epic, HeadCatalog.RarityOf(Wheel.LuckyHead));
+            Assert.False(HeadCatalog.IsEarned(Wheel.LuckyHead, new RunAchievements { Score = 999999 }));
+        }
+
+        [Test]
+        public void WheelCooldownSurvivesASeasonReset()
+        {
+            var p = new Profile();
+            p.wheel.lastFree = 123456;
+            var fresh = Seasons.Reset(p);
+            Assert.AreEqual(123456, fresh.wheel.lastFree);
+        }
+    }
+
     public class HeadTests
     {
         [Test]
         public void HeadIdsAreUniqueAndStable()
         {
-            Assert.AreEqual(64, HeadCatalog.All.Count);
-            Assert.AreEqual(64, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
+            Assert.AreEqual(66, HeadCatalog.All.Count);
+            Assert.AreEqual(66, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
+            Assert.AreEqual(64, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Friends).Id, "Duo");
+            Assert.AreEqual(65, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Wheel).Id, "Chanceux");
             Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.DuelWins));
             Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Ads));
             Assert.AreEqual(63, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Ads).Id, "la Superstar arrive à la fin");
@@ -1651,6 +1812,7 @@ namespace Bascule.Core.Tests
         {
             var t = new EconomyTuning();
             var p = NewProfile();
+            p.chestsOpened = 1; // le tout premier coffre (dès la 1re partie) est vérifié dans LiveOpsTests
             int coins0 = p.coins;
             var g1 = EconomyRun.Apply(t, p, new RunStats { Score = 100, Seed = 7 }, "2026-11-03");
             var g2 = EconomyRun.Apply(t, p, new RunStats { Score = 100, Seed = 8 }, "2026-11-03");
@@ -1663,7 +1825,7 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(p.coins - coins0, g1.Total + g2.Total + g3.Total);
             // Le deuxième coffre offre toujours une tête de la boutique.
             for (int i = 0; i < 3; i++) EconomyRun.Apply(t, p, new RunStats { Score = 100, Seed = (uint)(20 + i) }, "2026-11-03");
-            Assert.AreEqual(2, p.chestsOpened);
+            Assert.AreEqual(3, p.chestsOpened);
         }
 
         [Test]
@@ -1679,6 +1841,7 @@ namespace Bascule.Core.Tests
         public void SpecialRunChestBoostCountsTwice()
         {
             var p = NewProfile();
+            p.chestsOpened = 1;
             Assert.Null(Chest.OnGameFinished(p, 1, SpecialRun.ChestSteps(SpecialKind.ChestBoost)));
             Assert.AreEqual(2, p.chestGames);
         }

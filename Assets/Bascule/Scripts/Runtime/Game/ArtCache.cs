@@ -42,6 +42,8 @@ namespace Bascule
         public Sprite Bubble { get; private set; }
         public Sprite Vignette { get; private set; }
         public Sprite Rays { get; private set; }
+        /// <summary>Plateau de la roue de la chance (720 px).</summary>
+        public Sprite WheelBoard { get; private set; }
         public Sprite ChestBase { get; private set; }
         public Sprite ChestLid { get; private set; }
 
@@ -82,6 +84,7 @@ namespace Bascule
             Bubble = Cached("ui_bubble", () => UiArtist.Bubble((int)(96 * k)), ppu, Vector4.zero);
             Vignette = Cached("ui_vignette", () => UiArtist.Vignette(), 100, Vector4.zero);
             Rays = Cached("ui_rays", () => UiArtist.Rays(), 100, Vector4.zero);
+            WheelBoard = Cached("ui_wheel", () => UiArtist.WheelBoard(720), 100, Vector4.zero);
             ChestBase = Cached("ui_chest_base", () => UiArtist.ChestBase(512), 100, Vector4.zero);
             ChestLid = Cached("ui_chest_lid", () => UiArtist.ChestLid(512), 100, Vector4.zero, new Vector2(0.5f, 0.03f / 0.42f));
         }
@@ -355,7 +358,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 19;
+        public const int ArtVersion = 20;
 
         static string _cacheDir;
 

@@ -441,6 +441,23 @@ namespace Bascule.Core
                     }
                     img.Fill(Shape.Arc(cx, ey + 0.02f * r, 0.12f * r, 30f, 150f, 0.05f * r), Ink);
                     break;
+                case Accessory.Clover:
+                {
+                    // Chanceux : un trèfle à quatre feuilles piqué dans les cheveux, au-dessus de l'oreille gauche.
+                    float tx = cx - 0.62f * r, ty = cy + 0.86f * r, lr = 0.17f * r;
+                    var green = Rgba.FromHex("#52B788");
+                    Toon.Part(img, Shape.Capsule(tx, ty, tx - 0.12f * r, ty - 0.34f * r, 0.035f * r), Rgba.FromHex("#2D6A4F"), sz * 0.2f, acc);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        double a = Math.PI / 4 + i * Math.PI / 2;
+                        float lx = tx + (float)Math.Cos(a) * lr * 0.95f, ly = ty + (float)Math.Sin(a) * lr * 0.95f;
+                        var leaf = Shape.Smooth(Shape.Circle(lx + (float)Math.Cos(a + 0.6) * lr * 0.35f, ly + (float)Math.Sin(a + 0.6) * lr * 0.35f, lr * 0.62f),
+                            Shape.Circle(lx + (float)Math.Cos(a - 0.6) * lr * 0.35f, ly + (float)Math.Sin(a - 0.6) * lr * 0.35f, lr * 0.62f), lr * 0.2f);
+                        Toon.Part(img, leaf, green, sz * 0.25f, acc);
+                    }
+                    img.Fill(Shape.Circle(tx, ty, lr * 0.28f), Rgba.FromHex("#95D5B2"));
+                    break;
+                }
                 case Accessory.StarGlasses:
                 {
                     // Superstar : lunettes en étoile, monture rose, verres violet nuit, un éclat sur chaque verre.

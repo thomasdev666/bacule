@@ -98,6 +98,12 @@ namespace Bascule.Core
         public int worldRank;
         public int dailyRank;
         public string dailyRankDay = "";
+        /// <summary>Quête du débutant, événement de la semaine, roue de la chance (Core/LiveOps.cs).</summary>
+        public QuestState quest = new QuestState();
+        public EventState week = new EventState();
+        public WheelState wheel = new WheelState();
+        /// <summary>Parties restantes avec les pièces doublées (lot de la roue). Ne change jamais le score.</summary>
+        public int coinBoostGames;
 
         public void Sanitize()
         {
@@ -151,6 +157,15 @@ namespace Bascule.Core
             AdRewards.Sanitize(this);
             if (dailyRankDay == null) dailyRankDay = "";
             if (ratingLastDay == null) ratingLastDay = "";
+            if (quest == null) quest = new QuestState();
+            // Joueur déjà installé (avant la quête) : elle est considérée comme faite, elle ne s'affiche pas.
+            if (quest.done == 0 && gamesPlayed >= BeginnerQuest.Steps[2].Target && bestScore >= BeginnerQuest.Steps[1].Target) quest.done = BeginnerQuest.Steps.Length;
+            quest.done = Math.Max(0, Math.Min(BeginnerQuest.Steps.Length, quest.done));
+            if (week == null) week = new EventState();
+            if (week.week == null) week.week = "";
+            if (wheel == null) wheel = new WheelState();
+            if (wheel.adDay == null) wheel.adDay = "";
+            coinBoostGames = Math.Max(0, Math.Min(Wheel.BoostMax, coinBoostGames));
             if (worldRank < 0) worldRank = 0;
             if (dailyRank < 0) dailyRank = 0;
             // Anciennes sauvegardes : les achats définitifs déjà faits gardent leurs effets.
@@ -201,6 +216,7 @@ namespace Bascule.Core
             fresh.birthYear = old.birthYear;
             fresh.adChoice = old.adChoice;
             fresh.pseudoAsked = old.pseudoAsked;
+            fresh.wheel = old.wheel ?? new WheelState(); // l'heure du dernier tour gratuit n'est pas de la progression
             fresh.notificationsAsked = old.notificationsAsked;
             fresh.ratingAsked = old.ratingAsked;
             fresh.ratingAsks = old.ratingAsks;

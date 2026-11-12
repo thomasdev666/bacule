@@ -18,10 +18,13 @@ namespace Bascule.Core
         }
 
         /// <summary>Une partie terminée fait avancer le coffre ; renvoie le contenu s'il s'ouvre.</summary>
+        /// <summary>Parties pour remplir le coffre : le tout premier s'ouvre dès la première partie (rapport 1.3).</summary>
+        public static int GamesNeeded(Profile p) => p.chestsOpened == 0 ? 1 : GamesPerChest;
+
         public static Loot OnGameFinished(Profile p, uint seed, int steps = 1)
         {
             p.chestGames += Math.Max(1, steps);
-            if (p.chestGames < GamesPerChest) return null;
+            if (p.chestGames < GamesNeeded(p)) return null;
             p.chestGames = 0;
             return Roll(p, seed);
         }

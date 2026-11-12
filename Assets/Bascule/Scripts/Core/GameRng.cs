@@ -34,6 +34,18 @@ namespace Bascule.Core
 
         public void Restore(uint state) { State = state == 0 ? 0x9E3779B9u : state; }
 
+        /// <summary>
+        /// Mélange une graine (finaliseur de MurmurHash3) : deux graines voisines donnent des suites sans rapport.
+        /// Sans lui, xorshift tire presque le même premier nombre pour des graines proches.
+        /// </summary>
+        public static uint Mix(uint h)
+        {
+            h ^= h >> 16; h *= 0x85EBCA6Bu;
+            h ^= h >> 13; h *= 0xC2B2AE35u;
+            h ^= h >> 16;
+            return h;
+        }
+
         /// <summary>Hachage FNV-1a d'une chaîne : transforme « 2026-11-02 » en graine.</summary>
         public static uint HashSeed(string text)
         {
