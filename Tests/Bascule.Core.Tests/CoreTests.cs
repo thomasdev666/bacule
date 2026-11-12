@@ -1031,6 +1031,21 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void WheelWaitNeverExceeds24HoursEvenIfTheClockGoesBack()
+        {
+            var p = new Profile();
+            double now = 1_800_000_000;
+            Assert.NotNull(Wheel.Spin(p, false, now, "2027-01-15", 1));
+            Assert.AreEqual(Wheel.Cooldown, Wheel.FreeIn(p.wheel, now), 1e-6);
+            Assert.True(Wheel.FreeReady(p.wheel, now + 24 * 3600), "24 h après : un nouveau tour gratuit");
+            // L'heure du téléphone recule de 3 jours : on n'attend pas 4 jours, au plus 24 h.
+            double back = now - 3 * 86400;
+            Assert.LessOrEqual(Wheel.FreeIn(p.wheel, back), Wheel.Cooldown);
+            Assert.False(Wheel.FreeReady(p.wheel, back));
+            Assert.True(Wheel.FreeReady(p.wheel, back + Wheel.Cooldown));
+        }
+
+        [Test]
         public void WheelGivesOneFreeSpinPerDayPlusTwoWithVideos()
         {
             var p = new Profile();

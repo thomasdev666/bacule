@@ -314,9 +314,19 @@ namespace Bascule.Core
             return Slots[i].Weight / total;
         }
 
-        public static bool FreeReady(WheelState s, double now) => now - s.lastFree >= Cooldown;
+        /// <summary>
+        /// Dernier tour gratuit, jamais dans le futur : si l'heure du téléphone a reculé (ou une sauvegarde vient d'un
+        /// appareil à l'heure fausse), il est ramené à maintenant et gardé ainsi : l'attente ne dépasse jamais 24 h.
+        /// </summary>
+        static double LastFree(WheelState s, double now)
+        {
+            if (s.lastFree > now) s.lastFree = now;
+            return s.lastFree;
+        }
 
-        public static double FreeIn(WheelState s, double now) => Math.Max(0, s.lastFree + Cooldown - now);
+        public static bool FreeReady(WheelState s, double now) => now - LastFree(s, now) >= Cooldown;
+
+        public static double FreeIn(WheelState s, double now) => Math.Max(0, LastFree(s, now) + Cooldown - now);
 
         public static int AdSpinsLeft(WheelState s, string today) => s.adDay == today ? Math.Max(0, AdSpinsPerDay - s.adSpins) : AdSpinsPerDay;
 
