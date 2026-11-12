@@ -100,9 +100,7 @@
     "freeCoinsAmount": 60,
     "removeAdsHintAfter": 4,
     "starterOfferAfterGames": 8,
-    "starterOfferHours": 48,
-    "longAdSeconds": 60,
-    "longAdPassesMax": 2
+    "starterOfferHours": 48
   },
   "wind": {
     "_aide": "Rafales de vent (Core/Wind.cs). À chaque palier de milestones, puis tous les milestoneEvery points, et au hasard toutes les gapMin à gapMax secondes (plus tôt si le joueur stagne). Jamais à moins de minGap s d'une autre, ni quand la planche est déjà en danger. Force = part du couple de défaite ; le vent seul ne dépasse jamais maxPeakRatio de l'angle max. Les gentleGusts premières rafales sont douces : jamais au-delà de gentlePeakRatio, et le vent s'efface quand la planche penche (de gentleFadeFrom à gentleFadeTo de danger) : elles ne font jamais perdre.",

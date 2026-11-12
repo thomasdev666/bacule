@@ -21,8 +21,6 @@ namespace Bascule.Services
         bool IsSimulated { get; }
         bool CanShowRewarded { get; }
         bool CanShowInterstitial { get; }
-        /// <summary>Réseau publicitaire qui a servi la dernière pub affichée (vide si inconnu).</summary>
-        string LastNetwork { get; }
         /// <param name="onDone">true si la pub a été vue jusqu'au bout (récompense accordée).</param>
         void ShowRewarded(string placement, Action<bool> onDone);
         void ShowInterstitial(Action onDone);
@@ -51,7 +49,6 @@ namespace Bascule.Services
         }
 
         public bool IsSimulated => true;
-        public string LastNetwork => "";
         public bool CanShowRewarded => true;
         public bool CanShowInterstitial => true;
 
@@ -79,7 +76,6 @@ namespace Bascule.Services
     public sealed class NoAdService : IAdService
     {
         public bool IsSimulated => false;
-        public string LastNetwork => "";
         public bool CanShowRewarded => false;
         public bool CanShowInterstitial => false;
         public void ShowRewarded(string placement, Action<bool> onDone) => onDone?.Invoke(false);
@@ -127,7 +123,6 @@ namespace Bascule.Services
         }
 
         public bool IsSimulated => false;
-        public string LastNetwork => "";
         public bool CanShowRewarded => _rewardedReady;
         public bool CanShowInterstitial => _interstitialReady;
 
@@ -300,7 +295,6 @@ namespace Bascule.Services
             _rewarded.OnAdRewarded += (info, reward) => Post(() => _earned = true);
             _rewarded.OnAdDisplayFailed += (info, error) => Post(() => FinishRewarded(false));
             _rewarded.OnAdClosed += info => Post(() => GameApp.Instance.StartCoroutine(CloseRewarded()));
-            _rewarded.OnAdDisplayed += info => { var n = NetworkOf(info); Post(() => LastNetwork = n); };
             _rewarded.LoadAd();
 
             _interstitial = new global::Unity.Services.LevelPlay.LevelPlayInterstitialAd(_interstitialId);
@@ -308,32 +302,12 @@ namespace Bascule.Services
             _interstitial.OnAdLoadFailed += error => Post(() => { _interstitialState = Err(error); RetryLater(false); });
             _interstitial.OnAdDisplayFailed += (info, error) => Post(FinishInterstitial);
             _interstitial.OnAdClosed += info => Post(FinishInterstitial);
-            _interstitial.OnAdDisplayed += info => { var n = NetworkOf(info); Post(() => LastNetwork = n); };
             _interstitial.LoadAd();
         }
 
         public bool IsSimulated => false;
-        public string LastNetwork { get; private set; } = "";
         public bool CanShowRewarded => _ready && _rewarded != null && _rewarded.IsAdReady();
         public bool CanShowInterstitial => _ready && _interstitial != null && _interstitial.IsAdReady();
-
-        /// <summary>
-        /// Nom du réseau qui a servi la pub (propriété AdNetwork des infos LevelPlay), lu sans dépendre de la version
-        /// exacte du paquet : vide si l'information n'existe pas.
-        /// </summary>
-        static string NetworkOf(object info)
-        {
-            if (info == null) return "";
-            try
-            {
-                var t = info.GetType();
-                var prop = t.GetProperty("AdNetwork") ?? t.GetProperty("adNetwork");
-                if (prop != null) return prop.GetValue(info) as string ?? "";
-                var field = t.GetField("AdNetwork") ?? t.GetField("adNetwork");
-                return field?.GetValue(info) as string ?? "";
-            }
-            catch (Exception) { return ""; }
-        }
 
         public void ShowRewarded(string placement, Action<bool> onDone)
         {

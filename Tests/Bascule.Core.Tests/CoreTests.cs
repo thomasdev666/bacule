@@ -846,30 +846,6 @@ namespace Bascule.Core.Tests
         }
     }
 
-    public class LongAdTests
-    {
-        [Test]
-        public void AnAdLongerThanAMinuteSkipsTheNextForcedAd()
-        {
-            var t = new AdTuning();
-            var s = new AdState();
-            Assert.AreEqual(60f, t.longAdSeconds);
-            Assert.False(AdPolicy.OnAdFinished(t, s, 35f), "une pub de 35 s est normale");
-            Assert.False(AdPolicy.UseLongAdPass(s, 1000, "2026-11-12"));
-            Assert.True(AdPolicy.OnAdFinished(t, s, 125f), "2 minutes : trop long");
-            Assert.AreEqual(1, s.longAdPasses);
-            // La pub imposée suivante est sautée, et comptée comme vue pour l'espacement.
-            s.gamesSinceInterstitial = 3;
-            Assert.True(AdPolicy.UseLongAdPass(s, 2000, "2026-11-12"));
-            Assert.AreEqual(0, s.gamesSinceInterstitial);
-            Assert.AreEqual(2000, s.lastInterstitial);
-            Assert.False(AdPolicy.UseLongAdPass(s, 3000, "2026-11-12"), "une seule pub sautée par pub trop longue");
-            // Au plus longAdPassesMax d'avance.
-            for (int i = 0; i < 5; i++) AdPolicy.OnAdFinished(t, s, 90f);
-            Assert.AreEqual(t.longAdPassesMax, s.longAdPasses);
-        }
-    }
-
     public class AdRewardTests
     {
         static AdTuning T => new AdTuning();
