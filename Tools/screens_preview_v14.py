@@ -447,44 +447,48 @@ def shop_video():
 # ============================================================================ Roue, quête, événement, accueil
 
 # SideWidget (LiveOpsScreens.cs) : médaillon rond + dessin en couleur, anneau doré, étiquette sombre, ancré en bas.
-WIDGET_W, WIDGET_H, MEDAL, ROW1, ROW2 = 200, 214, 150, 590, 370
+WIDGET_W, WIDGET_H, MEDAL, EDGE, ROW1, ROW2 = 156, 162, 112, 88, 555, 365
 
 
 def side_widget(img, side, y, picture, color, label, ring=None, badge_on=False, wheel=False):
-    r = sp.place(0 if side < 0 else 1, 0, 106 if side < 0 else -106, y, WIDGET_W, WIDGET_H)
+    r = sp.place(0 if side < 0 else 1, 0, EDGE if side < 0 else -EDGE, y, WIDGET_W, WIDGET_H)
     cx = (r[0] + r[2]) / 2
-    my = r[1] + 6 + MEDAL / 2 + (8 if ring is not None else 0)
+    my = r[1] + 5 + MEDAL / 2 + (6 if ring is not None else 0)
     d = ImageDraw.Draw(img)
     if ring is not None:
-        rr = (MEDAL + 28) / 2
+        rr = (MEDAL + 20) / 2
         bb = (cx - rr, my - rr, cx + rr, my + rr)
-        d.ellipse(bb, outline=(255, 255, 255, 102), width=13)
-        d.arc(bb, -90, -90 + 360 * ring, fill=c("Accent"), width=13)
+        d.ellipse(bb, outline=(255, 255, 255, 102), width=10)
+        d.arc(bb, -90, -90 + 360 * ring, fill=c("Accent"), width=10)
     m = MEDAL / 2
     disc(img, (cx - m, my - m, cx + m, my + m), sp.OUTLINE)
-    m2 = m - 7
+    m2 = (MEDAL - 11) / 2
     disc(img, (cx - m2, my - m2, cx + m2, my + m2), c(color) if color in sp.COL else sp.rgb(color))
-    glow(img, (cx - MEDAL * 0.3, my - m2 + 6, cx + MEDAL * 0.3, my - m2 + 6 + MEDAL * 0.3), (255, 255, 255, 70), 14)
-    ps = MEDAL - (34 if wheel else 26)
+    glow(img, (cx - MEDAL * 0.3, my - m2 + 5, cx + MEDAL * 0.3, my - m2 + 5 + MEDAL * 0.3), (255, 255, 255, 70), 10)
+    ps = MEDAL - (26 if wheel else 20)
     pic = sp.load(picture).resize((ps, ps), Image.LANCZOS)
     if wheel:
         pic = pic.rotate(14, resample=Image.BICUBIC)
     img.alpha_composite(pic, (int(cx - ps / 2), int(my - ps / 2 + (2 if wheel else 0))))
     if wheel:
-        disc(img, (cx - 17, my - 15, cx + 17, my + 19), sp.OUTLINE)
-        disc(img, (cx - 12, my - 10, cx + 12, my + 14), c("Accent"))
-        pt = Image.new("RGBA", (50, 50), (0, 0, 0, 0))
-        sp.tinted_icon(pt, "Play", (0, 0, 50, 50), "Primary")
+        disc(img, (cx - 13, my - 11, cx + 13, my + 15), sp.OUTLINE)
+        disc(img, (cx - 9, my - 7, cx + 9, my + 11), c("Accent"))
+        pt = Image.new("RGBA", (38, 38), (0, 0, 0, 0))
+        sp.tinted_icon(pt, "Play", (0, 0, 38, 38), "Primary")
         pt = pt.rotate(-90)
-        img.alpha_composite(pt, (int(cx - 25), int(my - m - 8 - 25)))
+        img.alpha_composite(pt, (int(cx - 19), int(my - m - 6 - 19)))
     if badge_on:
-        bx, by = cx + m - 10, my - m + 10
-        disc(img, (bx - 28, by - 28, bx + 28, by + 28), (255, 255, 255))
-        disc(img, (bx - 25, by - 25, bx + 25, by + 25), c("Primary"))
-        sp.title(img, "!", (bx - 25, by - 25, bx + 25, by + 22), 34)
-    lb = (cx - (WIDGET_W - 6) / 2, r[3] - 58, cx + (WIDGET_W - 6) / 2, r[3])
+        bx, by = cx + m - 8, my - m + 8
+        disc(img, (bx - 23, by - 23, bx + 23, by + 23), (255, 255, 255))
+        disc(img, (bx - 20, by - 20, bx + 20, by + 20), c("Primary"))
+        sp.title(img, "!", (bx - 20, by - 20, bx + 20, by + 17), 28)
+    lb = (cx - WIDGET_W / 2, r[3] - 46, cx + WIDGET_W / 2, r[3])
     sp.pill(img, lb, color=(31, 18, 71, 224))
-    sp.title(img, label, (lb[0] + 12, lb[1] + 4, lb[2] - 12, lb[3] - 2), 36)
+    tb = (lb[0] + 10, lb[1] + 3, lb[2] - 10, lb[3] - 2)
+    f = 30
+    while ImageDraw.Draw(img).textlength(label, font=sp.font(f)) > tb[2] - tb[0] and f > 20:
+        f -= 1
+    sp.title(img, label, tb, f)
 
 
 def home_widgets():

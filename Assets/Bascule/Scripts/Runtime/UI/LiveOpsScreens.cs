@@ -15,9 +15,10 @@ namespace Bascule.UI
     /// </summary>
     public sealed class SideWidget
     {
-        public const float Width = 200f, Height = 214f, Medal = 150f;
+        // Compacts : ils signalent le rendez-vous sans voler la vedette à Basile ni au bouton Jouer.
+        public const float Width = 156f, Height = 162f, Medal = 112f, Edge = 88f;
         /// <summary>Hauteurs (depuis le bas de l'écran) des deux rangées : au-dessus du dock, sous la planche.</summary>
-        public const float Row1 = 590f, Row2 = 370f;
+        public const float Row1 = 555f, Row2 = 365f;
 
         public RectTransform Root;
         public Button Button;
@@ -29,15 +30,15 @@ namespace Bascule.UI
         {
             var w = new SideWidget();
             w.Root = Ui.Rect(name, parent);
-            Ui.Place(w.Root, side < 0 ? 0 : 1, 0, side < 0 ? 106 : -106, y, Width, Height);
-            float my = -6f - Medal * 0.5f - (ring ? 8f : 0f); // centre du médaillon, depuis le haut
+            Ui.Place(w.Root, side < 0 ? 0 : 1, 0, side < 0 ? Edge : -Edge, y, Width, Height);
+            float my = -5f - Medal * 0.5f - (ring ? 6f : 0f); // centre du médaillon, depuis le haut
             if (ring)
             {
                 // Anneau d'avancement (événement de la semaine, quête) autour du médaillon.
                 var track = Ui.Image(w.Root, art.Ring, new Color(1f, 1f, 1f, 0.4f), "Piste");
-                Ui.Place(track.rectTransform, 0.5f, 1, 0, my, Medal + 28, Medal + 28);
+                Ui.Place(track.rectTransform, 0.5f, 1, 0, my, Medal + 20, Medal + 20);
                 w.Ring = Ui.Image(w.Root, art.Ring, Palette.Accent, "Anneau");
-                Ui.Place(w.Ring.rectTransform, 0.5f, 1, 0, my, Medal + 28, Medal + 28);
+                Ui.Place(w.Ring.rectTransform, 0.5f, 1, 0, my, Medal + 20, Medal + 20);
                 w.Ring.type = Image.Type.Filled; w.Ring.fillMethod = Image.FillMethod.Radial360; w.Ring.fillOrigin = 2; w.Ring.fillClockwise = true;
             }
             // Médaillon : contour sombre, disque de couleur, reflet clair en haut, dessin au centre.
@@ -45,22 +46,22 @@ namespace Bascule.UI
             Ui.Place(rim.rectTransform, 0.5f, 1, 0, my, Medal, Medal);
             rim.raycastTarget = true;
             var disc = Ui.Image(rim.transform, art.Circle, color, "Fond");
-            Ui.Place(disc.rectTransform, 0.5f, 0.5f, 0, 0, Medal - 14, Medal - 14);
+            Ui.Place(disc.rectTransform, 0.5f, 0.5f, 0, 0, Medal - 11, Medal - 11);
             var shine = Ui.Image(disc.transform, art.SoftDisc, new Color(1f, 1f, 1f, 0.3f), "Reflet");
-            Ui.Place(shine.rectTransform, 0.5f, 1, 0, -6, Medal * 0.72f, Medal * 0.4f, 0.5f, 1);
+            Ui.Place(shine.rectTransform, 0.5f, 1, 0, -4, Medal * 0.72f, Medal * 0.4f, 0.5f, 1);
             var pic = Ui.Icon(disc.transform, picture, "Dessin");
-            Ui.Place(pic.rectTransform, 0.5f, 0.5f, 0, wheel ? -2 : 0, wheel ? Medal - 34 : Medal - 26, wheel ? Medal - 34 : Medal - 26);
+            Ui.Place(pic.rectTransform, 0.5f, 0.5f, 0, wheel ? -2 : 0, wheel ? Medal - 26 : Medal - 20, wheel ? Medal - 26 : Medal - 20);
             if (wheel)
             {
                 // Petite roue qui tourne doucement, avec son moyeu et son repère rouge (qui, eux, ne tournent pas).
                 pic.gameObject.AddComponent<Spin>().Speed = -18f;
                 var hub = Ui.Image(disc.transform, art.Circle, Palette.Outline, "Moyeu");
-                Ui.Place(hub.rectTransform, 0.5f, 0.5f, 0, -2, 34, 34);
+                Ui.Place(hub.rectTransform, 0.5f, 0.5f, 0, -2, 26, 26);
                 var hubIn = Ui.Image(hub.transform, art.Circle, Palette.Accent, "Centre");
-                Ui.Place(hubIn.rectTransform, 0.5f, 0.5f, 0, 0, 24, 24);
+                Ui.Place(hubIn.rectTransform, 0.5f, 0.5f, 0, 0, 18, 18);
                 var pointer = Ui.Icon(rim.transform, art.IconSprite(Icon.Play), "Repere");
                 pointer.color = Palette.Primary;
-                Ui.Place(pointer.rectTransform, 0.5f, 1, 0, 8, 50, 50, 0.5f, 0.5f);
+                Ui.Place(pointer.rectTransform, 0.5f, 1, 0, 6, 38, 38, 0.5f, 0.5f);
                 pointer.rectTransform.localRotation = Quaternion.Euler(0, 0, -90f);
             }
             w.Button = rim.gameObject.AddComponent<Button>();
@@ -70,16 +71,16 @@ namespace Bascule.UI
 
             // Étiquette sombre, lisible sur n'importe quel décor.
             var pill = Ui.Image(w.Root, art.Pill, new Color(0.12f, 0.07f, 0.28f, 0.88f), "Etiquette", true);
-            Ui.Place(pill.rectTransform, 0.5f, 0, 0, 0, Width - 6, 58, 0.5f, 0);
-            w.Label = Ui.Title(pill.transform, "", 36, Color.white, "Legende");
-            Ui.Stretch(w.Label.rectTransform, 12, 2, 12, 4);
+            Ui.Place(pill.rectTransform, 0.5f, 0, 0, 0, Width, 46, 0.5f, 0);
+            w.Label = Ui.Title(pill.transform, "", 30, Color.white, "Legende");
+            Ui.Stretch(w.Label.rectTransform, 10, 2, 10, 3);
 
             // Pastille « ! » sur le coin du médaillon.
             var badge = Ui.Image(rim.transform, art.Circle, Palette.Primary, "Pastille");
-            Ui.Place(badge.rectTransform, 1, 1, -10, -10, 50, 50, 0.5f, 0.5f);
+            Ui.Place(badge.rectTransform, 1, 1, -8, -8, 40, 40, 0.5f, 0.5f);
             var o = badge.gameObject.AddComponent<Outline>();
             o.effectColor = Color.white; o.effectDistance = new Vector2(3, -3);
-            var t = Ui.Title(badge.transform, "!", 34);
+            var t = Ui.Title(badge.transform, "!", 28);
             Ui.Stretch(t.rectTransform, 0, 0, 0, 3);
             badge.gameObject.AddComponent<Pulse>().Amount = 0.1f;
             w.Badge = badge.gameObject;
@@ -89,7 +90,7 @@ namespace Bascule.UI
 
         /// <summary>Change de rangée (l'événement monte à la place de la quête une fois celle-ci finie).</summary>
         public void MoveTo(float side, float y) =>
-            Ui.Place(Root, side < 0 ? 0 : 1, 0, side < 0 ? 106 : -106, y, Width, Height);
+            Ui.Place(Root, side < 0 ? 0 : 1, 0, side < 0 ? Edge : -Edge, y, Width, Height);
     }
 
     // ===================================================================== Roue de la chance
