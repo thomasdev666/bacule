@@ -77,7 +77,7 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 ## État au 12/11/2026 (iPhone seulement : le jeu n'est pas encore sur Google Play)
 
 - **Google AdMob** : compte créé (éditeur `pub-3087780473555937`), app iOS « Bascule » associée à l'App Store, identifiant `ca-app-pub-3087780473555937~5965751815` déjà dans `AdNetworkSettings.AdMobIosAppId` (on peut donc installer l'adaptateur AdMob sans plantage sur iPhone). Validation en attente du fichier `app-ads.txt`.
-- **Liftoff** : app créée, validation en attente du fichier `app-ads.txt`.
+- **Liftoff** : app créée (App ID `6af5f5eab828b7d5f62cc750`), placements Interstitiel `DEFAULT-2531405` et Récompensé `BASCULE-7622057` (à saisir dans LevelPlay → Instances) ; validation en attente de la lecture du fichier `app-ads.txt`.
 - **Mintegral** : compte en cours de validation ; clés à saisir ensuite dans LevelPlay (APP Key dans « APP Setting », Skey et Secret dans Account → API Tools).
 - **Unity Ads et ironSource Ads** (LevelPlay) : lignes ajoutées (liste d'Unity : Monetization → Settings → Organization → App-ads.txt ; ironSource : éditeur `698899`). Dans Unity, renseigner ensuite l'« App-ads URL » si la page le demande.
 - **AppLovin** : inscription faite, compte en attente de confirmation par AppLovin.
@@ -86,7 +86,7 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 - **Chartboost** : app Bascule créée (en attente de l'intégration du SDK, normal) ; créer des emplacements en enchères (« bidding ») seulement.
 - **DT Exchange** : inscription en cours de vérification.
 - **Meta Audience Network** : pas commencé (la page « Monétisation » de Meta Business Suite concerne les Pages Facebook, pas les applis).
-- **app-ads.txt** : version complète dans `docs/site/app-ads.txt`, à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`).
+- **app-ads.txt** : en ligne sur https://orpheex.fr/app-ads.txt depuis le 12/11/2026 (vérifié : texte brut, accessible aux robots de Google). Version complète dans `docs/site/app-ads.txt`, à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`).
 
 Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adaptateurs installés dans Unity avant un build peuvent être activés plus tard depuis LevelPlay, sans nouvelle version ; un adaptateur absent du build demande une nouvelle version.
 
