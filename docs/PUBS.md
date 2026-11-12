@@ -74,6 +74,24 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 - **Google AdMob** : dans le bloc interstitiel, garder seulement les pubs « display » (texte, image, rich media) et décocher la vidéo, si tu veux des pubs imposées vraiment courtes (elles se paient un peu moins).
 - **Unity Ads, Liftoff, Mintegral, Pangle et les autres** : sur le placement interstitiel, choisir une pub **passable** (bouton « Passer » ou croix après 5 s) quand le réseau le propose.
 
+## État au 12/11/2026 (iPhone seulement : le jeu n'est pas encore sur Google Play)
+
+- **Google AdMob** : compte créé (éditeur `pub-3087780473555937`), app iOS « Bascule » associée à l'App Store, identifiant `ca-app-pub-3087780473555937~5965751815` déjà dans `AdNetworkSettings.AdMobIosAppId` (on peut donc installer l'adaptateur AdMob sans plantage sur iPhone). Validation en attente du fichier `app-ads.txt`.
+- **Liftoff** : app créée, validation en attente du fichier `app-ads.txt`.
+- **Mintegral** : compte en cours de validation ; clés à saisir ensuite dans LevelPlay (APP Key dans « APP Setting », Skey et Secret dans Account → API Tools).
+- **app-ads.txt** à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`) :
+
+```
+# app-ads.txt - Orphee X (Bascule)
+OWNERDOMAIN=orpheex.fr
+# Liftoff Monetize (Vungle)
+vungle.com, 6af5e868efb36623c25fe232, DIRECT, c107d686becd2d77
+# Google AdMob
+google.com, pub-3087780473555937, DIRECT, f08c47fec0942fa0
+```
+
+Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adaptateurs installés dans Unity avant un build peuvent être activés plus tard depuis LevelPlay, sans nouvelle version ; un adaptateur absent du build demande une nouvelle version.
+
 ## Tous les liens pour brancher les réseaux
 
 Dans LevelPlay : **Setup → SDK Networks**, choisir le réseau, entrer ses identifiants, puis ses blocs (interstitiel et récompensé) pour iPhone et pour Android. Guide général : https://docs.unity.com/grow/levelplay/platform/get-started/networks

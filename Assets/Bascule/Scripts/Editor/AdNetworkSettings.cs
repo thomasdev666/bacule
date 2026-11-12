@@ -10,7 +10,9 @@ namespace Bascule.EditorTools
         /// Google AdMob est activé dans LevelPlay : sans lui, le SDK de Google ferme l'application au lancement.
         /// Vide : rien n'est ajouté (et rien ne plante tant que l'adaptateur AdMob n'est pas installé).
         /// </summary>
-        public const string AdMobIosAppId = "";
+        /// iPhone : l'app Bascule du compte AdMob d'ORPHÉE X (éditeur pub-3087780473555937). Android : vide tant que le
+        /// jeu n'est pas sur Google Play (ne pas installer l'adaptateur AdMob pour un build Android avant de le remplir).
+        public const string AdMobIosAppId = "ca-app-pub-3087780473555937~5965751815";
         public const string AdMobAndroidAppId = "";
 
         /// <summary>
