@@ -761,22 +761,16 @@ namespace Bascule.UI
             var sub = Ui.Label(_col, Loc.Get("shop_video_sub"), 38, ArtCache.Hex("#D8E9FF"), TextAnchor.UpperLeft);
             Ui.Size(sub, 100);
 
+            // Tête et planche exclusives : la carte disparaît une fois l'objet gagné (la boutique s'allège ;
+            // la tête se choisit ensuite dans la collection, la planche dans la liste des planches).
             var head = AdRewards.ExclusiveHead;
-            if (head != null)
-            {
-                bool owned = AdRewards.HeadOwned(p);
+            if (head != null && !AdRewards.HeadOwned(p))
                 ExclusiveCard(head.Name(Loc.Language), Loc.Format("video_head_desc", AdRewards.HeadNeeded(t)), Palette.Purple, ArtCache.Hex("#5A189A"),
-                    Art.Portrait(head), false, AdRewards.HeadProgress(t, p), AdRewards.HeadNeeded(t), owned,
-                    owned ? (p.selectedHead == head.Id ? (System.Action)null : () => App.SelectHead(head.Id)) : App.WatchForExclusiveHead);
-            }
+                    Art.Portrait(head), false, AdRewards.HeadProgress(t, p), AdRewards.HeadNeeded(t), App.WatchForExclusiveHead);
             var plank = AdRewards.ExclusivePlank;
-            if (plank != null)
-            {
-                bool owned = AdRewards.PlankOwned(p);
+            if (plank != null && !AdRewards.PlankOwned(p))
                 ExclusiveCard(Loc.Format("gift_item_plank", plank.Name(Loc.Language)), Loc.Format("video_plank_desc", AdRewards.PlankNeeded(t)), ArtCache.Hex("#3C096C"), ArtCache.Hex("#240046"),
-                    PlankSprite(plank), true, AdRewards.PlankProgress(t, p), AdRewards.PlankNeeded(t), owned,
-                    owned ? (p.selectedPlank == plank.Id ? (System.Action)null : () => App.TapPlank(plank)) : App.WatchForExclusivePlank);
-            }
+                    PlankSprite(plank), true, AdRewards.PlankProgress(t, p), AdRewards.PlankNeeded(t), App.WatchForExclusivePlank);
 
             // Coffre gratuit.
             int chests = AdRewards.ChestsLeft(t, p, App.LocalDay);
@@ -797,9 +791,9 @@ namespace Bascule.UI
 
         /// <summary>
         /// Carte « exclusif » : fond violet nuit, rayons qui tournent derrière l'objet, étiquette EXCLUSIF, barre des
-        /// vidéos (3 / 8) et bouton « Regarder ». Une fois gagné : « À toi ! » et « Choisir ».
+        /// vidéos (3 / 8) et bouton « Regarder ». Montrée seulement tant que l'objet n'est pas gagné.
         /// </summary>
-        void ExclusiveCard(string name, string desc, Color color, Color deep, Sprite picture, bool wide, int progress, int needed, bool owned, System.Action action)
+        void ExclusiveCard(string name, string desc, Color color, Color deep, Sprite picture, bool wide, int progress, int needed, System.Action action)
         {
             var card = Ui.Image(_col, Art.Panel, color, "Exclusif", true);
             Ui.Size(card, wide ? 400 : 460);
@@ -833,19 +827,6 @@ namespace Bascule.UI
             var d = Ui.Label(card.transform, desc, 36, new Color(1f, 1f, 1f, 0.88f), TextAnchor.UpperLeft);
             Ui.Place(d.rectTransform, 0, 1, x, -146, 1000 - x - 40, 100, 0, 1);
 
-            if (owned)
-            {
-                var ownedPill = Ui.Image(card.transform, Art.Pill, Palette.Play, "AToi", true);
-                Ui.Place(ownedPill.rectTransform, 0, 0, x, 40, 220, 84, 0, 0);
-                var ot = Ui.Title(ownedPill.transform, Loc.Get("video_owned"), 40, Color.white);
-                Ui.Stretch(ot.rectTransform, 10, 2, 10, 0);
-                if (action != null)
-                {
-                    var choose = Ui.Button(card.transform, Loc.Get("plank_choose"), Palette.Secondary, action, null, 46, "Choisir");
-                    Ui.Place((RectTransform)choose.transform, 1, 0, -26, 30, 270, 120, 1, 0);
-                }
-                return;
-            }
             // Barre des vidéos vues, avec le compte au-dessus.
             var count = Ui.Title(card.transform, Loc.Format("video_progress", progress, needed), 40, Palette.Accent);
             Ui.Place(count.rectTransform, 0, 0, x, 112, 380, 56, 0, 0);

@@ -124,7 +124,7 @@ def vs_banner(img, mine=0, theirs=None, their_name="Ami", ring=False):
     sp.title(img, their_name, child(bb, 0.5, 0.5, 300, -92, 340, 60), 46, color=sp.rgb("#FFC2C4"))
     glow(img, child(bb, 0.5, 0.5, 0, 50, 300, 300), (255, 204, 77, 150))
     sp.title(img, "VS", child(bb, 0.5, 0.5, 0, 50, 260, 170), 130, color=c("Accent"))
-    sp.title(img, "1 contre 1 · en direct · mêmes poids", child(bb, 0.5, 0, 0, 22, 940, 54, 0.5, 0), 38)
+    sp.title(img, "1 contre 1 · en direct · 3 minutes max", child(bb, 0.5, 0, 0, 22, 940, 54, 0.5, 0), 38)
 
 
 def friend_row(img, box, name, head, action, color="Play"):
@@ -139,8 +139,9 @@ def duel_choice():
     img = s.img
     back_and_header(img, "Duel en direct")
     vs_banner(img, 12)
+    challenger_strip(img, at(0.5, 1, 0, -722, 1000, 140, 0.5, 1), 4, 9)
     for i, (ic, col, text) in zip((-1, 0, 1), (("Swords", "Accent", "Mêmes poids pour vous deux"), ("Film", "Secondary", "Tu vois sa planche en direct"), ("Flag", "Primary", "Le premier qui lâche a perdu"))):
-        cb = at(0.5, 1, i * 336, -795, 322, 150)
+        cb = at(0.5, 1, i * 336, -957, 322, 150)
         sp.pill(img, cb)
         db = child(cb, 0.5, 1, 0, -38, 64, 64)
         disc(img, db, c(col))
@@ -150,22 +151,102 @@ def duel_choice():
         tb = child(cb, 0.5, 0, 0, 12, 300, 72, 0.5, 0)
         for k, ln in enumerate(t.split("\n")):
             sp.title(img, ln, (tb[0], tb[1] + k * 36 - 4, tb[2], tb[1] + k * 36 + 32), 30)
-    sp.title(img, "Défie un ami", at(0, 1, 50, -925, 700, 70, 0, 0.5), 52, color=c("Accent"), align="lm")
-    sp.button(img, at(1, 1, -40, -925, 110, 110, 1, 0.5), "Play", None, "Plus", 44)
-    friends = [("Léa", 14), ("Tom", 33), ("Nina", 22)]
-    top = 985
+    sp.title(img, "Défie un ami", at(0, 1, 50, -1094, 700, 70, 0, 0.5), 52, color=c("Accent"), align="lm")
+    sp.button(img, at(1, 1, -40, -1094, 110, 110, 1, 0.5), "Play", None, "Plus", 44)
+    friends = [("Léa", 14), ("Tom", 33)]
+    top = 1158
     for i, (n, h) in enumerate(friends):
         rb = (40, top + i * 146, W - 40, top + i * 146 + 132)
         friend_row(img, rb, n, h, "Défier")
-    sp.title(img, "Ou avec un code", at(0.5, 0, 0, 470, 900, 60), 42, color=sp.rgb("#BFE0FF"))
-    sp.button(img, at(0.5, 0, -245, 330, 470, 150), "Purple", "Créer un code", "Plus", 50)
-    sp.button(img, at(0.5, 0, 245, 330, 470, 150), "Secondary", "J'ai un code", "Play", 50)
-    gb = at(0.5, 0, 0, 60, 1000, 210, 0.5, 0)
+    sp.title(img, "Ou avec un code", at(0.5, 0, 0, 342, 900, 60), 42, color=sp.rgb("#BFE0FF"))
+    sp.button(img, at(0.5, 0, -245, 200, 470, 150), "Purple", "Créer un code", "Plus", 50)
+    sp.button(img, at(0.5, 0, 245, 200, 470, 150), "Secondary", "J'ai un code", "Play", 50)
+    return s
+
+
+def challenger_strip(img, gb, wins, duels):
+    """Bandeau « Victoires : 4 / 15 » vers la tête Challenger (entrée et fin du duel)."""
     sp.pill(img, gb)
-    portrait(img, child(gb, 0, 0.5, 110, 0, 160, 160), c("Primary"), 62)
-    sp.title(img, "Victoires : 4 / 15", child(gb, 0, 0.5, 220, 52, 740, 60, 0, 0.5), 44, align="lm")
-    sp.bar(img, child(gb, 0, 0.5, 220, -6, 720, 40, 0, 0.5), 4 / 15, "Primary")
-    sp.title(img, "4 victoires · 9 duels", child(gb, 0, 0.5, 220, -60, 740, 50, 0, 0.5), 36, color=sp.rgb("#BFE0FF"), align="lm")
+    portrait(img, child(gb, 0, 0.5, 84, 0, 116, 116), c("Primary"), 62)
+    sp.title(img, f"Victoires : {wins} / 15", child(gb, 0, 0.5, 170, 36, 790, 54, 0, 0.5), 42, align="lm")
+    sp.bar(img, child(gb, 0, 0.5, 170, -6, 780, 30, 0, 0.5), wins / 15, "Primary")
+    sp.title(img, f"{wins} victoires · {duels} duels", child(gb, 0, 0.5, 170, -44, 790, 44, 0, 0.5), 32, color=sp.rgb("#BFE0FF"), align="lm")
+
+
+def duel_result(outcome="win", by_time=False):
+    """Fin du duel (DuelResultScreen 1.4) : titre, carte VS arrondie, couronne du gagnant, pièces, Challenger."""
+    s = backdrop(235)
+    img = s.img
+    if outcome != "lose":
+        rays(img, at(0.5, 1, 0, -260, 1400, 1400), (255, 230, 128, 90))
+    title = {"win": "Victoire !", "lose": "Défaite", "draw": "Égalité !"}[outcome]
+    tcol = {"win": c("Accent"), "lose": sp.rgb("#BFE0FF"), "draw": (255, 255, 255)}[outcome]
+    sp.title(img, title, at(0.5, 1, 0, -190, 1000, 170), 130, color=tcol)
+    if by_time:
+        sub = {"win": "Personne n'a lâché : ton score bat celui de Léa !", "lose": "Personne n'a lâché : Léa a le meilleur score.", "draw": "Personne n'a lâché, et même score !"}[outcome]
+    else:
+        sub = {"win": "Tu as tenu plus longtemps que Léa !", "lose": "Léa a tenu plus longtemps.", "draw": "Lâchés ensemble, même score !"}[outcome]
+    sp.title(img, sub, at(0.5, 1, 0, -308, 980, 70), 46 if len(sub) < 40 else 40)
+    if by_time:
+        tg = at(0.5, 1, 0, -380, 560, 64)
+        sp.pill(img, tg, color=sp.rgb("#FF8A3D") + (255,))
+        sp.title(img, "Temps écoulé · 3:00", tg, 34)
+    cb = at(0.5, 1, 0, -430, 1000, 560, 0.5, 1)
+    sp.card(img, cb, tint=hexc("#2B1B54"))
+
+    def inner(layer):
+        l, t, r, b = cb
+        cy = (t + b) / 2
+        blue = Image.new("RGBA", (720, 1000), (74, 155, 255, 140)).rotate(14, expand=True)
+        layer.alpha_composite(blue, (int(l - 120 - blue.width / 2 + 360 - 330), int(cy - blue.height / 2)))
+        red = Image.new("RGBA", (720, 1000), (255, 90, 95, 140)).rotate(14, expand=True)
+        layer.alpha_composite(red, (int(r + 120 - red.width / 2 - 360 + 330), int(cy - red.height / 2)))
+        rays(layer, child(cb, 0.5, 1, 0, -165, 900, 900), (255, 217, 102, 76))
+    masked(img, cb, inner)
+    me_win, them_win = outcome == "win", outcome == "lose"
+    times = ("3:00", "3:00") if by_time else (("2:14", "2:11") if outcome == "win" else ("2:11", "2:14") if outcome == "lose" else ("1:52", "1:52"))
+    scores = ("6 420", "5 980") if outcome == "win" else ("5 980", "6 420") if outcome == "lose" else ("5 120", "5 120")
+    for x, head, name, ncol, ring, win, lose, sc, tm in (
+            (-250, 12, "TOI", "#BFE0FF", "Secondary", me_win, them_win, scores[0], times[0]),
+            (250, 14, "Léa", "#FFC2C4", "Primary", them_win, me_win, scores[1], times[1])):
+        col = child(cb, 0.5, 1, x, 10 if win else 0, 440, 560, 0.5, 1)
+        if win:
+            glow(img, child(col, 0.5, 1, 0, -165, 360, 360), (255, 209, 77, 130), 50)
+        size = int(210 * (0.9 if lose else 1))
+        pb = child(col, 0.5, 1, 0, -165, size, size)
+        portrait(img, pb, c(ring), head)
+        if lose:
+            # Le perdant pâlit (dans le jeu : portrait teinté gris-bleu).
+            veil = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            ImageDraw.Draw(veil).ellipse((pb[0] + 7, pb[1] + 7, pb[2] - 7, pb[3] - 7), fill=(70, 70, 110, 90))
+            img.alpha_composite(veil)
+        if win:
+            cr = Image.new("RGBA", (134, 134), (0, 0, 0, 0))
+            sp.tinted_icon(cr, "Crown", (5, 5, 129, 129), "Accent")
+            cr = cr.rotate(14 if x < 0 else -14, resample=Image.BICUBIC)
+            cbx = child(col, 0.5, 1, -34 if x < 0 else 34, -50, 134, 134)
+            img.alpha_composite(cr, (int(cbx[0]), int(cbx[1])))
+        sp.title(img, name, child(col, 0.5, 1, 0, -305, 420, 56), 44, color=sp.rgb(ncol))
+        sp.title(img, sc, child(col, 0.5, 1, 0, -392, 420, 100), 84, color=c("Accent") if win else sp.rgb("#D8E9FF") if lose else (255, 255, 255))
+        sp.title(img, f"Tenu {tm}", child(col, 0.5, 1, 0, -478, 420, 50), 34, color=sp.rgb("#D8E9FF"))
+    glow(img, child(cb, 0.5, 1, 0, -165, 260, 260), (255, 204, 77, 140))
+    sp.title(img, "VS", child(cb, 0.5, 1, 0, -165, 220, 140), 104, color=c("Accent"))
+    coins = {"win": 60, "lose": 25, "draw": 40}[outcome]
+    pr = at(0.5, 1, 0, -1082, 460, 124)
+    sp.pill(img, pr)
+    img.alpha_composite(sp.load("ui/coins_3.png").resize((120, 120), Image.LANCZOS), (int((pr[0] + pr[2]) / 2 - 120 - 60), int((pr[1] + pr[3]) / 2 - 62)))
+    sp.title(img, f"+{coins}", child(pr, 0.5, 0.5, 60, 0, 260, 100), 70, color=c("Accent"))
+    challenger_strip(img, at(0.5, 1, 0, -1174, 1000, 140, 0.5, 1), 5 if outcome == "win" else 4, 10)
+    sp.button(img, at(0.5, 0, 0, 300, 860, 180, 0.5, 0), "Play", "Revanche", "Replay", 60)
+    sp.button(img, at(0.5, 0, -232, 120, 440, 140, 0.5, 0), "Muted", "Accueil", "Home", 50)
+    sp.button(img, at(0.5, 0, 232, 120, 440, 140, 0.5, 0), "Purple", "Inviter un ami", "Share", 46)
+    if outcome == "win":
+        rnd = random.Random(4)
+        cols = [c("Accent"), c("Primary"), c("Secondary"), c("Play"), c("Purple")]
+        for _ in range(60):
+            x, y = rnd.uniform(40, W - 40), rnd.uniform(60, 900)
+            piece = Image.new("RGBA", (22, 12), cols[rnd.randrange(len(cols))] + (255,)).rotate(rnd.uniform(0, 180), expand=True)
+            img.alpha_composite(piece, (int(x), int(y)))
     return s
 
 
@@ -223,8 +304,8 @@ def leaderboard():
     back_and_header(img, "Classement")
     bar = at(0.5, 1, 0, -270, 1010, 120)
     sp.pill(img, bar)
-    for i, name in enumerate(("Monde", "Jour", "Amis", "Moi")):
-        tb = child(bar, 0, 0.5, 10 + i * 248, 0, 242, 100, 0, 0.5)
+    for i, name in enumerate(("Monde", "Jour", "Amis")):
+        tb = child(bar, 0, 0.5, 10 + i * 330, 0, 324, 100, 0, 0.5)
         if i == 0:
             sp.pill(img, tb, color=c("Primary") + (255,))
         sp.title(img, name, tb, 40, color=(255, 255, 255) if i == 0 else sp.rgb("#D8E9FF"))
@@ -331,26 +412,51 @@ def onboard_pseudo():
     return s
 
 
-def onboard_age():
+def arrow_button(img, box, up):
+    sp.button(img, box, "Purple", None, None, 60)
+    l, t, r, b = box
+    ic = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    sp.tinted_icon(ic, "Back", (0, 0, 64, 64), "#FFFFFF")
+    ic = ic.rotate(-90 if up else 90, resample=Image.BICUBIC)
+    img.alpha_composite(ic, (int((l + r) / 2 - 32), int((t + 6 + b - 20) / 2 - 32)))
+
+
+def onboard_age(pos=15):
+    """Année de naissance (OnboardScreen 1.4) : roue qu'on fait défiler, « Fais défiler » au départ (pos = 0)."""
     s, img, cb = onboard_base("Ton année de naissance", "Pour te montrer des pubs adaptées à ton âge.", 1)
-    ab = child(cb, 0.5, 1, 0, -330, 900, 770, 0.5, 1)
+    ab = child(cb, 0.5, 1, 0, -350, 640, 760, 0.5, 1)
     sp.pill(img, ab)
-    y0 = ab[1] + 28
-    year = 2022
-    for r in range(6):
-        for k in range(4):
-            x = ab[0] + 30 + k * 210
-            bx = (x, y0 + r * 118, x + 196, y0 + r * 118 + 104)
-            picked = year == 2008
-            sp.pill(img, bx, color=c("Secondary") + (255,) if picked else (255, 255, 255, 255))
-            sp.title(img, str(year), bx, 46, color=(255, 255, 255) if picked else INK, outline=False)
-            year -= 1
-    pb = child(cb, 0.5, 0, 0, 392, 520, 84)
-    sp.pill(img, pb, color=c("Purple") + (255,))
-    sp.title(img, "Né(e) en 2008", pb, 44)
+    band = child(ab, 0.5, 0.5, 0, 0, 590, 118)
+    sp.pill(img, band, color=c("Secondary") + (255,))
+    items = ["Fais défiler"] + [str(y) for y in range(2022, 1919, -1)]
+    cx, cy = (ab[0] + ab[2]) / 2, (ab[1] + ab[3]) / 2
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    row_h, drum = 110, 2.8
+    for i in range(pos - 5, pos + 6):
+        if i < 0 or i >= len(items):
+            continue
+        d = pos - i
+        ang = max(-1.45, min(1.45, d / drum))
+        y = math.sin(ang) * drum * row_h
+        a = abs(d)
+        sc = 1 - 0.3 * min(1, a / 2.6)
+        sy = sc * (1 + (math.cos(ang) - 1) * 0.7)
+        k = min(1, a * 1.6)
+        col = tuple(int(255 + (SKY[j] - 255) * k) for j in range(3))
+        alpha = max(0, min(1, 1.1 - a * 0.34))
+        row = Image.new("RGBA", (560, row_h), (0, 0, 0, 0))
+        sp.title(row, items[i], (0, 0, 560, row_h), 64 if i > 0 else 56, color=col)
+        row = row.resize((max(1, int(560 * sc)), max(1, int(row_h * sy))), Image.LANCZOS)
+        row.putalpha(row.split()[3].point(lambda v: int(v * alpha)))
+        layer.alpha_composite(row, (int(cx - row.width / 2), int(cy - y - row.height / 2)))
+    m = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(m).rectangle(ab, fill=255)
+    img.alpha_composite(Image.composite(layer, Image.new("RGBA", (W, H), (0, 0, 0, 0)), m))
+    arrow_button(img, child(cb, 0.5, 1, 0, -350, 104, 96), True)
+    arrow_button(img, child(cb, 0.5, 1, 0, -1110, 104, 96), False)
     nb = child(cb, 0.5, 0, 0, 300, 860, 76)
     sp.title(img, "Elle reste sur ton téléphone et n'est jamais affichée.", nb, 34, color=SKY, outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 120, 780, 166), "Play", "Valider", "Check", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 120, 780, 166), "Play" if pos > 0 else "Muted", "Valider", "Check", 62)
     return s
 
 
@@ -469,10 +575,10 @@ def side_widget(img, side, y, picture, color, label, ring=None, badge_on=False, 
     pic = sp.load(picture).resize((ps, ps), Image.LANCZOS)
     if wheel:
         pic = pic.rotate(14, resample=Image.BICUBIC)
-    img.alpha_composite(pic, (int(cx - ps / 2), int(my - ps / 2 + (2 if wheel else 0))))
+    img.alpha_composite(pic, (int(cx - ps / 2), int(my - ps / 2)))
     if wheel:
-        disc(img, (cx - 13, my - 11, cx + 13, my + 15), sp.OUTLINE)
-        disc(img, (cx - 9, my - 7, cx + 9, my + 11), c("Accent"))
+        disc(img, (cx - 13, my - 13, cx + 13, my + 13), sp.OUTLINE)
+        disc(img, (cx - 9, my - 9, cx + 9, my + 9), c("Accent"))
         pt = Image.new("RGBA", (38, 38), (0, 0, 0, 0))
         sp.tinted_icon(pt, "Play", (0, 0, 38, 38), "Primary")
         pt = pt.rotate(-90)
@@ -658,19 +764,22 @@ def event_screen():
         x = (i - 1) * 300
         tb = child(cb, 0.5, 1, x, -640, 280, 340, 0.5, 1)
         sp.pill(img, tb)
-        db = child(tb, 0.5, 1, 0, -120, 170, 170)
+        sp.title(img, f"Palier {i + 1}", child(tb, 0.5, 1, 0, -32, 190, 44), 30, color=SKY)
+        db = child(tb, 0.5, 1, 0, -136, 156, 156)
         disc(img, db, (92, 209, 110, 115) if i == 0 else (255, 255, 255, 38))
-        ib = child(tb, 0.5, 1, 0, -120, 150, 150)
+        ib = child(tb, 0.5, 1, 0, -136, 136, 136)
         if i == 0:
-            img.alpha_composite(sp.load("ui/coins_2.png").resize((150, 150), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = "+150 pièces"
+            img.alpha_composite(sp.load("ui/coins_2.png").resize((136, 136), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = ["+150 pièces"]
         elif i == 1:
-            sp.tinted_icon(img, "Gift", ib, "#FFFFFF"); lab = "Surprise gratuite"
+            sp.tinted_icon(img, "Gift", ib, "#FFFFFF"); lab = ["Surprise", "gratuite"]
         else:
-            img.alpha_composite(sp.load("heads/46.png").resize((150, 150), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = "Tête Viking"
-        sp.title(img, lab, child(tb, 0.5, 0, 0, 70, 260, 90), 34)
-        sp.title(img, f"Palier {i + 1}", child(tb, 0.5, 0, 0, 24, 260, 44), 30, color=SKY)
+            img.alpha_composite(sp.load("heads/46.png").resize((136, 136), Image.LANCZOS), (int(ib[0]), int(ib[1]))); lab = ["Tête Fêtard"]
+        lb = child(tb, 0.5, 0, 0, 62, 256, 96)
+        y0 = (lb[1] + lb[3]) / 2 - len(lab) * 19
+        for k, ln in enumerate(lab):
+            sp.title(img, ln, (lb[0], y0 + k * 38, lb[2], y0 + 38 + k * 38), 32)
         if i == 0:
-            ch = child(tb, 1, 1, -20, -20, 64, 64, 1, 1)
+            ch = child(tb, 1, 1, -14, -14, 58, 58, 1, 1)
             disc(img, ch, c("Play"))
             sp.tinted_icon(img, "Check", (ch[0] + 10, ch[1] + 10, ch[2] - 10, ch[3] - 10), "#FFFFFF")
     sp.button(img, child(cb, 0.5, 0, 0, 220, 760, 166), "Play", "Jouer", "Play", 62)
@@ -690,6 +799,15 @@ if __name__ == "__main__":
     for name in ("accueil_rendez_vous", "roue", "roue_lot", "quete", "evenement"):
         shots[name].img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
     balloon_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_montgolfiere.png"))
+    # 1.4 : roue des années au départ, et fin du duel (victoire, défaite au temps, égalité).
+    onboard_age(0).img.convert("RGB").save(os.path.join(OUT, "ecran_premier_age_debut.png"))
+    ends = [("duel_fin_victoire", duel_result("win")), ("duel_fin_temps", duel_result("lose", True)), ("duel_fin_egalite", duel_result("draw", True))]
+    for name, e in ends:
+        e.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
+    strip = Image.new("RGB", (W * 3 + 80, H + 40), (24, 22, 40))
+    for i, (_, e) in enumerate(ends):
+        strip.paste(e.img.convert("RGB"), (20 + i * (W + 20), 20))
+    strip.resize((strip.width // 2, strip.height // 2), Image.LANCZOS).save(os.path.join(OUT, "ecrans_duel_fin_1_4.png"))
     keys = list(shots)
     for part, names in (("ecrans_duel_1_4", keys[:4]), ("ecrans_accueil_1_4", keys[4:8]), ("ecrans_rendez_vous", keys[8:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))

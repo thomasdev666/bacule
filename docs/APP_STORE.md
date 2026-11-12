@@ -136,7 +136,7 @@ Nouveau : défie tes amis en duel en un geste, gagne la Superstar exclusive et g
 
 ```
 La plus grosse mise à jour de Bascule ! Ta progression est conservée.
-• DUEL EN DIRECT : défie un ami en un geste, il reçoit l'invitation en quelques secondes.
+• DUEL EN DIRECT : défie un ami en un geste, 3 minutes max, le premier qui lâche a perdu (sinon, le meilleur score gagne).
 • Roue de la chance chaque jour, événement de la semaine et quête du débutant, avec des têtes à gagner.
 • Nouveau classement avec podium, et les places gagnées en fin de partie.
 • Têtes exclusives : Superstar (vidéos), Duo (parrainage), Chanceux (roue)… 67 têtes en tout.

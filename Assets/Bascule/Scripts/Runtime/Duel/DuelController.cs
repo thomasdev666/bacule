@@ -14,6 +14,8 @@ namespace Bascule.Duel
     /// 4. Partie : même graine, donc mêmes poids et mêmes rafales. Chacun joue chez lui et envoie 20 photos par seconde
     ///    de sa partie ; l'autre la voit en direct dans la petite vue (seconde caméra).
     /// 5. Le premier qui lâche perd. L'autre a quelques secondes pour poser un dernier poids, puis lève les bras.
+    ///    Au bout de 3 minutes (timeLimitSeconds), si personne n'a lâché : temps écoulé, les deux lèvent les bras et
+    ///    le meilleur score gagne.
     /// 6. Chacun envoie son score final (Finished) ; le résultat est calculé de la même façon des deux côtés
     ///    (Core.DuelRules.Decide). Pièces pour les deux, plus pour le gagnant ; « Challenger » à 15 victoires.
     ///
@@ -50,6 +52,11 @@ namespace Bascule.Duel
         /// <summary>Temps restant pour poser le dernier poids (s).</summary>
         public float LastWeightLeft { get; private set; }
         public float LastWeightTotal => T.finalWindowSeconds;
+        /// <summary>Temps restant avant la fin du duel (s).</summary>
+        public float TimeLeft => DuelRules.TimeLeft(Elapsed, T);
+        public bool HasTimeLimit => T.timeLimitSeconds > 0f;
+        /// <summary>Le duel s'est terminé au temps (personne n'avait lâché) : le meilleur score gagne.</summary>
+        public bool TimeUp { get; private set; }
 
         float? _myFall, _theirFall;
         int _myScore, _theirScore;
@@ -94,6 +101,8 @@ namespace Bascule.Duel
         public event Action ResultReady;
         /// <summary>L'adversaire a lâché : fenêtre du dernier poids.</summary>
         public event Action TheyFellEvent;
+        /// <summary>Temps écoulé (3 minutes) : les deux parties s'arrêtent, le meilleur score gagne.</summary>
+        public event Action TimeUpEvent;
 
         DuelTuning T => _tuning().duel;
 
@@ -160,6 +169,7 @@ namespace Bascule.Duel
             _myScore = _theirScore = 0;
             _mySurvivedMs = _theirSurvivedMs = 0;
             _myFinished = _theirFinished = _forfeit = _iForfeit = false;
+            TimeUp = false;
             _runStarted = false;
             _goRunTime = 0f;
             _buffer.Clear();
@@ -304,6 +314,9 @@ namespace Bascule.Duel
                     _theirSurvivedMs = survived;
                     _theirFinished = true;
                     if (_theirFall == null && _myFall != null) _view?.Cheer();
+                    // Il a fini sans lâcher alors que je joue encore, à la fin des 3 minutes : son temps est écoulé
+                    // (les deux horloges ont quelques centièmes d'écart). Le mien aussi.
+                    if (_theirFall == null && _myFall == null && Current == Phase.Playing && HasTimeLimit && TimeLeft <= 1.5f) EndByTime();
                     if (_myFinished) Decide();
                     break;
                 case DuelMsg.Rematch:
@@ -356,6 +369,26 @@ namespace Bascule.Duel
             _myFinished = true;
             _myScore = r.Score;
             _mySurvivedMs = (uint)Mathf.Max(0f, ((_myFall ?? r.Seconds) - _goRunTime) * 1000f);
+            _net.Send(DuelProtocol.Finished(_myScore, _mySurvivedMs), true);
+            if (_theirFinished) { Decide(); return; }
+            Current = Phase.Waiting;
+            _waitTimer = 0f;
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Temps écoulé sans que j'aie lâché : ma partie s'arrête (bras levés) et j'envoie mon score. Le résultat se
+        /// décide au score dès que celui de l'adversaire arrive (DuelRules.Decide sans chute).
+        /// </summary>
+        void EndByTime()
+        {
+            if (TimeUp || _myFall != null || _myFinished) return;
+            TimeUp = true;
+            TimeUpEvent?.Invoke();
+            if (FinishRun != null && FinishRun()) return; // OnLocalRunEnded envoie le score
+            _myFinished = true;
+            _myScore = Score != null ? Score() : _myScore;
+            _mySurvivedMs = (uint)Mathf.Max(0f, Elapsed * 1000f);
             _net.Send(DuelProtocol.Finished(_myScore, _mySurvivedMs), true);
             if (_theirFinished) { Decide(); return; }
             Current = Phase.Waiting;
@@ -416,6 +449,9 @@ namespace Bascule.Duel
                         Current = Phase.Playing;
                         Changed?.Invoke();
                     }
+                    break;
+                case Phase.Playing:
+                    if (_myFall == null && DuelRules.TimeUp(Elapsed, T)) EndByTime();
                     break;
                 case Phase.LastWeight:
                     LastWeightLeft -= dt;

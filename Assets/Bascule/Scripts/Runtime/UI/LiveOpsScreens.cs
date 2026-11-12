@@ -50,13 +50,13 @@ namespace Bascule.UI
             var shine = Ui.Image(disc.transform, art.SoftDisc, new Color(1f, 1f, 1f, 0.3f), "Reflet");
             Ui.Place(shine.rectTransform, 0.5f, 1, 0, -4, Medal * 0.72f, Medal * 0.4f, 0.5f, 1);
             var pic = Ui.Icon(disc.transform, picture, "Dessin");
-            Ui.Place(pic.rectTransform, 0.5f, 0.5f, 0, wheel ? -2 : 0, wheel ? Medal - 26 : Medal - 20, wheel ? Medal - 26 : Medal - 20);
+            Ui.Place(pic.rectTransform, 0.5f, 0.5f, 0, 0, wheel ? Medal - 26 : Medal - 20, wheel ? Medal - 26 : Medal - 20);
             if (wheel)
             {
                 // Petite roue qui tourne doucement, avec son moyeu et son repère rouge (qui, eux, ne tournent pas).
                 pic.gameObject.AddComponent<Spin>().Speed = -18f;
                 var hub = Ui.Image(disc.transform, art.Circle, Palette.Outline, "Moyeu");
-                Ui.Place(hub.rectTransform, 0.5f, 0.5f, 0, -2, 26, 26);
+                Ui.Place(hub.rectTransform, 0.5f, 0.5f, 0, 0, 26, 26); // roue et moyeu bien au centre du médaillon
                 var hubIn = Ui.Image(hub.transform, art.Circle, Palette.Accent, "Centre");
                 Ui.Place(hubIn.rectTransform, 0.5f, 0.5f, 0, 0, 18, 18);
                 var pointer = Ui.Icon(rim.transform, art.IconSprite(Icon.Play), "Repere");
@@ -684,18 +684,19 @@ namespace Bascule.UI
                 float x = (i - 1) * 300f;
                 var box = Ui.Glass(card.transform, "Palier");
                 Ui.Place(box.rectTransform, 0.5f, 1, x, -640, 280, 340, 0.5f, 1);
+                // De haut en bas : « Palier N », le lot, puis son nom (sur deux lignes au besoin, sans rien chevaucher).
+                var step = Ui.Title(box.transform, Loc.Format("event_tier", i + 1), 30, ArtCache.Hex("#BFE0FF"));
+                Ui.Place(step.rectTransform, 0.5f, 1, 0, -32, 190, 44);
                 var disc = Ui.Image(box.transform, Art.Circle, new Color(1, 1, 1, 0.15f), "Fond");
-                Ui.Place(disc.rectTransform, 0.5f, 1, 0, -120, 170, 170);
+                Ui.Place(disc.rectTransform, 0.5f, 1, 0, -136, 156, 156);
                 var icon = Ui.Icon(box.transform, null, "Lot");
-                Ui.Place(icon.rectTransform, 0.5f, 1, 0, -120, 150, 150);
-                var label = Ui.Title(box.transform, "", 34, Color.white);
-                Ui.Place(label.rectTransform, 0.5f, 0, 0, 70, 260, 90);
+                Ui.Place(icon.rectTransform, 0.5f, 1, 0, -136, 136, 136);
+                var label = Ui.Title(box.transform, "", 32, Color.white);
+                Ui.Place(label.rectTransform, 0.5f, 0, 0, 62, 256, 96);
                 var check = Ui.Image(box.transform, Art.Circle, Palette.Play, "Fait");
-                Ui.Place(check.rectTransform, 1, 1, -20, -20, 64, 64, 1, 1);
+                Ui.Place(check.rectTransform, 1, 1, -14, -14, 58, 58, 1, 1);
                 var ci = Ui.Icon(check.transform, Art.IconSprite(Icon.Check), "Coche");
                 Ui.Stretch(ci.rectTransform, 10, 10, 10, 10);
-                var step = Ui.Title(box.transform, Loc.Format("event_tier", i + 1), 30, ArtCache.Hex("#BFE0FF"));
-                Ui.Place(step.rectTransform, 0.5f, 0, 0, 24, 260, 44);
                 _tiers[i] = (disc, icon, label, check);
             }
 

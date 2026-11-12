@@ -164,8 +164,8 @@ def code_reward():
     sp.title(img, "Code accepté !", (kick[0] + 24, kick[1] + 2, kick[2] - 24, kick[3] - 6), 46)
     sp.title(img, NAME, (40, 290 - 85, W - 40, 290 + 85), 128, color=GREEN)
     sp.title(img, "Offerte par le BDE Samb'bach", (50, 405 - 35, W - 50, 405 + 35), 48)
-    sp.button(img, (W / 2 - 380, H - 200 - 83, W / 2 + 380, H - 200 + 83), "Play", "La porter", "Face", 60)
-    sp.button(img, (W / 2 - 260, H - 62 - 58, W / 2 + 260, H - 62 + 58), "Muted", "Plus tard", None, 46)
+    sp.button(img, (W / 2 - 380, H - 272 - 83, W / 2 + 380, H - 272 + 83), "Play", "La porter", "Face", 60)
+    sp.button(img, (W / 2 - 260, H - 88 - 58, W / 2 + 260, H - 88 + 58), "Muted", "Plus tard", None, 46)
     return img
 
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Bascule.Core;
+using Bascule.Services;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,7 +10,8 @@ namespace Bascule.UI
     /// <summary>
     /// Premier lancement, juste après l'écran de bienvenue : trois petites étapes, une par fenêtre.
     /// 1. Le pseudo (visible dans les classements et les duels), avec une idée au hasard ; « Plus tard » possible.
-    /// 2. L'année de naissance, demandée de façon neutre (une grille d'années, rien de présélectionné).
+    /// 2. L'année de naissance, demandée de façon neutre : une roue d'années qu'on fait défiler vers le haut ou le bas
+    ///    (comme le réglage de l'heure d'un téléphone), « Fais défiler » au centre au départ (rien de présélectionné).
     /// 3. Les pubs (15 ans ou plus seulement) : « Accepter » et « Refuser » ont la même taille et la même place ;
     ///    le jeu est identique dans les deux cas. Sur iPhone, l'accord est suivi de la demande d'iOS.
     /// Un joueur déjà installé ne voit que les étapes qui lui manquent.
@@ -19,13 +21,14 @@ namespace Bascule.UI
         enum Step { Pseudo, Age, Ads }
 
         RectTransform _pseudoRt, _ageRt, _adsRt, _dots;
-        Text _title, _sub, _pseudoError, _yearPicked;
+        Text _title, _sub, _pseudoError;
         InputField _input;
         Button _ageOk;
-        RectTransform _yearGrid;
-        readonly List<(int year, Image bg, Text label)> _years = new List<(int, Image, Text)>();
+        WheelPicker _wheel;
+        List<int> _yearValues;
+        float _lastTick;
         readonly List<Step> _steps = new List<Step>();
-        int _stepIndex, _pickedYear;
+        int _stepIndex;
         Action _done;
 
         static readonly string[] IdeaStart = { "Super", "Mega", "Turbo", "Hyper", "Ultra", "Roi", "Reine", "Mini", "Maxi", "Capitaine" };
@@ -142,72 +145,63 @@ namespace Bascule.UI
 
         // ------------------------------------------------------------------ 2. Année de naissance
 
-        Image _pickedPill;
-
         void BuildAge(Transform card)
         {
             _ageRt = Ui.Stretch(Ui.Rect("Age", card));
-            // Grille d'années sur un panneau de verre, rien de présélectionné (question neutre).
+            // Roue des années sur un panneau de verre : une seule colonne qu'on fait défiler vers le haut ou le bas,
+            // l'année au centre (dans la bande bleue) est celle choisie. Au départ : « Fais défiler » (question neutre).
             var area = Ui.Glass(_ageRt, "Annees");
-            Ui.Place(area.rectTransform, 0.5f, 1, 0, -330, 900, 770, 0.5f, 1);
-            var inner = Ui.Rect("Zone", area.transform);
-            Ui.Stretch(inner, 22, 22, 22, 22);
-            _yearGrid = Ui.Scroll(inner, out _);
-            var grid = _yearGrid.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(196, 104);
-            grid.spacing = new Vector2(14, 14);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 4;
-            grid.childAlignment = TextAnchor.UpperCenter;
-            grid.padding = new RectOffset(4, 4, 6, 6);
+            Ui.Place(area.rectTransform, 0.5f, 1, 0, -350, 640, 760, 0.5f, 1);
+            area.raycastTarget = true;
+            area.gameObject.AddComponent<RectMask2D>();
+            var band = Ui.Image(area.transform, Art.Pill, Palette.Secondary, "Bande", true);
+            Ui.Place(band.rectTransform, 0.5f, 0.5f, 0, 0, 590, 118);
+            _wheel = WheelPicker.Create(area.rectTransform, 64, 110f);
+            _wheel.Far = Sky;
+            _wheel.Ticked = i =>
+            {
+                // Petit clic à chaque année qui passe (pas plus de 16 par seconde quand la roue file).
+                if (Time.unscaledTime - _lastTick > 0.06f) { _lastTick = Time.unscaledTime; App.PlaySfx(Sfx.Click, 0, 0.35f); }
+                _ageOk.interactable = i > 0;
+            };
+            _wheel.Settled = i => { _ageOk.interactable = i > 0; App.HapticLight(); };
 
-            _pickedPill = Ui.Image(_ageRt, Art.Pill, Palette.Purple, "Choix", true);
-            Ui.Place(_pickedPill.rectTransform, 0.5f, 0, 0, 392, 520, 84);
-            _yearPicked = Ui.Title(_pickedPill.transform, "", 44, Color.white);
-            Ui.Stretch(_yearPicked.rectTransform, 20, 2, 20, 0);
+            // Flèches au-dessus et au-dessous : une année de plus ou de moins (et elles montrent qu'on fait défiler).
+            Arrow(_ageRt, -350, -1);
+            Arrow(_ageRt, -1110, 1);
+
             var note = Ui.Label(_ageRt, Loc.Get("onboard_age_note"), 34, Sky);
             Ui.Place(note.rectTransform, 0.5f, 0, 0, 300, 860, 76);
             _ageOk = Ui.Button(_ageRt, Loc.Get("onboard_next"), Palette.Play, ValidateAge, Icon.Check, 62, "Valider");
             Ui.Place((RectTransform)_ageOk.transform, 0.5f, 0, 0, 120, 780, 166);
         }
 
-        void FillYears()
+        void Arrow(RectTransform parent, float y, int step)
         {
-            if (_years.Count > 0) return;
-            foreach (int y in PrivacyRules.Years(GameApp.CurrentYear))
-            {
-                int year = y;
-                var cell = Ui.Image(_yearGrid, Art.Pill, Color.white, "Annee" + year, true);
-                cell.raycastTarget = true;
-                var label = Ui.Plain(Ui.Label(cell.transform, year.ToString(), 46, Palette.Ink));
-                Ui.Stretch(label.rectTransform, 6, 4, 6, 4);
-                var b = cell.gameObject.AddComponent<Button>();
-                var nav = b.navigation; nav.mode = Navigation.Mode.None; b.navigation = nav;
-                b.transition = Selectable.Transition.None;
-                b.onClick.AddListener(() => { Ui.Click?.Invoke(); PickYear(year); });
-                cell.gameObject.AddComponent<PressScale>();
-                _years.Add((year, cell, label));
-            }
+            var b = Ui.IconButton(parent, Icon.Back, Palette.Purple, () => _wheel.Step(step), step < 0 ? "Monter" : "Descendre");
+            Ui.Place((RectTransform)b.transform, 0.5f, 1, 0, y, 104, 96);
+            var icon = b.transform.Find("Contenu/Icone");
+            // Flèche « retour » (vers la gauche) tournée vers le haut ou vers le bas.
+            if (icon != null) icon.localRotation = Quaternion.Euler(0, 0, step < 0 ? -90f : 90f);
         }
 
-        void PickYear(int year)
+        /// <summary>« Fais défiler » puis les années, de la plus récente à la plus ancienne.</summary>
+        void FillYears()
         {
-            _pickedYear = year;
-            foreach (var (y, bg, label) in _years)
-            {
-                bool on = y == year;
-                bg.color = on ? Palette.Secondary : Color.white;
-                label.color = on ? Color.white : Palette.Ink;
-            }
-            _ageOk.interactable = true;
-            _pickedPill.gameObject.SetActive(true);
-            _yearPicked.text = Loc.Format("onboard_age_picked", year);
+            _yearValues = PrivacyRules.Years(GameApp.CurrentYear);
+            var items = new string[_yearValues.Count + 1];
+            items[0] = Loc.Get("onboard_age_scroll");
+            for (int i = 0; i < _yearValues.Count; i++) items[i + 1] = _yearValues[i].ToString();
+            _wheel.SetItems(items, 0);
         }
+
+        int PickedYear => _wheel != null && _yearValues != null && _wheel.Index > 0 ? _yearValues[_wheel.Index - 1] : 0;
 
         void ValidateAge()
         {
-            if (_pickedYear <= 0) return;
-            PrivacyRules.SetBirthYear(App.Profile, _pickedYear, GameApp.CurrentYear);
+            int year = PickedYear;
+            if (year <= 0) return;
+            PrivacyRules.SetBirthYear(App.Profile, year, GameApp.CurrentYear);
             App.SaveProfileNow();
             // Moins de 15 ans : pas de question sur les pubs (elles restent non personnalisées).
             if (PrivacyRules.IsMinor(App.Profile, GameApp.CurrentYear)) _steps.Remove(Step.Ads);
@@ -322,10 +316,6 @@ namespace Bascule.UI
                     _title.text = Loc.Get("onboard_age_title");
                     _sub.text = Loc.Get("onboard_age_sub");
                     FillYears();
-                    _pickedYear = 0;
-                    foreach (var (_, bg, label) in _years) { bg.color = Color.white; label.color = Palette.Ink; }
-                    _yearPicked.text = "";
-                    _pickedPill.gameObject.SetActive(false);
                     _ageOk.interactable = false;
                     break;
                 case Step.Ads:

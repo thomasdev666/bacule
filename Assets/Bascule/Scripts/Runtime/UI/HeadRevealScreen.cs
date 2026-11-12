@@ -188,10 +188,10 @@ namespace Bascule.UI
             _buttons = buttons;
             Ui.Place(_buttons, 0.5f, 0, 0, 0, 1080, 380, 0.5f, 0);
             var wear = Ui.Button(buttons, Loc.Get("promo_wear"), Palette.Play, () => { var a = _onWear; Close(); a?.Invoke(); }, Icon.Face, 60, "LaPorter");
-            Ui.Place((RectTransform)wear.transform, 0.5f, 0, 0, 200, 760, 166);
+            Ui.Place((RectTransform)wear.transform, 0.5f, 0, 0, 272, 760, 166);
             wear.gameObject.AddComponent<Pulse>().Amount = 0.03f;
             var later = Ui.Button(buttons, Loc.Get("later"), Palette.Muted, Close, null, 46, "PlusTard");
-            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 62, 520, 116);
+            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 88, 520, 116); // 43 px d'écart avec « La porter »
 
             _flash = Ui.Image(Root, null, new Color(1, 1, 1, 0), "Eclair");
             Ui.Stretch(_flash.rectTransform);

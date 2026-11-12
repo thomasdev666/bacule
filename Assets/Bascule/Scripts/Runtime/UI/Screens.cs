@@ -810,8 +810,10 @@ namespace Bascule.UI
     {
         Text _title, _subtitle, _score, _best, _details, _nextText, _level, _xp, _coins;
         Button _revive, _double;
-        // Place au classement, en « autocollant » sur le coin de la carte (« +12 places · 34e mondial »).
+        // Place au classement (« +12 places · 34e mondial ») : une pastille en haut de la carte, à la place du mot
+        // « SCORE » (en 1.4 elle débordait au-dessus de la carte et cachait le titre de la partie).
         RectTransform _rankTag;
+        GameObject _scoreLabel;
         Image _rankBg;
         Text _rankText;
         int _rankPriority;
@@ -863,15 +865,16 @@ namespace Bascule.UI
             card.gameObject.AddComponent<PopIn>();
             var lbl = Ui.Label(card.transform, Loc.Get("score_label"), 46, Palette.Muted);
             Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -58, 600, 56);
+            _scoreLabel = lbl.gameObject;
             var tag = Ui.Image(card.transform, Art.Pill, Palette.Play, "Classement", true);
             _rankBg = tag;
             _rankTag = tag.rectTransform;
-            Ui.Place(_rankTag, 1, 1, 24, 30, 470, 84, 1, 0.5f);
-            _rankTag.localRotation = Quaternion.Euler(0, 0, -4f);
+            Ui.Place(_rankTag, 0.5f, 1, 0, -52, 470, 70);
+            _rankTag.localRotation = Quaternion.Euler(0, 0, -1.5f);
             var trophy = Ui.Icon(tag.transform, Art.IconSprite(Icon.Trophy), "Trophee");
-            Ui.Place(trophy.rectTransform, 0, 0.5f, 18, 0, 58, 58, 0, 0.5f);
-            _rankText = Ui.Title(tag.transform, "", 38, Color.white);
-            Ui.Stretch(_rankText.rectTransform, 84, 2, 22, 0);
+            Ui.Place(trophy.rectTransform, 0, 0.5f, 16, 0, 50, 50, 0, 0.5f);
+            _rankText = Ui.Title(tag.transform, "", 36, Color.white);
+            Ui.Stretch(_rankText.rectTransform, 74, 2, 22, 0);
             _rankText.horizontalOverflow = HorizontalWrapMode.Overflow;
             Ui.Isolate(tag.gameObject);
             tag.gameObject.SetActive(false);
@@ -985,6 +988,7 @@ namespace Bascule.UI
         {
             Show();
             _rankTag.gameObject.SetActive(false);
+            _scoreLabel.SetActive(true);
             _rankPriority = 0;
             _gain = gain;
             _xpV = gain.XpFractionBefore;
@@ -1301,9 +1305,10 @@ namespace Bascule.UI
             _rankText.text = gained > 0 ? Loc.Format("go_rank_up", Loc.FormatScore(gained)) + " · " + where
                 : previous == 0 ? Loc.Get("go_rank_new") + " · " + where : where;
             _rankBg.color = gained > 0 ? Palette.Play : world ? Palette.Purple : Palette.Secondary;
-            float w = Mathf.Clamp(_rankText.preferredWidth + 120f, 360f, 640f);
-            _rankTag.sizeDelta = new Vector2(w, 84);
+            float w = Mathf.Clamp(_rankText.preferredWidth + 110f, 360f, 700f);
+            _rankTag.sizeDelta = new Vector2(w, 70);
             _rankTag.gameObject.SetActive(true);
+            _scoreLabel.SetActive(false); // le gros chiffre suffit : la pastille prend la place du mot « SCORE »
             var pop = _rankTag.GetComponent<PopIn>();
             if (pop == null) pop = _rankTag.gameObject.AddComponent<PopIn>();
             pop.enabled = false; pop.enabled = true;
@@ -1341,8 +1346,9 @@ namespace Bascule.UI
                 case "sec_score": return h.Unlock == UnlockKind.Score || h.Unlock == UnlockKind.Default;
                 case "sec_level": return h.Unlock == UnlockKind.Level;
                 case "sec_shop": return h.Unlock == UnlockKind.Shop;
-                case "sec_special": return h.IsSpecial;
-                default: return h.Unlock == UnlockKind.Premium;
+                // Les têtes de partenaires (offertes avec un code) sont rangées avec les Légendes.
+                case "sec_special": return h.IsSpecial && h.Unlock != UnlockKind.Code;
+                default: return h.Unlock == UnlockKind.Premium || h.Unlock == UnlockKind.Code;
             }
         }
 
@@ -1538,7 +1544,9 @@ namespace Bascule.UI
             if (rarity == Rarity.Legendary && owned) halo.gameObject.AddComponent<Pulse>().Amount = 0.05f;
 
             // Les têtes à acheter se montrent en couleur : c'est ce qui donne envie.
-            bool locked = !(owned || buyable || h.Unlock == UnlockKind.Premium);
+            // Légendes et têtes de partenaires : en couleur avec leur nom (on voit ce qu'on peut obtenir).
+            bool showcase = h.Unlock == UnlockKind.Premium || h.Unlock == UnlockKind.Code;
+            bool locked = !(owned || buyable || showcase);
             var icon = Ui.Icon(cell.transform, Art.PortraitIfLoaded(h, locked));
             if (icon.sprite == null)
             {
@@ -1572,7 +1580,7 @@ namespace Bascule.UI
                 Ui.Stretch(tt.rectTransform, 10, 0, 10, 4);
             }
 
-            bool showName = owned || buyable || h.Unlock == UnlockKind.Premium || isNext;
+            bool showName = owned || buyable || showcase || isNext;
             var name = Ui.Label(cell.transform, showName ? h.Name(Loc.Language) : "???", 42, Palette.Ink);
             Ui.Place(name.rectTransform, 0.5f, 0, 0, 112, 300, 54);
             var rl = Ui.Label(cell.transform, Loc.Get("rarity_" + rarity), 30, rc);
@@ -1611,7 +1619,7 @@ namespace Bascule.UI
         readonly List<(Image image, int head)> _pending = new List<(Image, int)>();
         int _request;
 
-        const string Mine = "mine", Friends = "friends";
+        const string Friends = "friends";
         static readonly Color Gold = ArtCache.Hex("#FFC93C"), Silver = ArtCache.Hex("#C9D3E3"), Bronze = ArtCache.Hex("#E08A4F");
 
         protected override void Build()
@@ -1621,12 +1629,13 @@ namespace Bascule.UI
             // Onglets : une barre de verre, l'onglet choisi en pastille rouge.
             var bar = Ui.Glass(Safe, "Onglets");
             Ui.Place(bar.rectTransform, 0.5f, 1, 0, -270, 1010, 120);
-            var tabs = new[] { (Boards.World, "lb_world"), (Boards.Daily, "lb_daily"), (Friends, "lb_friends"), (Mine, "lb_mine") };
+            // Trois onglets (l'onglet « Mes scores » a été retiré en 1.4 : il ne servait pas).
+            var tabs = new[] { (Boards.World, "lb_world"), (Boards.Daily, "lb_daily"), (Friends, "lb_friends") };
             for (int i = 0; i < tabs.Length; i++)
             {
                 string board = tabs[i].Item1;
                 var bg = Ui.Image(bar.transform, Art.Pill, Palette.Primary, "Onglet", true);
-                Ui.Place(bg.rectTransform, 0, 0.5f, 10 + i * 248, 0, 242, 100, 0, 0.5f);
+                Ui.Place(bg.rectTransform, 0, 0.5f, 10 + i * 330, 0, 324, 100, 0, 0.5f);
                 bg.raycastTarget = true;
                 var b = bg.gameObject.AddComponent<Button>();
                 var nav = b.navigation; nav.mode = Navigation.Mode.None; b.navigation = nav;
@@ -1706,7 +1715,7 @@ namespace Bascule.UI
             }
             var pl = Ui.ButtonLabel(_pseudo);
             if (pl != null) pl.text = string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("pseudo_title") : App.Profile.pseudo;
-            bool friends = _board == Friends, mine = _board == Mine;
+            bool friends = _board == Friends;
             _friendButtons.SetActive(friends);
             _meBar.gameObject.SetActive(false);
             // Le code court s'affiche sur le bouton : on peut le lire à voix haute à un ami.
@@ -1714,19 +1723,10 @@ namespace Bascule.UI
             if (codeLabel != null)
                 codeLabel.text = string.IsNullOrEmpty(App.Profile.friendCode) ? Loc.Get("friend_code_btn")
                     : Loc.Format("friend_code_short", FriendCode.FormatShort(App.Profile.friendCode));
-            Ui.Stretch(_area, 36, 350, 36, mine ? 200 : 345);
+            Ui.Stretch(_area, 36, 350, 36, 345);
             Ui.Clear(_list);
             _pending.Clear();
             int request = ++_request;
-
-            if (mine)
-            {
-                _status.text = "";
-                var top = App.Profile.personalTop;
-                if (top.Count == 0) _status.text = Loc.Get("lb_empty");
-                for (int i = 0; i < top.Count; i++) Row(i + 1, App.Profile.pseudo, top[i], App.Profile.selectedHead, true);
-                return;
-            }
 
             var service = App.Leaderboard.Service;
             if (!service.IsOnline)

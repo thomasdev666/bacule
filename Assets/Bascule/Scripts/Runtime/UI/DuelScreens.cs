@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Bascule.Core;
 using Bascule.Duel;
 using Bascule.Services;
@@ -155,14 +156,18 @@ namespace Bascule.UI
             // ---- Bannière VS (commune aux trois états)
             var banner = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Banniere", true);
             Ui.Place(banner.rectTransform, 0.5f, 1, 0, -250, 1000, 450, 0.5f, 1);
-            banner.gameObject.AddComponent<RectMask2D>();
-            var blue = Ui.Image(banner.transform, null, new Color(0.29f, 0.61f, 1f, 0.55f), "Bleu");
+            // Bleu, rouge et rayons découpés aux coins arrondis du panneau (un RectMask2D les coupait en rectangle :
+            // les coins de la carte étaient carrés).
+            var clip = DuelUi.Rounded(banner.transform, Color.white, 52, "Decoupe");
+            Ui.Stretch(clip.rectTransform, 10, 10, 10, 10);
+            clip.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            var blue = Ui.Image(clip.transform, null, new Color(0.29f, 0.61f, 1f, 0.55f), "Bleu");
             Ui.Place(blue.rectTransform, 0, 0.5f, -120, 0, 720, 900, 0, 0.5f);
             blue.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
-            var red = Ui.Image(banner.transform, null, new Color(1f, 0.35f, 0.37f, 0.55f), "Rouge");
+            var red = Ui.Image(clip.transform, null, new Color(1f, 0.35f, 0.37f, 0.55f), "Rouge");
             Ui.Place(red.rectTransform, 1, 0.5f, 120, 0, 720, 900, 1, 0.5f);
             red.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
-            var rays = Ui.Image(banner.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.35f), "Rayons");
+            var rays = Ui.Image(clip.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.35f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, 10, 900, 900);
             rays.gameObject.AddComponent<Spin>().Speed = 14f;
             Ui.Isolate(rays.gameObject);
@@ -204,6 +209,25 @@ namespace Bascule.UI
         void BuildChoice()
         {
             _choice = Ui.Stretch(Ui.Rect("Choix", Safe));
+            // De haut en bas (1.4) : la carte VS, la progression vers la tête Challenger juste dessous, les trois
+            // règles, les amis à défier, puis le code tout en bas. La progression était collée aux boutons du code.
+
+            // Victoires et tête Challenger, en bandeau compact sous la carte VS.
+            var card = Ui.Glass(_choice, "Challenger");
+            Ui.Place(card.rectTransform, 0.5f, 1, 0, -722, 1000, 140, 0.5f, 1);
+            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 116);
+            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 84, 0, 116, 116);
+            _wins = Ui.Title(card.transform, "", 42, Color.white, "Victoires");
+            Ui.Place(_wins.rectTransform, 0, 0.5f, 170, 36, 790, 54, 0, 0.5f);
+            _wins.alignment = TextAnchor.MiddleLeft;
+            var bar = Ui.Rect("Jauge", card.transform);
+            Ui.Place(bar, 0, 0.5f, 170, -6, 780, 30, 0, 0.5f);
+            _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
+            Ui.Stretch((RectTransform)_winsFill.parent);
+            _record = Ui.Title(card.transform, "", 32, ArtCache.Hex("#BFE0FF"), "Bilan");
+            Ui.Place(_record.rectTransform, 0, 0.5f, 170, -44, 790, 44, 0, 0.5f);
+            _record.alignment = TextAnchor.MiddleLeft;
+
             // Les trois règles.
             Rule(_choice, -1, Icon.Swords, Palette.Accent, Loc.Get("duel_rule_1"));
             Rule(_choice, 0, Icon.Film, Palette.Secondary, Loc.Get("duel_rule_2"));
@@ -211,46 +235,30 @@ namespace Bascule.UI
 
             // Amis à défier en un geste.
             var ft = Ui.Title(_choice, Loc.Get("duel_friends_section"), 52, Palette.Accent);
-            Ui.Place(ft.rectTransform, 0, 1, 50, -925, 700, 70, 0, 0.5f);
+            Ui.Place(ft.rectTransform, 0, 1, 50, -1094, 700, 70, 0, 0.5f);
             ft.alignment = TextAnchor.MiddleLeft;
             var add = Ui.Button(_choice, "", Palette.Play, App.AskFriendCode, Icon.Plus, 44, "AjouterAmi");
-            Ui.Place((RectTransform)add.transform, 1, 1, -40, -925, 110, 110, 1, 0.5f);
+            Ui.Place((RectTransform)add.transform, 1, 1, -40, -1094, 110, 110, 1, 0.5f);
             var area = Ui.Rect("Amis", _choice);
-            Ui.Stretch(area, 40, 985, 40, 520);
+            Ui.Stretch(area, 40, 1158, 40, 400);
             _friendsCol = Ui.Scroll(area, out _);
             Ui.Column(_friendsCol, 14);
             _friendsStatus = Ui.Label(_choice, "", 40, ArtCache.Hex("#D8E9FF"));
-            Ui.Stretch(_friendsStatus.rectTransform, 70, 1000, 70, 560);
+            Ui.Stretch(_friendsStatus.rectTransform, 70, 1170, 70, 440);
 
-            // Avec un code.
+            // Avec un code, tout en bas, avec de l'air autour.
             var or = Ui.Title(_choice, Loc.Get("duel_or_code"), 42, ArtCache.Hex("#BFE0FF"));
-            Ui.Place(or.rectTransform, 0.5f, 0, 0, 470, 900, 60);
+            Ui.Place(or.rectTransform, 0.5f, 0, 0, 342, 900, 60);
             var host = Ui.Button(_choice, Loc.Get("duel_new_code"), Palette.Purple, App.DuelHost, Icon.Plus, 50, "CreerCode");
-            Ui.Place((RectTransform)host.transform, 0.5f, 0, -245, 330, 470, 150);
+            Ui.Place((RectTransform)host.transform, 0.5f, 0, -245, 200, 470, 150);
             var join = Ui.Button(_choice, Loc.Get("duel_enter_code"), Palette.Secondary, App.DuelJoinPrompt, Icon.Play, 50, "JaiUnCode");
-            Ui.Place((RectTransform)join.transform, 0.5f, 0, 245, 330, 470, 150);
-
-            // Victoires et tête Challenger.
-            var card = Ui.Glass(_choice, "Challenger");
-            Ui.Place(card.rectTransform, 0.5f, 0, 0, 60, 1000, 210, 0.5f, 0);
-            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 160);
-            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 110, 0, 160, 160);
-            _wins = Ui.Title(card.transform, "", 44, Color.white, "Victoires");
-            Ui.Place(_wins.rectTransform, 0, 0.5f, 220, 52, 740, 60, 0, 0.5f);
-            _wins.alignment = TextAnchor.MiddleLeft;
-            var bar = Ui.Rect("Jauge", card.transform);
-            Ui.Place(bar, 0, 0.5f, 220, -6, 720, 40, 0, 0.5f);
-            _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
-            Ui.Stretch((RectTransform)_winsFill.parent);
-            _record = Ui.Title(card.transform, "", 36, ArtCache.Hex("#BFE0FF"), "Bilan");
-            Ui.Place(_record.rectTransform, 0, 0.5f, 220, -60, 740, 50, 0, 0.5f);
-            _record.alignment = TextAnchor.MiddleLeft;
+            Ui.Place((RectTransform)join.transform, 0.5f, 0, 245, 200, 470, 150);
         }
 
         void Rule(RectTransform parent, int i, Icon icon, Color tint, string text)
         {
             var chip = Ui.Glass(parent, "Regle");
-            Ui.Place(chip.rectTransform, 0.5f, 1, i * 336, -795, 322, 150);
+            Ui.Place(chip.rectTransform, 0.5f, 1, i * 336, -957, 322, 150);
             var dot = Ui.Image(chip.transform, Art.Circle, tint, "Pastille");
             Ui.Place(dot.rectTransform, 0.5f, 1, 0, -38, 64, 64);
             var ic = Ui.Icon(dot.transform, Art.IconSprite(icon), "Icone");
@@ -471,6 +479,8 @@ namespace Bascule.UI
         float _countPop, _bannerPop, _bannerTimer, _cardZoom, _shownScoreMine = -1, _shownScoreTheirs = -1, _punchMine, _punchTheirs;
         int _shownCount = -99;
         DuelController.Phase _shownPhase;
+        bool _timeUpShown;
+        float _timerPunch;
 
         protected override void Build()
         {
@@ -606,6 +616,8 @@ namespace Bascule.UI
             _shownPhase = (DuelController.Phase)(-1);
             _shownCount = -99;
             _shownScoreMine = _shownScoreTheirs = -1;
+            _timeUpShown = false;
+            _timerPunch = 0f;
             _cardZoom = 0f;
             _bannerTimer = 0f;
             _bannerRt.gameObject.SetActive(false);
@@ -644,9 +656,33 @@ namespace Bascule.UI
                 _shownPhase = phase;
             }
 
-            // Chrono et scores
+            // Chrono à rebours (3:00 -> 0:00) ; les 10 dernières secondes en rouge, qui battent et cliquettent.
             float time = d.Elapsed;
-            _timer.text = DuelUi.Clock(time);
+            if (d.HasTimeLimit)
+            {
+                float left = d.TimeLeft;
+                int sec = Mathf.CeilToInt(left);
+                string clock = DuelUi.Clock(sec);
+                if (_timer.text != clock)
+                {
+                    _timer.text = clock;
+                    bool playing = phase == DuelController.Phase.Playing && !d.IFell;
+                    if (playing && sec <= 10 && sec > 0) { _timerPunch = 1f; App.PlaySfx(Sfx.Click, 10 - sec, sec <= 5 ? 0.8f : 0.5f); }
+                }
+                bool hurry = left <= 10.5f && phase == DuelController.Phase.Playing;
+                _timer.color = hurry ? ArtCache.Hex("#FF4D57") : Color.white;
+                _timerPunch = Mathf.MoveTowards(_timerPunch, 0f, dt * 3f);
+                _timer.rectTransform.localScale = Vector3.one * (1f + 0.22f * _timerPunch);
+            }
+            else _timer.text = DuelUi.Clock(time);
+            // Temps écoulé : les deux parties s'arrêtent, le meilleur score gagne.
+            if (d.TimeUp && !_timeUpShown)
+            {
+                _timeUpShown = true;
+                ShowBanner(Loc.Get("duel_time_up"), Loc.Get("duel_time_up_sub"), ArtCache.Hex("#FF8A3D"), 99f);
+                App.PlaySfx(Sfx.Chime, 4);
+                App.HapticMedium();
+            }
             int mine = s.Score;
             if (mine != _shownScoreMine) { if (_shownScoreMine >= 0 && mine > _shownScoreMine) _punchMine = 1f; _shownScoreMine = mine; _myScore.text = Loc.FormatScore(mine); }
             int theirs = d.Opponent != null ? d.Opponent.Score : 0;
@@ -745,78 +781,157 @@ namespace Bascule.UI
 
     // ===================================================================== Résultat
 
+    /// <summary>
+    /// Fin du duel (1.4), dans le style de l'entrée du duel : le titre (Victoire / Défaite / Égalité) qui claque, des
+    /// rayons et des confettis pour une victoire, puis une carte VS aux coins arrondis : toi en bleu à gauche, l'ami en
+    /// rouge à droite, avec portrait, nom, score en grand et temps tenu. Le gagnant porte la couronne et flotte dans un
+    /// halo doré ; le perdant pâlit. Duel fini au temps (3 minutes, personne n'a lâché) : étiquette « Temps écoulé ».
+    /// Dessous : les pièces gagnées qui défilent, la progression vers la tête Challenger, Revanche, Accueil, Inviter.
+    /// </summary>
     public sealed class DuelResultScreen : UiScreen
     {
-        Text _title, _sub, _myName, _theirName, _myTime, _theirTime, _myScore, _theirScore, _coins, _wins;
-        Image _myFace, _theirFace, _rays, _challenger;
-        RectTransform _winsFill, _mine, _theirs;
+        const float CardTop = -430f, CardHeight = 560f, ColX = 250f, FaceY = -165f, CrownY = -50f;
+
+        sealed class Side
+        {
+            public RectTransform Col, Crown;
+            public Image Halo, Face, Disc;
+            public Text Name, Score, Time;
+        }
+
+        Text _title, _sub, _coins, _wins, _record, _timeTag;
+        Image _rays, _challenger, _coinPile;
+        RectTransform _winsFill, _tagRt, _confettiRoot, _coinRow;
+        Side _me, _them;
         Button _rematch;
         float _t;
+        int _coinsTarget, _coinsShown = -1;
+        bool _coinsDone;
+        readonly List<(RectTransform rt, Image img, Vector2 v, float spin, float age)> _confetti = new List<(RectTransform, Image, Vector2, float, float)>();
 
         protected override void Build()
         {
             _rays = Ui.Image(Safe, Art.Rays, new Color(1, 0.9f, 0.5f, 0.35f), "Rayons");
-            Ui.Place(_rays.rectTransform, 0.5f, 1, 0, -300, 1300, 1300);
+            Ui.Place(_rays.rectTransform, 0.5f, 1, 0, -260, 1400, 1400);
             _rays.gameObject.AddComponent<Spin>().Speed = 14f;
+            Ui.Isolate(_rays.gameObject);
             _title = Ui.Title(Safe, "", 130, Palette.Accent);
-            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -190, 1000, 180);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -190, 1000, 170);
             _title.horizontalOverflow = HorizontalWrapMode.Overflow;
-            _sub = Ui.Title(Safe, "", 48);
-            Ui.Place(_sub.rectTransform, 0.5f, 1, 0, -320, 960, 80);
+            _sub = Ui.Title(Safe, "", 46);
+            Ui.Place(_sub.rectTransform, 0.5f, 1, 0, -308, 980, 70);
 
-            _mine = Column(-250, Palette.Secondary, out _myFace, out _myName, out _myTime, out _myScore);
-            _theirs = Column(250, Palette.Primary, out _theirFace, out _theirName, out _theirTime, out _theirScore);
-            var vs = Ui.Title(Safe, "VS", 64, Palette.Accent);
-            Ui.Place(vs.rectTransform, 0.5f, 1, 0, -560, 160, 90);
+            // « Temps écoulé » : le duel s'est fini au temps, le meilleur score a gagné.
+            var tag = Ui.Image(Safe, Art.Pill, ArtCache.Hex("#FF8A3D"), "TempsEcoule", true);
+            _tagRt = tag.rectTransform;
+            Ui.Place(_tagRt, 0.5f, 1, 0, -380, 560, 64);
+            _timeTag = Ui.Title(tag.transform, "", 34, Color.white);
+            Ui.Stretch(_timeTag.rectTransform, 24, 2, 24, 0);
 
+            // ---- Carte VS : bleu à gauche, rouge à droite, rayons, découpés aux coins arrondis.
+            var card = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Duel", true);
+            Ui.Place(card.rectTransform, 0.5f, 1, 0, CardTop, 1000, CardHeight, 0.5f, 1);
+            var clip = DuelUi.Rounded(card.transform, Color.white, 52, "Decoupe");
+            Ui.Stretch(clip.rectTransform, 10, 10, 10, 10);
+            clip.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            var blue = Ui.Image(clip.transform, null, new Color(0.29f, 0.61f, 1f, 0.55f), "Bleu");
+            Ui.Place(blue.rectTransform, 0, 0.5f, -120, 0, 720, 1000, 0, 0.5f);
+            blue.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
+            var red = Ui.Image(clip.transform, null, new Color(1f, 0.35f, 0.37f, 0.55f), "Rouge");
+            Ui.Place(red.rectTransform, 1, 0.5f, 120, 0, 720, 1000, 1, 0.5f);
+            red.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
+            var cardRays = Ui.Image(clip.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.3f), "Rayons");
+            Ui.Place(cardRays.rectTransform, 0.5f, 1, 0, FaceY, 900, 900);
+            cardRays.gameObject.AddComponent<Spin>().Speed = -10f;
+            Ui.Isolate(cardRays.gameObject);
+
+            _me = Column(card.transform, -ColX, Palette.Secondary, ArtCache.Hex("#BFE0FF"));
+            _them = Column(card.transform, ColX, Palette.Primary, ArtCache.Hex("#FFC2C4"));
+            var vsGlow = Ui.Image(card.transform, Art.SoftDisc, new Color(1f, 0.8f, 0.3f, 0.55f), "Halo");
+            Ui.Place(vsGlow.rectTransform, 0.5f, 1, 0, FaceY, 260, 260);
+            var vs = Ui.Title(card.transform, "VS", 104, Palette.Accent, "VS");
+            Ui.Place(vs.rectTransform, 0.5f, 1, 0, FaceY, 220, 140);
+
+            // ---- Pièces gagnées : un tas de pièces et le gain qui défile.
             var coinRow = Ui.Glass(Safe, "Pieces");
-            Ui.Place(coinRow.rectTransform, 0.5f, 1, 0, -1010, 420, 120);
-            var coin = Ui.Icon(coinRow.transform, Art.IconSprite(Icon.Coin), "Piece");
-            coin.color = Palette.Accent;
-            Ui.Place(coin.rectTransform, 0.5f, 0.5f, -110, 0, 84, 84);
-            _coins = Ui.Title(coinRow.transform, "+0", 66, Color.white);
-            Ui.Place(_coins.rectTransform, 0.5f, 0.5f, 50, 0, 240, 100);
+            _coinRow = coinRow.rectTransform;
+            Ui.Place(_coinRow, 0.5f, 1, 0, CardTop - CardHeight - 92, 460, 124);
+            _coinPile = Ui.Icon(coinRow.transform, Art.CoinPile(3), "Tas");
+            Ui.Place(_coinPile.rectTransform, 0.5f, 0.5f, -120, 2, 120, 120);
+            _coins = Ui.Title(coinRow.transform, "+0", 70, Palette.Accent);
+            Ui.Place(_coins.rectTransform, 0.5f, 0.5f, 60, 0, 260, 100);
+            _coins.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-            var card = Ui.Glass(Safe, "Challenger");
-            Ui.Place(card.rectTransform, 0.5f, 1, 0, -1210, 900, 180);
-            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 140);
-            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 100, 0, 140, 140);
-            _wins = Ui.Title(card.transform, "", 44, Color.white, "Victoires");
-            Ui.Place(_wins.rectTransform, 0, 0.5f, 200, 30, 660, 60, 0, 0.5f);
+            // ---- Vers la tête Challenger (même bandeau que l'entrée du duel).
+            var ch = Ui.Glass(Safe, "Challenger");
+            Ui.Place(ch.rectTransform, 0.5f, 1, 0, CardTop - CardHeight - 184, 1000, 140, 0.5f, 1);
+            _challenger = DuelUi.Portrait(ch.transform, Palette.Primary, 116);
+            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 84, 0, 116, 116);
+            _wins = Ui.Title(ch.transform, "", 42, Color.white, "Victoires");
+            Ui.Place(_wins.rectTransform, 0, 0.5f, 170, 36, 790, 54, 0, 0.5f);
             _wins.alignment = TextAnchor.MiddleLeft;
-            var bar = Ui.Rect("Jauge", card.transform);
-            Ui.Place(bar, 0, 0.5f, 200, -34, 640, 38, 0, 0.5f);
+            var bar = Ui.Rect("Jauge", ch.transform);
+            Ui.Place(bar, 0, 0.5f, 170, -6, 780, 30, 0, 0.5f);
             _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
             Ui.Stretch((RectTransform)_winsFill.parent);
+            _record = Ui.Title(ch.transform, "", 32, ArtCache.Hex("#BFE0FF"), "Bilan");
+            Ui.Place(_record.rectTransform, 0, 0.5f, 170, -44, 790, 44, 0, 0.5f);
+            _record.alignment = TextAnchor.MiddleLeft;
 
             _rematch = Ui.Button(Safe, Loc.Get("duel_rematch"), Palette.Play, App.DuelRematch, Icon.Replay, 60, "Revanche");
             Ui.Place((RectTransform)_rematch.transform, 0.5f, 0, 0, 300, 860, 180, 0.5f, 0);
+            _rematch.gameObject.AddComponent<Pulse>().Amount = 0.02f;
             var home = Ui.Button(Safe, Loc.Get("home"), Palette.Muted, App.DuelHome, Icon.Home, 50, "Accueil");
             Ui.Place((RectTransform)home.transform, 0.5f, 0, -232, 120, 440, 140, 0.5f, 0);
             // Parrainage : défier un autre ami (code ami et lien du jeu), surtout après une victoire.
             var invite = Ui.Button(Safe, Loc.Get("duel_brag"), Palette.Purple, App.ShareDuelBrag, Icon.Share, 46, "Inviter");
             Ui.Place((RectTransform)invite.transform, 0.5f, 0, 232, 120, 440, 140, 0.5f, 0);
+
+            _confettiRoot = Ui.Stretch(Ui.Rect("Confettis", Safe));
+            Ui.Isolate(_confettiRoot.gameObject);
         }
 
-        RectTransform Column(float x, Color ring, out Image face, out Text name, out Text time, out Text score)
+        Side Column(Transform card, float x, Color ring, Color nameColor)
         {
-            var col = Ui.Rect("Joueur", Safe);
-            Ui.Place(col, 0.5f, 1, x, -640, 440, 360);
-            face = DuelUi.Portrait(col, ring, 190);
-            Ui.Place((RectTransform)face.transform.parent, 0.5f, 1, 0, -100, 190, 190);
-            name = Ui.Title(col, "", 44, Color.white, "Nom");
-            Ui.Place(name.rectTransform, 0.5f, 1, 0, -225, 420, 60);
-            time = Ui.Title(col, "", 52, Palette.Accent, "Temps");
-            Ui.Place(time.rectTransform, 0.5f, 1, 0, -290, 420, 70);
-            score = Ui.Title(col, "", 40, ArtCache.Hex("#BFE0FF"), "Score");
-            Ui.Place(score.rectTransform, 0.5f, 1, 0, -350, 420, 56);
-            return col;
+            var s = new Side();
+            s.Col = Ui.Rect("Joueur", card);
+            Ui.Place(s.Col, 0.5f, 1, x, 0, 440, CardHeight, 0.5f, 1);
+            s.Halo = Ui.Image(s.Col, Art.SoftDisc, new Color(1f, 0.82f, 0.3f, 0f), "Halo");
+            Ui.Place(s.Halo.rectTransform, 0.5f, 1, 0, FaceY, 360, 360);
+            s.Face = DuelUi.Portrait(s.Col, ring, 210, "Portrait");
+            s.Disc = s.Face.transform.parent.GetComponent<Image>();
+            Ui.Place((RectTransform)s.Face.transform.parent, 0.5f, 1, 0, FaceY, 210, 210);
+            // Couronne du gagnant, posée de travers sur le portrait.
+            var crown = Ui.Icon(s.Col, Art.IconSprite(Icon.Crown), "Couronne");
+            crown.color = Palette.Accent;
+            s.Crown = crown.rectTransform;
+            Ui.Place(s.Crown, 0.5f, 1, x < 0 ? -34 : 34, CrownY, 124, 124);
+            var crownOutline = crown.gameObject.AddComponent<Outline>();
+            crownOutline.effectColor = Palette.Outline; crownOutline.effectDistance = new Vector2(4, -4);
+            s.Name = Ui.Title(s.Col, "", 44, nameColor, "Nom");
+            Ui.Place(s.Name.rectTransform, 0.5f, 1, 0, -305, 420, 56);
+            s.Score = Ui.Title(s.Col, "", 84, Color.white, "Score");
+            Ui.Place(s.Score.rectTransform, 0.5f, 1, 0, -392, 420, 100);
+            s.Score.horizontalOverflow = HorizontalWrapMode.Overflow;
+            s.Time = Ui.Title(s.Col, "", 34, ArtCache.Hex("#D8E9FF"), "Temps");
+            Ui.Place(s.Time.rectTransform, 0.5f, 1, 0, -478, 420, 50);
+            return s;
         }
 
         public override void Show()
         {
-            base.Show();
             _t = 0f;
+            _coinsShown = -1;
+            _coinsDone = false;
+            ClearConfetti();
+            base.Show();
+            if (App.Duel.Outcome == DuelOutcome.Win && !App.Profile.settings.reducedMotion) Burst(70);
+        }
+
+        public override void Hide()
+        {
+            ClearConfetti();
+            base.Hide();
         }
 
         public override void Refresh()
@@ -826,20 +941,22 @@ namespace Bascule.UI
             _title.text = Loc.Get(o == DuelOutcome.Win ? "duel_win" : o == DuelOutcome.Lose ? "duel_lose" : "duel_draw");
             _title.color = o == DuelOutcome.Win ? Palette.Accent : o == DuelOutcome.Lose ? ArtCache.Hex("#BFE0FF") : Color.white;
             _rays.gameObject.SetActive(o != DuelOutcome.Lose);
+            // Fini au temps : personne n'a lâché pendant les 3 minutes, le meilleur score gagne.
+            bool byTime = !d.ByForfeit && (d.TimeUp || (!d.IFell && !d.TheyFell));
             string sub;
             if (d.ByForfeit) sub = o == DuelOutcome.Win ? Loc.Format("duel_forfeit_sub", d.TheirName) : Loc.Get("duel_gave_up_sub");
+            else if (byTime) sub = Loc.Format(o == DuelOutcome.Win ? "duel_time_win_sub" : o == DuelOutcome.Lose ? "duel_time_lose_sub" : "duel_time_draw_sub", d.TheirName);
             else sub = Loc.Format(o == DuelOutcome.Win ? "duel_win_sub" : o == DuelOutcome.Lose ? "duel_lose_sub" : "duel_draw_sub", d.TheirName);
             _sub.text = sub;
+            _tagRt.gameObject.SetActive(byTime);
+            if (byTime) _timeTag.text = Loc.Format("duel_time_tag", DuelUi.Clock(App.Tuning.duel.timeLimitSeconds));
 
-            _myFace.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
-            _theirFace.sprite = Art.Portrait(HeadCatalog.Get(d.Them != null ? d.Them.Head : 0));
-            _myName.text = Loc.Get("duel_you");
-            _theirName.text = d.TheirName;
-            _myTime.text = Loc.Format("duel_held", DuelUi.Clock(d.MySeconds));
-            _theirTime.text = Loc.Format("duel_held", DuelUi.Clock(d.TheirSeconds));
-            _myScore.text = Loc.FormatScore(d.MyScore);
-            _theirScore.text = Loc.FormatScore(d.TheirScore);
-            _coins.text = "+" + d.CoinsWon;
+            Fill(_me, HeadCatalog.Get(App.Profile.selectedHead), Loc.Get("duel_you"), d.MyScore, d.MySeconds, o == DuelOutcome.Win, o == DuelOutcome.Lose);
+            Fill(_them, HeadCatalog.Get(d.Them != null ? d.Them.Head : 0), d.TheirName, d.TheirScore, d.TheirSeconds, o == DuelOutcome.Lose, o == DuelOutcome.Win);
+
+            _coinsTarget = d.CoinsWon;
+            _coinPile.sprite = Art.CoinPile(d.CoinsWon);
+            if (_coinsShown < 0) _coins.text = "+0";
 
             var p = App.Profile;
             var head = DuelUi.ChallengerHead();
@@ -847,6 +964,8 @@ namespace Bascule.UI
             bool done = head != null && p.unlockedHeads.Contains(head.Id);
             if (head != null) _challenger.sprite = done ? Art.Portrait(head) : Art.Locked(head);
             _wins.text = done ? Loc.Get("duel_challenger_done") : Loc.Format("duel_challenger", Mathf.Min(p.duelWins, need), need);
+            _record.text = Loc.Format("duel_record", p.duelWins, p.duelsPlayed);
+            Canvas.ForceUpdateCanvases();
             MetaUi.SetFill(_winsFill, need > 0 ? p.duelWins / (float)need : 1f);
 
             var label = Ui.ButtonLabel(_rematch);
@@ -856,16 +975,103 @@ namespace Bascule.UI
             _rematch.interactable = !d.IWantRematch;
         }
 
+        void Fill(Side s, HeadDef head, string name, int score, float seconds, bool winner, bool loser)
+        {
+            s.Face.sprite = Art.Portrait(head);
+            // Le perdant pâlit un peu ; le gagnant a la couronne, le halo doré et son score en or.
+            s.Face.color = loser ? new Color(0.68f, 0.68f, 0.76f, 1f) : Color.white;
+            s.Disc.transform.localScale = Vector3.one * (loser ? 0.9f : 1f);
+            s.Crown.gameObject.SetActive(winner);
+            s.Halo.gameObject.SetActive(winner);
+            s.Name.text = name;
+            s.Score.text = Loc.FormatScore(score);
+            s.Score.color = winner ? Palette.Accent : loser ? ArtCache.Hex("#D8E9FF") : Color.white;
+            s.Time.text = Loc.Format("duel_held", DuelUi.Clock(seconds));
+        }
+
         public override void Tick(float dt)
         {
             _t += dt;
-            // Le gagnant se soulève un peu, le perdant s'efface légèrement.
             var o = App.Duel.Outcome;
-            float bob = Mathf.Sin(_t * 3f) * 8f;
-            _mine.anchoredPosition = new Vector2(_mine.anchoredPosition.x, -640 + (o == DuelOutcome.Win ? 20f + bob : 0f));
-            _theirs.anchoredPosition = new Vector2(_theirs.anchoredPosition.x, -640 + (o == DuelOutcome.Lose ? 20f + bob : 0f));
+            bool reduced = App.Profile.settings.reducedMotion;
+            // Le titre claque, le gagnant flotte dans son halo, sa couronne se balance.
             float pop = Mathf.Clamp01(_t / 0.35f);
-            _title.rectTransform.localScale = Vector3.one * (1f + 0.4f * (1f - pop) * (1f - pop));
+            _title.rectTransform.localScale = Vector3.one * (reduced ? 1f : 1f + 0.4f * (1f - pop) * (1f - pop));
+            Animate(_me, o == DuelOutcome.Win, reduced, 0f);
+            Animate(_them, o == DuelOutcome.Lose, reduced, 1.3f);
+
+            // Pièces : le gain défile, puis un petit tintement.
+            float k = Mathf.Clamp01((_t - 0.45f) / 0.9f);
+            int shown = Mathf.RoundToInt(_coinsTarget * (1f - (1f - k) * (1f - k)));
+            if (shown != _coinsShown) { _coinsShown = shown; _coins.text = "+" + shown; }
+            float punch = !_coinsDone ? 0f : Mathf.Clamp01(1f - (_t - 1.35f) / 0.3f);
+            if (!_coinsDone && k >= 1f)
+            {
+                _coinsDone = true;
+                if (_coinsTarget > 0) App.PlaySfx(Sfx.Chime, 6, 0.6f);
+            }
+            _coinRow.localScale = Vector3.one * (1f + 0.08f * punch);
+            TickConfetti(dt);
+        }
+
+        void Animate(Side s, bool winner, bool reduced, float phase)
+        {
+            float bob = winner && !reduced ? 10f + Mathf.Sin(_t * 3f + phase) * 8f : 0f;
+            s.Col.anchoredPosition = new Vector2(s.Col.anchoredPosition.x, bob);
+            if (!winner) return;
+            float glow = reduced ? 0.5f : 0.42f + 0.16f * Mathf.Sin(_t * 4f);
+            s.Halo.color = new Color(1f, 0.82f, 0.3f, glow);
+            // La couronne tombe sur la tête au début, puis se balance.
+            float drop = reduced ? 1f : Mathf.Clamp01((_t - 0.3f) / 0.35f);
+            float tilt = s.Col.anchoredPosition.x < 0 ? 14f : -14f;
+            float sx = s.Crown.anchoredPosition.x;
+            s.Crown.anchoredPosition = new Vector2(sx, CrownY + (1f - drop) * (1f - drop) * 260f);
+            s.Crown.localEulerAngles = new Vector3(0, 0, tilt + (reduced ? 0f : Mathf.Sin(_t * 2.2f) * 5f));
+            s.Crown.localScale = Vector3.one * (drop < 1f ? 1f : 1f + 0.05f * Mathf.Sin(_t * 5f));
+        }
+
+        // ------------------------------------------------------------------ Confettis (victoire)
+
+        static readonly Color[] Party =
+        {
+            new Color(1f, 0.79f, 0.24f), new Color(1f, 0.36f, 0.4f), new Color(0.29f, 0.61f, 1f), new Color(0.36f, 0.82f, 0.43f), new Color(0.66f, 0.42f, 1f),
+        };
+
+        void Burst(int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var img = Ui.Image(_confettiRoot, Art.Pixel, Party[UnityEngine.Random.Range(0, Party.Length)], "Confetti");
+                var rt = img.rectTransform;
+                Ui.Place(rt, 0.5f, 1, UnityEngine.Random.Range(-160f, 160f), -190f, UnityEngine.Random.Range(14f, 26f), UnityEngine.Random.Range(8f, 14f));
+                float a = UnityEngine.Random.Range(0.1f, 0.9f) * Mathf.PI;
+                float sp = UnityEngine.Random.Range(0.45f, 1f) * 1700f;
+                _confetti.Add((rt, img, new Vector2(Mathf.Cos(a) * sp, Mathf.Sin(a) * sp), UnityEngine.Random.Range(-720f, 720f), 0f));
+            }
+        }
+
+        void TickConfetti(float dt)
+        {
+            for (int i = _confetti.Count - 1; i >= 0; i--)
+            {
+                var c = _confetti[i];
+                c.age += dt;
+                if (c.rt == null) { _confetti.RemoveAt(i); continue; }
+                c.v.y -= 2000f * dt;
+                c.v *= 1f - 0.9f * dt;
+                c.rt.anchoredPosition += c.v * dt;
+                c.rt.localEulerAngles = new Vector3(0, 0, c.rt.localEulerAngles.z + c.spin * dt);
+                c.rt.localScale = new Vector3(1f, Mathf.Abs(Mathf.Cos(c.age * 9f + i)), 1f);
+                if (c.age > 2.2f) { var col = c.img.color; col.a = Mathf.Clamp01(1f - (c.age - 2.2f) / 0.4f); c.img.color = col; }
+                if (c.age > 2.6f) { UnityEngine.Object.Destroy(c.rt.gameObject); _confetti.RemoveAt(i); continue; }
+                _confetti[i] = c;
+            }
+        }
+
+        void ClearConfetti()
+        {
+            foreach (var c in _confetti) if (c.rt != null) UnityEngine.Object.Destroy(c.rt.gameObject);
+            _confetti.Clear();
         }
     }
 }

@@ -13,8 +13,8 @@ namespace Bascule.Core
     // - chacun joue sa partie sur son téléphone (aucun décalage réseau dans sa propre physique) ;
     // - chacun envoie 15 fois par seconde une photo de sa partie (planche, poids, score) : l'autre la voit en direct ;
     // - le premier qui lâche perd. L'autre a encore quelques secondes pour poser un dernier poids, puis c'est fini ;
-    // - la pression monte avec le temps (planche plus sensible, rafales plus fortes) : un duel dure 1 à 3 minutes,
-    //   plus longtemps seulement si les deux sont très forts.
+    // - la pression monte avec le temps (planche plus sensible, rafales plus fortes) ;
+    // - un duel dure au plus 3 minutes (timeLimitSeconds) : si personne n'a lâché, le meilleur score gagne.
     // =====================================================================================================
 
     /// <summary>Réglages du duel (section « duel » de bascule_tuning.json).</summary>
@@ -41,6 +41,8 @@ namespace Bascule.Core
         public float finalWindowSeconds = 3f;
         /// <summary>Deux chutes à moins de cet écart (s) sont simultanées : le meilleur score gagne.</summary>
         public float tieWindowSeconds = 0.3f;
+        /// <summary>Durée maximale d'un duel (s, depuis « Partez ! ») : si personne n'a lâché, le meilleur score gagne. 0 = sans limite.</summary>
+        public float timeLimitSeconds = 180f;
         /// <summary>Pièces : gagnant, perdant, égalité.</summary>
         public int coinsWin = 60;
         public int coinsLose = 25;
@@ -107,6 +109,13 @@ namespace Bascule.Core
                 return myScore > theirScore ? DuelOutcome.Win : myScore < theirScore ? DuelOutcome.Lose : DuelOutcome.Draw;
             return myFall.Value > theirFall.Value ? DuelOutcome.Win : DuelOutcome.Lose;
         }
+
+        /// <summary>Temps restant avant la fin du duel (s) ; infini s'il n'y a pas de limite.</summary>
+        public static float TimeLeft(float elapsed, DuelTuning t) =>
+            t.timeLimitSeconds > 0f ? Math.Max(0f, t.timeLimitSeconds - elapsed) : float.PositiveInfinity;
+
+        /// <summary>Le temps du duel est écoulé.</summary>
+        public static bool TimeUp(float elapsed, DuelTuning t) => t.timeLimitSeconds > 0f && elapsed >= t.timeLimitSeconds;
 
         public static int Coins(DuelOutcome o, DuelTuning t) => o == DuelOutcome.Win ? t.coinsWin : o == DuelOutcome.Lose ? t.coinsLose : t.coinsDraw;
 

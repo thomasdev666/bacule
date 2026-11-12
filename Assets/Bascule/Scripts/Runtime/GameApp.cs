@@ -1474,6 +1474,8 @@ namespace Bascule
         public void TapLockedHead(HeadDef h)
         {
             if (h.Unlock == UnlockKind.Premium) { ShowShop("collection"); return; }
+            // Tête de partenaire : on propose tout de suite d'entrer le code.
+            if (h.Unlock == UnlockKind.Code) { AskPromoCode(); return; }
             if (h.Unlock != UnlockKind.Shop) { _toast.Say(Loc.UnlockText(h)); return; }
             if (Profile.coins < h.UnlockValue)
             {

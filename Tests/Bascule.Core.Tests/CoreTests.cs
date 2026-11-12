@@ -490,6 +490,28 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void DuelEndsAfterThreeMinutesAndBestScoreWins()
+        {
+            var t = new DuelTuning();
+            Assert.AreEqual(180f, t.timeLimitSeconds, "un duel dure au plus 3 minutes");
+            Assert.AreEqual(180f, DuelRules.TimeLeft(0f, t));
+            Assert.AreEqual(60f, DuelRules.TimeLeft(120f, t), 1e-4);
+            Assert.AreEqual(0f, DuelRules.TimeLeft(200f, t));
+            Assert.IsFalse(DuelRules.TimeUp(179.9f, t));
+            Assert.IsTrue(DuelRules.TimeUp(180f, t));
+            // Temps écoulé, personne n'a lâché : le meilleur score gagne, égalité si les scores sont égaux.
+            Assert.AreEqual(DuelOutcome.Win, DuelRules.Decide(null, null, 1200, 900, t));
+            Assert.AreEqual(DuelOutcome.Lose, DuelRules.Decide(null, null, 900, 1200, t));
+            Assert.AreEqual(DuelOutcome.Draw, DuelRules.Decide(null, null, 1000, 1000, t));
+            // Lâcher juste avant la fin fait perdre, même avec un meilleur score.
+            Assert.AreEqual(DuelOutcome.Lose, DuelRules.Decide(179.5f, null, 5000, 900, t));
+            // Sans limite (0) : le duel ne finit jamais au temps.
+            var free = new DuelTuning { timeLimitSeconds = 0f };
+            Assert.IsFalse(DuelRules.TimeUp(10000f, free));
+            Assert.IsTrue(float.IsPositiveInfinity(DuelRules.TimeLeft(10f, free)));
+        }
+
+        [Test]
         public void RecordingADuelGivesCoinsAndCountsWins()
         {
             var t = new DuelTuning();

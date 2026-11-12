@@ -41,5 +41,5 @@ Toutes ces décisions se changent sans recoder : dans `bascule_tuning.json` ou, 
 - **Le 128 ne tombe jamais du ciel** : il se fabrique (les tirages vont jusqu'au 16).
 - **Duel dès la v1, sans serveur** : la carte de score affiche un code défi (la graine de la partie, par exemple `K7QM-3XTA`). Un ami le saisit dans « J'ai un code défi » et joue la même suite de poids. Un lien profond qui ouvre directement l'appli pourra venir en v1.5.
 - **Seconde chance** : on revient à l'instant de la chute, la planche est remise à plat et les poids les plus déséquilibrants du côté lourd sont retirés. Une seule fois par partie. L'enregistrement (record, têtes, classement) attend que le joueur ait choisi de revivre ou non.
-- **Classement « amis »** : non inclus en v1 (il faut un système d'amis). Le classement propose Monde, Jour et Mes scores.
+- **Classement « amis »** : non inclus en v1 (il faut un système d'amis). Le classement propose Monde, Jour et Mes scores (1.4 : Monde, Jour et Amis ; « Mes scores » retiré).
 - **Visuels et sons générés par le code** : aucun fichier image ni audio à gérer pendant le prototypage. Plus tard, on pourra remplacer une forme par un sprite dessiné par un graphiste sans toucher à la logique.
