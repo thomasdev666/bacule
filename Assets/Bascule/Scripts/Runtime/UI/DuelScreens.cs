@@ -284,9 +284,9 @@ namespace Bascule.UI
             Ui.Place((RectTransform)invite.transform, 0.5f, 1, 0, -1165, 900, 170);
             invite.gameObject.AddComponent<Pulse>().Amount = 0.025f;
             var copy = Ui.Button(_hosting, Loc.Get("duel_copy"), Palette.Secondary, App.DuelCopyCode, Icon.Check, 44, "Copier");
-            Ui.Place((RectTransform)copy.transform, 0.5f, 1, -228, -1340, 444, 140);
+            Ui.Place((RectTransform)copy.transform, 0.5f, 1, -228, -1340, 430, 140);
             var friends = Ui.Button(_hosting, Loc.Get("duel_friends"), Palette.Purple, App.OpenFriendPicker, Icon.Face, 44, "Amis");
-            Ui.Place((RectTransform)friends.transform, 0.5f, 1, 228, -1340, 444, 140);
+            Ui.Place((RectTransform)friends.transform, 0.5f, 1, 228, -1340, 430, 140);
 
             // Ami invité : son nom dans une pastille ; sinon, l'astuce.
             var tag = Ui.Image(_hosting, Art.Pill, Palette.Purple, "Invite", true);
@@ -443,10 +443,10 @@ namespace Bascule.UI
             var sub = Ui.Label(card.transform, Loc.Get("duel_inv_sub"), 38, ArtCache.Hex("#D8E9FF"));
             Ui.Place(sub.rectTransform, 0.5f, 1, 0, -700, 880, 110);
             var yes = Ui.Button(card.transform, Loc.Get("duel_inv_accept"), Palette.Play, () => { Hide(); var a = _accept; _accept = null; a?.Invoke(); }, Icon.Swords, 62, "Accepter");
-            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 220, 800, 170);
+            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 244, 800, 170);
             yes.gameObject.AddComponent<Pulse>().Amount = 0.03f;
             var no = Ui.Button(card.transform, Loc.Get("duel_inv_later"), Palette.Muted, () => { Hide(); _accept = null; }, null, 46, "PlusTard");
-            Ui.Place((RectTransform)no.transform, 0.5f, 0, 0, 70, 520, 120);
+            Ui.Place((RectTransform)no.transform, 0.5f, 0, 0, 72, 520, 120);
         }
 
         public void Open(string name, int head, System.Action accept)

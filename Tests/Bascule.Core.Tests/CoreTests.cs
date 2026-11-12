@@ -2122,19 +2122,35 @@ namespace Bascule.Core.Tests
             double now = 1_000_000;
             p.gamesPlayed = t.firstInterstitialAfterGames - 1;
             for (int i = 0; i < 5; i++) AdPolicy.OnRunEnded(s);
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now, day), "pas avant que le joueur ait accroché");
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now, day, 10), "pas avant que le joueur ait accroché");
             p.gamesPlayed = t.firstInterstitialAfterGames;
-            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now, day));
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, true, 60, now, day), "pas après un record");
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 10, now, day), "pas après une partie éclair");
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now, day, 10));
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, true, 60, now, day, 10), "pas après un record");
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 10, now, day, 10), "pas après une partie éclair");
             AdPolicy.OnInterstitialShown(s, now, day);
             for (int i = 0; i < t.interstitialEveryGames; i++) AdPolicy.OnRunEnded(s);
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 60, day), "pas deux en 3 minutes");
-            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + t.minSecondsBetweenInterstitials + 1, day));
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 60, day, 10), "pas deux en 3 minutes");
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + t.minSecondsBetweenInterstitials + 1, day, 10));
             AdPolicy.OnRewardedWatched(s, now + 200, day);
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 210, day), "pas juste après une vidéo choisie");
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 210, day, 10), "pas juste après une vidéo choisie");
             p.adsRemoved = true;
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 10_000, day));
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, now + 10_000, day, 10));
+        }
+
+        [Test]
+        public void NoInterstitialDuringFirstFourGamesOfEachLaunch()
+        {
+            var t = new AdTuning();
+            Assert.AreEqual(4, t.sessionGraceGames, "4 parties sans pub imposée à chaque lancement");
+            Assert.AreEqual(4, t.interstitialEveryGames, "puis au plus une pub toutes les 4 parties");
+            var s = new AdState();
+            var p = NewProfile();
+            p.gamesPlayed = 500; // joueur de longue date : le compteur gardé dans la sauvegarde est déjà plein
+            for (int i = 0; i < 20; i++) AdPolicy.OnRunEnded(s);
+            const string day = "2026-11-12";
+            for (int game = 1; game < t.sessionGraceGames; game++)
+                Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, game), $"pas de pub après la partie {game} du lancement");
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, t.sessionGraceGames));
         }
 
         [Test]
@@ -2146,8 +2162,8 @@ namespace Bascule.Core.Tests
             AdPolicy.OnRunEnded(s);
             AdPolicy.OnInterstitialShown(s, 0, "2026-11-03");
             AdPolicy.OnRunEnded(s);
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1000, "2026-11-03"));
-            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1000, "2026-11-04"));
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1000, "2026-11-03", 10));
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1000, "2026-11-04", 10));
         }
 
         [Test]

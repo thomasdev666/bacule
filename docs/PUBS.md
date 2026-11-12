@@ -6,7 +6,7 @@ Objectif : chaque pub rapporte plus (eCPM), sans ajouter une seule pub imposée.
 2. **Pubs personnalisées** (1.4) : avec l'accord du joueur (15 ans ou plus), puis la demande de suivi d'iPhone. Elles se paient souvent 2 à 3 fois plus cher.
 3. **Plus de pubs choisies**, toujours au choix du joueur (1.4) : coffre gratuit, doubler le coffre, tête et planche exclusives. Les vidéos récompensées sont les mieux payées.
 
-Les règles des pubs imposées ne changent pas (`AdPolicy`) : pas avant la 6e partie, au plus une toutes les 3 parties et 3 minutes, jamais après un record.
+Règles des pubs imposées (`AdPolicy`, section `ads` de `bascule_tuning.json`) : pas avant la 6e partie ; **jamais pendant les 4 premières parties de chaque lancement du jeu** (1.4 : un joueur de longue date ne voit plus de pub dès sa première partie) ; ensuite au plus une toutes les 4 parties et 3 minutes ; jamais après un record, une nouvelle tête, une vidéo choisie ou une partie de moins de 25 s. Un retour dans le jeu après plus de 30 min en arrière-plan compte comme un nouveau lancement.
 
 ## Ce que le code fait déjà (1.4)
 
@@ -66,6 +66,33 @@ Réglages du jeu : touche 7 fois la ligne de version pour voir l'état de la ré
   - Identifiant publicitaire : **Oui**, pour la publicité.
   - Section sécurité des données : identifiants de l'appareil, données de pub. Partagées avec des régies, pour la publicité, après consentement.
 - **Politique de confidentialité** (`docs/site/bascule/confidentialite.html`) : déjà mise à jour (âge, consentement, réseaux). À remettre en ligne.
+
+## Des pubs imposées courtes
+
+Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. On la règle dans le tableau de bord de chaque réseau, sur le bloc **interstitiel** seulement (les vidéos récompensées sont choisies par le joueur, elles peuvent rester longues) :
+
+- **Google AdMob** : dans le bloc interstitiel, garder seulement les pubs « display » (texte, image, rich media) et décocher la vidéo, si tu veux des pubs imposées vraiment courtes (elles se paient un peu moins).
+- **Unity Ads, Liftoff, Mintegral, Pangle et les autres** : sur le placement interstitiel, choisir une pub **passable** (bouton « Passer » ou croix après 5 s) quand le réseau le propose.
+
+## Tous les liens pour brancher les réseaux
+
+Dans LevelPlay : **Setup → SDK Networks**, choisir le réseau, entrer ses identifiants, puis ses blocs (interstitiel et récompensé) pour iPhone et pour Android. Guide général : https://docs.unity.com/grow/levelplay/platform/get-started/networks
+
+| Réseau | Créer le compte | Guide LevelPlay (identifiants à copier) |
+|---|---|---|
+| Unity Ads | https://cloud.unity.com | https://docs.unity.com/en-us/grow/levelplay/sdk/unity/networks/guides/unity-ads |
+| Google AdMob | https://admob.google.com | https://docs.unity.com/en-us/grow/levelplay/sdk/unity/networks/guides/google-admob |
+| Meta Audience Network | https://business.facebook.com | https://docs.unity.com/en-us/grow/levelplay/sdk/unity/networks/guides/meta-audience-network |
+| AppLovin | https://dash.applovin.com | https://docs.unity.com/en-us/grow/levelplay/sdk/react/networks/guides/applovin |
+| Mintegral | https://www.mintegral.com | https://docs.unity.com/en-us/grow/levelplay/sdk/android/networks/guides/mintegral |
+| Liftoff Monetize (Vungle) | https://publisher.vungle.com | https://docs.unity.com/grow/levelplay/sdk/unity/networks/guides/liftoff-monetize |
+| Pangle | https://www.pangleglobal.com | https://docs.unity.com/en-us/grow/levelplay/sdk/unity/networks/guides/pangle |
+| Moloco | https://www.moloco.com | https://docs.unity.com/en-us/grow/levelplay/sdk/android/networks/guides/moloco |
+| DT Exchange (Digital Turbine) | https://console.fyber.com | https://docs.unity.com/en-us/grow/levelplay/sdk/unity/networks/guides/dt-exchange |
+| Chartboost | https://dashboard.chartboost.com | https://docs.unity.com/en-us/grow/levelplay/sdk/android/networks/guides/chartboost |
+| InMobi | https://publisher.inmobi.com | dans la liste « Mediated networks » de la doc LevelPlay |
+
+Unity Ads, Mintegral, Liftoff et l'enchère Google ont une **configuration automatique** dans LevelPlay (ils créent l'app et les blocs pour toi) : commence par eux. Chartboost et DT Exchange n'acceptent plus que des blocs en enchères (« bidding ») : ne crée pas de blocs à prix fixe. Liste complète des réseaux et des versions d'adaptateurs : https://docs.unity.com/en-us/grow/levelplay/sdk/unity/mediation-networks
 
 ## Pour gagner encore plus (tableau de bord LevelPlay)
 

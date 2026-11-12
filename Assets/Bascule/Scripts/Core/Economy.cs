@@ -43,7 +43,12 @@ namespace Bascule.Core
     public class AdTuning
     {
         public int firstInterstitialAfterGames = 6;
-        public int interstitialEveryGames = 3;
+        /// <summary>
+        /// Pas de pub imposée pendant les N premières parties de chaque lancement du jeu (1.4) : on ne gâche pas le
+        /// début d'une session, même pour un joueur de longue date. Puis au plus une toutes les interstitialEveryGames parties.
+        /// </summary>
+        public int sessionGraceGames = 4;
+        public int interstitialEveryGames = 4;
         public float minSecondsBetweenInterstitials = 180f;
         public float minSecondsAfterRewarded = 120f;
         /// <summary>Pas de pub imposée après une partie de moins de N secondes (la frustration s'ajouterait à la pub).</summary>
@@ -553,12 +558,14 @@ namespace Bascule.Core
         /// <summary>
         /// Faut-il montrer une pub imposée maintenant (au moment où le joueur quitte l'écran de fin) ?
         /// celebration = record battu ou tête gagnée : on laisse le joueur savourer.
+        /// gamesThisSession = parties finies depuis le lancement du jeu (celle-ci comprise).
         /// </summary>
-        public static bool ShouldShowInterstitial(AdTuning t, AdState s, Profile p, bool celebration, float runSeconds, double now, string today)
+        public static bool ShouldShowInterstitial(AdTuning t, AdState s, Profile p, bool celebration, float runSeconds, double now, string today, int gamesThisSession)
         {
             Roll(s, today);
             if (p.adsRemoved) return false;
             if (p.gamesPlayed < t.firstInterstitialAfterGames) return false;
+            if (gamesThisSession < t.sessionGraceGames) return false;
             if (s.gamesSinceInterstitial < t.interstitialEveryGames) return false;
             if (now - s.lastInterstitial < t.minSecondsBetweenInterstitials) return false;
             if (now - s.lastRewarded < t.minSecondsAfterRewarded) return false;

@@ -85,9 +85,10 @@
     "missionXp": 40
   },
   "ads": {
-    "_aide": "Pub imposée (interstitiel) : seulement entre deux parties, jamais avant la partie numéro firstInterstitialAfterGames, au plus une toutes les interstitialEveryGames parties ET minSecondsBetweenInterstitials secondes, jamais moins de minSecondsAfterRewarded secondes après une vidéo choisie, jamais après un record ou une partie de moins de minRunSecondsForInterstitial secondes. Simulation de 1000 joueurs (docs/RAPPORT.md) : « toutes les 3 parties et 3 minutes » est le meilleur compromis rétention / revenus.",
+    "_aide": "Pub imposée (interstitiel) : seulement entre deux parties, jamais avant la partie numéro firstInterstitialAfterGames, jamais pendant les sessionGraceGames premières parties de chaque lancement du jeu, au plus une toutes les interstitialEveryGames parties ET minSecondsBetweenInterstitials secondes, jamais moins de minSecondsAfterRewarded secondes après une vidéo choisie, jamais après un record ou une partie de moins de minRunSecondsForInterstitial secondes. 1.4 : « 4 parties, puis une pub » à chaque lancement (retour de test : des pubs dès la première partie gâchaient le début).",
     "firstInterstitialAfterGames": 6,
-    "interstitialEveryGames": 3,
+    "sessionGraceGames": 4,
+    "interstitialEveryGames": 4,
     "minSecondsBetweenInterstitials": 180,
     "minSecondsAfterRewarded": 120,
     "minRunSecondsForInterstitial": 25,

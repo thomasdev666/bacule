@@ -144,7 +144,7 @@ namespace Bascule.UI
             _bestIcon = bestRt.GetChild(0).gameObject;
 
             _resume = Ui.Button(Safe, Loc.Get("resume"), Palette.Success, App.ResumeSavedRun, Icon.Replay, 50, "Reprendre");
-            Ui.Place((RectTransform)_resume.transform, 0.5f, 1, 0, -586, 640, 110);
+            Ui.Place((RectTransform)_resume.transform, 0.5f, 1, 0, -574, 640, 110);
 
             var play = Ui.Button(Safe, Loc.Get("play"), Palette.Play, () => App.Play(GameMode.Infinite), Icon.Play, 100, "Jouer");
             Ui.Place((RectTransform)play.transform, 0.5f, 1, 0, -748, 760, 200);
@@ -163,7 +163,7 @@ namespace Bascule.UI
             _special.raycastTarget = false;
 
             _daily = Ui.Button(Safe, Loc.Get("daily"), Palette.Secondary, App.ShowDailyIntro, Icon.Calendar, 54, "Defi");
-            Ui.Place((RectTransform)_daily.transform, 0.5f, 1, 0, -920, 700, 130);
+            Ui.Place((RectTransform)_daily.transform, 0.5f, 1, 0, -932, 700, 130); // ~20 px d'écart avec Jouer (et Jouer avec Reprendre)
 
             // Rendez-vous de l'accueil, sur les côtés sous la planche de Basile (ancrés en bas : ils ne touchent ni la
             // planche ni les boutons, quelle que soit la hauteur de l'écran). Roue à gauche ; quête du débutant à droite
@@ -975,13 +975,13 @@ namespace Bascule.UI
             Ui.Place((RectTransform)_revive.transform, 0.5f, 0, 0, 610, 780, 160);
             _revive.gameObject.AddComponent<Pulse>().Amount = 0.03f;
             var replay = Ui.Button(Safe, Loc.Get("replay"), Palette.Primary, App.Replay, Icon.Replay, 64, "Rejouer");
-            Ui.Place((RectTransform)replay.transform, 0.5f, 0, 0, 430, 780, 170);
+            Ui.Place((RectTransform)replay.transform, 0.5f, 0, 0, 424, 780, 170);
             var share = Ui.Button(Safe, Loc.Get("share"), Palette.Secondary, App.ShareScore, Icon.Share, 50, "Partager");
-            Ui.Place((RectTransform)share.transform, 0.5f, 0, -200, 260, 380, 140);
+            Ui.Place((RectTransform)share.transform, 0.5f, 0, -200, 246, 380, 140);
             _sharePulse = share.gameObject.AddComponent<Pulse>();
             _sharePulse.Amount = 0.05f;
             var home = Ui.Button(Safe, Loc.Get("home"), Palette.Dark, App.GoHome, Icon.Home, 50, "Accueil");
-            Ui.Place((RectTransform)home.transform, 0.5f, 0, 200, 260, 380, 140);
+            Ui.Place((RectTransform)home.transform, 0.5f, 0, 200, 246, 380, 140);
         }
 
         public void Present(RunResult r, RunRewards rewards, EconomyGain gain, bool canRevive, bool reviveFree, Texture card)
@@ -1659,17 +1659,17 @@ namespace Bascule.UI
             var me = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#FFE9A8"), "MaPlace", true);
             _meBar = me.rectTransform;
             Ui.Place(_meBar, 0.5f, 0, 0, 265, 1008, 136);
-            var meTag = Ui.Label(me.transform, Loc.Get("lb_your_place"), 30, Palette.Muted);
-            Ui.Place(meTag.rectTransform, 0, 1, 34, -8, 200, 36, 0, 1);
-            meTag.alignment = TextAnchor.UpperLeft;
-            _meRank = Ui.Title(me.transform, "", 56, Palette.Primary);
-            Ui.Place(_meRank.rectTransform, 0, 0.5f, 30, -24, 190, 66, 0, 0.5f);
-            _meRank.alignment = TextAnchor.MiddleLeft;
-            _meRank.horizontalOverflow = HorizontalWrapMode.Overflow;
+            // Le rang dans une pastille rouge à gauche, centrée dans le bloc ; « Ta place » au-dessus du pseudo.
+            var rankPill = Ui.Image(me.transform, Art.Pill, Palette.Primary, "Rang", true);
+            Ui.Place(rankPill.rectTransform, 0, 0.5f, 22, 0, 160, 92, 0, 0.5f);
+            _meRank = Ui.Title(rankPill.transform, "", 50, Color.white);
+            Ui.Stretch(_meRank.rectTransform, 12, 2, 12, 0);
             _meFace = Ui.Icon(me.transform, null, "Tete");
-            Ui.Place(_meFace.rectTransform, 0, 0.5f, 220, 0, 116, 116, 0, 0.5f);
+            Ui.Place(_meFace.rectTransform, 0, 0.5f, 196, 0, 106, 106, 0, 0.5f);
+            var meTag = Ui.Plain(Ui.Label(me.transform, Loc.Get("lb_your_place"), 30, Palette.Muted, TextAnchor.MiddleLeft));
+            Ui.Place(meTag.rectTransform, 0, 1, 316, -12, 380, 36, 0, 1);
             _meName = Ui.Plain(Ui.Label(me.transform, "", 46, Palette.Ink, TextAnchor.MiddleLeft));
-            Ui.Place(_meName.rectTransform, 0, 0.5f, 350, 0, 380, 90, 0, 0.5f);
+            Ui.Place(_meName.rectTransform, 0, 0.5f, 316, -16, 390, 70, 0, 0.5f);
             _meScore = Ui.Plain(Ui.Label(me.transform, "", 52, Palette.Ink, TextAnchor.MiddleRight));
             Ui.Place(_meScore.rectTransform, 1, 0.5f, -34, 0, 260, 90, 1, 0.5f);
 
@@ -1980,7 +1980,8 @@ namespace Bascule.UI
             Ui.Stretch(area, 44, 240, 44, 20);
             _col = Ui.Scroll(area, out _);
             Ui.Column(_col, 14);
-            _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(0, 0, 4, 40);
+            // Un peu d'air de chaque côté : le contour des titres de section alignés à gauche n'est plus coupé.
+            _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(12, 12, 4, 40);
         }
 
         public override void Refresh()

@@ -48,7 +48,7 @@ Sans NativeShare, le bouton copie le texte dans le presse-papiers et enregistre 
 Le jeu affiche deux sortes de pubs, toujours **non personnalisées** et **jamais pendant une partie** :
 
 - **Récompensées**, au choix du joueur : revivre, doubler les pièces d'une partie, doubler le cadeau du jour, pièces gratuites (5 par jour), changer une mission. Plafond : 20 par jour.
-- **Imposées (interstitiels)**, seulement quand on quitte l'écran de fin, et seulement si `Core/Economy.cs → AdPolicy` l'autorise : pas avant la 6e partie, au plus une toutes les 3 parties **et** toutes les 3 minutes, pas juste après une vidéo choisie, pas après un record ou une nouvelle tête, pas après une partie de moins de 25 s, 12 par jour au maximum. Tout se règle dans la section `ads` de `bascule_tuning.json`.
+- **Imposées (interstitiels)**, seulement quand on quitte l'écran de fin, et seulement si `Core/Economy.cs → AdPolicy` l'autorise : pas avant la 6e partie, jamais pendant les 4 premières parties de chaque lancement du jeu (un retour après plus de 30 min en arrière-plan compte comme un lancement), au plus une toutes les 4 parties **et** toutes les 3 minutes, pas juste après une vidéo choisie, pas après un record ou une nouvelle tête, pas après une partie de moins de 25 s, 12 par jour au maximum. Tout se règle dans la section `ads` de `bascule_tuning.json`.
 
 Sans régie branchée, `SimulatedAdService` affiche une fausse pub pour tester tout le parcours.
 

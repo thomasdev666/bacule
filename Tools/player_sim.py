@@ -75,7 +75,8 @@ DESIGNS = {
     "apres": {
         "score_heads": NEW_SCORE, "level_heads": NEW_LEVEL, "levels": True, "coins": True, "missions": True,
         "gift": True, "notifications": True,
-        "interstitial": {"first_after_games": 6, "every_games": 3, "min_seconds": 180, "after_rewarded": 120, "skip_on_best": True},
+        # 1.4 : jamais pendant les 4 premières parties de chaque session, puis au plus une toutes les 4 parties (Core/Economy.cs AdTuning).
+        "interstitial": {"first_after_games": 6, "session_grace": 4, "every_games": 4, "min_seconds": 180, "after_rewarded": 120, "skip_on_best": True},
         "rewarded": {"revive", "double", "gift", "reroll", "free_coins"}, "shop": True,
         "iap": {"removeads", "starter", "coins_s", "coins_m", "coins_l", "legends"}, "tutorial": True,
     },
@@ -156,6 +157,7 @@ class Player:
         self.days_active = []
         self.minutes = 0.0
         self.sessions = 0
+        self.session_games = 0
         self.gift_day = -1
         self.gift_streak = 0
         self.starter_seen = False
@@ -369,6 +371,9 @@ class Player:
         if pol is None or self.ads_removed:
             return False
         self.inter_since += 1
+        self.session_games += 1
+        if self.session_games < pol.get("session_grace", 0):
+            return False
         if self.games < pol["first_after_games"] or self.inter_since < pol["every_games"]:
             return False
         if self.clock - self.last_inter_t < pol["min_seconds"] or self.clock - self.last_rew_t < pol["after_rewarded"]:
@@ -394,6 +399,7 @@ class Player:
     # --- une session
     def session(self, day):
         self.sessions += 1
+        self.session_games = 0
         gained_goal = False
         if self.d["gift"] and self.gift_day != day and self.games >= 1:
             gap = day - self.gift_day

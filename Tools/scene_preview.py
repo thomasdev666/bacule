@@ -448,9 +448,9 @@ def home_screen(head=0, body="mascot", expression="Calm"):
     pill(img, tb)
     icon(img, "Trophy", (tb[0] + 24, tb[1] + 12, tb[0] + 82, tb[3] - 12))
     title(img, "Record : 2 544", (tb[0] + 94, tb[1], tb[2] - 24, tb[3]), 44)
-    button(img, place(0.5, 1, 0, -586, 640, 110), "Success", "Reprendre la partie", "Replay", 50)
+    button(img, place(0.5, 1, 0, -574, 640, 110), "Success", "Reprendre la partie", "Replay", 50)
     button(img, place(0.5, 1, 0, -748, 760, 200), "Play", "JOUER", "Play", 100)
-    db = place(0.5, 1, 0, -920, 700, 130)
+    db = place(0.5, 1, 0, -932, 700, 130)
     button(img, db, "Secondary", "Défi du jour", "Calendar", 54)
     # Barre du bas (dock), sous les pieds de Basile.
     dk = place(0.5, 0, 0, 12, 1040, 182, 0.5, 0)

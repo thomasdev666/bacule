@@ -108,7 +108,9 @@ namespace Bascule.UI
         Text _status, _cardTitle, _cardDetail;
         Image _cardIcon, _cardGlow;
         Button _spin;
-        Text _spinLabel;
+        Text _spinLabel, _adsLeft;
+        Image _spinIcon;
+        GameObject _adsLeftTag;
         readonly Image[] _bulbs = new Image[16];
         float _angle, _from, _to, _t = -1f, _pointerKick, _clock, _blink;
         int _lastTick;
@@ -176,7 +178,17 @@ namespace Bascule.UI
             _spin = Ui.Button(Safe, Loc.Get("wheel_spin"), Palette.Play, Spin, Icon.Wheel, 60, "Tourner");
             Ui.Place((RectTransform)_spin.transform, 0.5f, 0, 0, 260, 820, 170);
             _spinLabel = Ui.ButtonLabel(_spin);
+            var spinIcon = _spin.transform.Find("Contenu/Icone");
+            _spinIcon = spinIcon != null ? spinIcon.GetComponent<Image>() : null;
             _spin.gameObject.AddComponent<Pulse>().Amount = 0.02f;
+            // Tours en vidéo qu'il reste aujourd'hui : pastille dorée sur le coin du bouton (« 2 restants »).
+            var left = Ui.Image(_spin.transform, Art.Pill, Palette.Accent, "Restants", true);
+            Ui.Place(left.rectTransform, 1, 1, -18, -2, 220, 62, 1, 0.5f);
+            left.rectTransform.localRotation = Quaternion.Euler(0, 0, -5f);
+            _adsLeft = Ui.Title(left.transform, "", 32, Color.white);
+            Ui.Stretch(_adsLeft.rectTransform, 14, 2, 14, 0);
+            _adsLeftTag = left.gameObject;
+            _adsLeftTag.SetActive(false);
             var odds = Ui.Button(Safe, Loc.Get("wheel_odds"), Palette.Muted, ToggleOdds, null, 40, "Chances");
             Ui.Place((RectTransform)odds.transform, 0.5f, 0, 0, 100, 420, 110);
 
@@ -426,6 +438,8 @@ namespace Bascule.UI
             {
                 _spin.GetComponent<Image>().color = Palette.Play;
                 _spinLabel.text = Loc.Get("wheel_spin");
+                if (_spinIcon != null) _spinIcon.sprite = Art.IconSprite(Icon.Wheel);
+                _adsLeftTag.SetActive(false);
                 _spin.interactable = !spinning;
                 _status.text = Loc.Get("wheel_free_ready");
             }
@@ -434,7 +448,11 @@ namespace Bascule.UI
                 string wait = FormatWait(Wheel.FreeIn(p.wheel, App.Now));
                 _status.text = Loc.Format("wheel_free_in", wait);
                 _spin.GetComponent<Image>().color = ads > 0 ? Palette.Purple : Palette.Muted;
-                _spinLabel.text = ads > 0 ? Loc.Format("wheel_spin_ad", ads) : Loc.Get("wheel_come_back");
+                // Tour en plus : « Encore un tour (vidéo) » avec l'icône vidéo, et ce qu'il en reste dans la pastille.
+                _spinLabel.text = ads > 0 ? Loc.Get("wheel_spin_ad") : Loc.Get("wheel_come_back");
+                if (_spinIcon != null) _spinIcon.sprite = Art.IconSprite(ads > 0 ? Icon.Film : Icon.Wheel);
+                _adsLeftTag.SetActive(ads > 0);
+                if (ads > 0) _adsLeft.text = ads == 1 ? Loc.Get("wheel_ads_left_one") : Loc.Format("wheel_ads_left", ads);
                 _spin.interactable = ads > 0 && !spinning;
             }
         }
@@ -608,10 +626,10 @@ namespace Bascule.UI
                 _rows[i] = (dot, num, check, text, reward);
             }
             var play = Ui.Button(card.transform, Loc.Get("play"), Palette.Play, () => { Hide(); App.Play(GameMode.Infinite); }, Icon.Play, 62, "Jouer");
-            Ui.Place((RectTransform)play.transform, 0.5f, 0, 0, 220, 760, 166);
+            Ui.Place((RectTransform)play.transform, 0.5f, 0, 0, 232, 760, 166);
             play.gameObject.AddComponent<Pulse>().Amount = 0.025f;
             var back = Ui.Button(card.transform, Loc.Get("back"), Palette.Muted, Hide, null, 46, "Retour");
-            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 74, 460, 112);
+            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 70, 460, 112);
         }
 
         public override void Refresh()
@@ -701,10 +719,10 @@ namespace Bascule.UI
             }
 
             var play = Ui.Button(card.transform, Loc.Get("play"), Palette.Play, () => { Hide(); App.Play(GameMode.Infinite); }, Icon.Play, 62, "Jouer");
-            Ui.Place((RectTransform)play.transform, 0.5f, 0, 0, 220, 760, 166);
+            Ui.Place((RectTransform)play.transform, 0.5f, 0, 0, 232, 760, 166);
             play.gameObject.AddComponent<Pulse>().Amount = 0.025f;
             var back = Ui.Button(card.transform, Loc.Get("back"), Palette.Muted, Hide, null, 46, "Retour");
-            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 74, 460, 112);
+            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 70, 460, 112);
         }
 
         public override void Refresh()

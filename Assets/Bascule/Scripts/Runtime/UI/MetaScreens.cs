@@ -250,9 +250,9 @@ namespace Bascule.UI
             Ui.Place(rule.rectTransform, 0.5f, 1, 0, -1000, 840, 100);
 
             _play = Ui.Button(card.transform, Loc.Get("play"), Palette.Play, () => { Hide(); App.Play(GameMode.Daily); }, Icon.Play, 60, "Jouer");
-            Ui.Place((RectTransform)_play.transform, 0.5f, 0, 0, 236, 760, 160);
+            Ui.Place((RectTransform)_play.transform, 0.5f, 0, 0, 244, 760, 160);
             var back = Ui.Button(card.transform, Loc.Get("back"), Palette.Muted, Hide, null, 46, "Retour");
-            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 86, 520, 116);
+            Ui.Place((RectTransform)back.transform, 0.5f, 0, 0, 82, 520, 116);
         }
 
         Text StatTile(Transform parent, float side, Icon icon, Color tint, string caption)
@@ -396,9 +396,9 @@ namespace Bascule.UI
             _days = Ui.Rect("Jours", card.transform);
             Ui.Place(_days, 0.5f, 1, 0, -220, 880, 840, 0.5f, 1);
             _claim = Ui.Button(card.transform, "OK", Palette.Play, () => App.ClaimGift(false), Icon.Gift, 60, "Recuperer");
-            Ui.Place((RectTransform)_claim.transform, 0.5f, 0, 0, 244, 760, 160);
+            Ui.Place((RectTransform)_claim.transform, 0.5f, 0, 0, 264, 760, 160);
             _double = Ui.Button(card.transform, Loc.Get("gift_double"), Palette.Purple, () => App.ClaimGift(true), Icon.Film, 52, "Doubler");
-            Ui.Place((RectTransform)_double.transform, 0.5f, 0, 0, 96, 600, 136);
+            Ui.Place((RectTransform)_double.transform, 0.5f, 0, 0, 90, 600, 132); // 30 px sous « Récupérer » (ils se touchaient)
         }
 
         public override void Refresh()
@@ -657,6 +657,8 @@ namespace Bascule.UI
             _col.anchoredPosition = new Vector2(_col.anchoredPosition.x, Mathf.Clamp(y, 0f, Mathf.Max(0f, _col.rect.height - viewH)));
         }
 
+        const int ColPad = 12;
+
         protected override void Build()
         {
             BackButton(App.GoHome);
@@ -672,7 +674,9 @@ namespace Bascule.UI
             Ui.Stretch(area, 36, 230, 36, 20);
             _col = Ui.Scroll(area, out _scroll);
             Ui.Column(_col, 24);
-            _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(0, 0, 10, 60);
+            // 12 px d'air de chaque côté : la zone qui défile coupe tout ce qui dépasse, et le contour des titres
+            // alignés à gauche (« Gratuit avec une vidéo », « Planches »…) était coupé net.
+            _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(ColPad, ColPad, 10, 60);
         }
 
         public override void Refresh()
@@ -960,7 +964,7 @@ namespace Bascule.UI
             int n = PlankCatalog.All.Count, rows = (n + 1) / 2;
             Ui.Size(gridRt, rows * 318 - 18);
             var grid = gridRt.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(495, 300);
+            grid.cellSize = new Vector2(483, 300); // deux colonnes dans la largeur moins les marges (1008 - 2 × 12 - 18) / 2
             grid.spacing = new Vector2(18, 18);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 2;
@@ -1175,7 +1179,7 @@ namespace Bascule.UI
             _ok.gameObject.AddComponent<PopIn>().Delay = 0.9f;
             // Doubler les pièces du coffre avec une vidéo (coffre de fin de partie seulement).
             _double = Ui.Button(Safe, Loc.Get("chest_double"), Palette.Purple, DoubleLoot, Icon.Film, 58, "Doubler");
-            Ui.Place((RectTransform)_double.transform, 0.5f, 0, 215, 170, 440, 160);
+            Ui.Place((RectTransform)_double.transform, 0.5f, 0, 232, 170, 410, 160);
             _double.gameObject.AddComponent<PopIn>().Delay = 1.05f;
             _double.gameObject.AddComponent<Pulse>().Amount = 0.03f;
             _double.gameObject.SetActive(false);
@@ -1444,8 +1448,9 @@ namespace Bascule.UI
                 _ok.gameObject.SetActive(true);
                 if (_doubler != null && _coinsTarget > 0)
                 {
-                    // Deux boutons côte à côte : « Super » (garder) et « Doubler » (vidéo).
-                    Ui.Place((RectTransform)_ok.transform, 0.5f, 0, -215, 170, 440, 160);
+                    // Deux boutons côte à côte : « Super » (garder) et « Doubler » (vidéo), 54 px d'écart
+                    // (avant : 440 de large à ±215, ils se touchaient).
+                    Ui.Place((RectTransform)_ok.transform, 0.5f, 0, -232, 170, 410, 160);
                     _double.gameObject.SetActive(true);
                 }
                 App.PlaySfx(Sfx.Chime, 6, 0.9f);
@@ -1652,9 +1657,9 @@ namespace Bascule.UI
             g.constraintCount = 4;
             g.childAlignment = TextAnchor.UpperCenter;
             _open = Ui.Button(_offer, "Ouvrir", Palette.Play, () => App.ConfirmSurprise(), Icon.Coin, 60, "Ouvrir");
-            Ui.Place((RectTransform)_open.transform, 0.5f, 0, 0, 250, 780, 160);
+            Ui.Place((RectTransform)_open.transform, 0.5f, 0, 0, 258, 780, 160);
             var cancel = Ui.Button(_offer, Loc.Get("cancel"), Palette.Dark, Hide, null, 50, "Annuler");
-            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 90, 520, 132);
+            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 84, 520, 132);
 
             // --- Carrousel ---
             _reel = Ui.Rect("Carrousel", Safe);
@@ -1689,13 +1694,13 @@ namespace Bascule.UI
             _wonRarity = Ui.Title(_wonChip.transform, "", 40);
             Ui.Stretch(_wonRarity.rectTransform, 12, 0, 12, 4);
             _wear = Ui.Button(_reveal, Loc.Get("wear"), Palette.Play, () => { var w = _won; Hide(); App.WearPrize(w); }, Icon.Face, 60, "Porter");
-            Ui.Place((RectTransform)_wear.transform, 0.5f, 0, 0, 250, 780, 160);
+            Ui.Place((RectTransform)_wear.transform, 0.5f, 0, 0, 258, 780, 160);
             _wear.gameObject.AddComponent<PopIn>().Delay = 0.2f;
             _ok = Ui.Button(_reveal, Loc.Get("chest_ok"), Palette.Play, Hide, null, 64, "Super");
-            Ui.Place((RectTransform)_ok.transform, 0.5f, 0, 0, 250, 780, 160);
+            Ui.Place((RectTransform)_ok.transform, 0.5f, 0, 0, 258, 780, 160);
             _ok.gameObject.AddComponent<PopIn>().Delay = 0.2f;
             _later = Ui.Button(_reveal, Loc.Get("later"), Palette.Dark, Hide, null, 50, "PlusTard");
-            Ui.Place((RectTransform)_later.transform, 0.5f, 0, 0, 90, 520, 132);
+            Ui.Place((RectTransform)_later.transform, 0.5f, 0, 0, 84, 520, 132);
         }
 
         /// <summary>Montre l'offre : tous les lots possibles et leurs chances.</summary>

@@ -115,9 +115,9 @@ namespace Bascule.UI
             Ui.Place(rules.rectTransform, 0.5f, 1, 0, -1062, 860, 96);
 
             var ok = Ui.Button(_pseudoRt, Loc.Get("onboard_next"), Palette.Play, ValidatePseudo, Icon.Check, 62, "Valider");
-            Ui.Place((RectTransform)ok.transform, 0.5f, 0, 0, 210, 780, 166);
+            Ui.Place((RectTransform)ok.transform, 0.5f, 0, 0, 224, 780, 166);
             var later = Ui.Button(_pseudoRt, Loc.Get("onboard_later"), Palette.Muted, () => { App.Profile.pseudoAsked = true; Next(); }, null, 44, "PlusTard");
-            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 66, 460, 112);
+            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 62, 460, 112);
         }
 
         void ShowTag(string raw)
@@ -233,11 +233,11 @@ namespace Bascule.UI
 
             // Accepter et refuser : même taille, même importance (CNIL : refuser doit être aussi simple qu'accepter).
             var yes = Ui.Button(_adsRt, Loc.Get("onboard_ads_yes"), Palette.Play, () => ChooseAds(true), Icon.Check, 52, "Accepter");
-            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 222, 196, 424, 156);
+            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 222, 210, 424, 156);
             var no = Ui.Button(_adsRt, Loc.Get("onboard_ads_no"), Palette.Secondary, () => ChooseAds(false), Icon.Close, 52, "Refuser");
-            Ui.Place((RectTransform)no.transform, 0.5f, 0, -222, 196, 424, 156);
+            Ui.Place((RectTransform)no.transform, 0.5f, 0, -222, 210, 424, 156);
             var more = Ui.Button(_adsRt, Loc.Get("onboard_ads_more"), Palette.Muted, App.OpenPrivacy, null, 40, "EnSavoirPlus");
-            Ui.Place((RectTransform)more.transform, 0.5f, 0, 0, 62, 460, 100);
+            Ui.Place((RectTransform)more.transform, 0.5f, 0, 0, 58, 460, 100);
         }
 
         void Floating(RectTransform parent, Icon icon, Color tint, float x, float y, float size, float angle)

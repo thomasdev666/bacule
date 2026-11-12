@@ -125,6 +125,10 @@ namespace Bascule
         EconomyGain _pendingGain;
         bool _gainDoubled, _celebration, _leavingGameOver, _starterPopupPending, _ratePending;
         float _lastRunSeconds;
+        // Parties finies depuis le lancement du jeu : pas de pub imposée pendant les premières (AdTuning.sessionGraceGames).
+        // Un retour dans le jeu après plus de 30 min en arrière-plan compte comme un nouveau lancement.
+        int _gamesThisSession;
+        DateTime _backgroundSince = DateTime.MinValue;
         bool _pendingFinalized = true;
         float _autosave;
         Vector2Int _screenSize;
@@ -1182,6 +1186,7 @@ namespace Bascule
             p.totalBalloons += r.Balloons;
             p.totalSeconds += r.Seconds;
             AdPolicy.OnRunEnded(p.ads);
+            _gamesThisSession++; // aucune pub imposée pendant les premières parties de chaque lancement
             starterStarted = Offers.CheckStarter(Tuning.ads, p, Now);
             p.tutorialDone = true;
             // Quête du débutant et événement de la semaine (récompenses données ici ; affichées par FinalizeRun).
@@ -1289,7 +1294,7 @@ namespace Bascule
             _leavingGameOver = true;
             _toast.Clear(); // le bilan de la partie ne suit pas le joueur sur l'écran suivant
             FinalizeRun();
-            if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay))
+            if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay, _gamesThisSession))
             {
                 Stats.Event("ad_interstitial", ("games", Profile.gamesPlayed), ("today", Profile.ads.interstitialsToday + 1));
                 _adStarted = Time.realtimeSinceStartup;
@@ -2315,6 +2320,8 @@ namespace Bascule
         {
             if (!paused)
             {
+                if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
+                _backgroundSince = DateTime.MinValue;
                 _music?.OnResume();
                 // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
                 NewDayCheck();
@@ -2322,6 +2329,7 @@ namespace Bascule
                 if (_home.Visible) { _home.Refresh(); HomePopups(); }
                 return;
             }
+            _backgroundSince = DateTime.UtcNow;
             if (Duel.InMatch) Duel.OnAppPaused();
             else if (Session.IsRunning)
             {

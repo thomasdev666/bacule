@@ -343,10 +343,12 @@ def leaderboard():
     # Ta place.
     mb = at(0.5, 0, 0, 265, 1008, 136)
     sp.card(img, mb, tint=hexc("#FFE9A8"))
-    sp.title(img, "Ta place", child(mb, 0, 1, 34, -8, 200, 36, 0, 1), 30, color=MUTED, align="lm", outline=False)
-    sp.title(img, "34e", child(mb, 0, 0.5, 30, -24, 190, 66, 0, 0.5), 56, color=c("Primary"), align="lm")
-    img.alpha_composite(sp.load("heads/12.png").resize((116, 116), Image.LANCZOS), (int(mb[0] + 220), int(mb[1] + 10)))
-    sp.title(img, "SuperBasile", child(mb, 0, 0.5, 350, 0, 380, 90, 0, 0.5), 46, color=INK, align="lm", outline=False)
+    rp = child(mb, 0, 0.5, 22, 0, 160, 92, 0, 0.5)
+    sp.pill(img, rp, color=c("Primary") + (255,))
+    sp.title(img, "34e", (rp[0] + 12, rp[1] + 2, rp[2] - 12, rp[3]), 50)
+    img.alpha_composite(sp.load("heads/12.png").resize((106, 106), Image.LANCZOS), (int(mb[0] + 196), int(mb[1] + 15)))
+    sp.title(img, "Ta place", child(mb, 0, 1, 316, -12, 380, 36, 0, 1), 30, color=MUTED, align="lm", outline=False)
+    sp.title(img, "SuperBasile", child(mb, 0, 0.5, 316, -16, 390, 70, 0, 0.5), 46, color=INK, align="lm", outline=False)
     sp.title(img, "6 310", child(mb, 1, 0.5, -34, 0, 260, 90, 1, 0.5), 52, color=INK, align="rm", outline=False)
     sp.button(img, at(0.5, 0, 0, 100, 760, 140), "Secondary", "SuperBasile", "Face", 48)
     return s
@@ -407,8 +409,8 @@ def onboard_pseudo():
     rb = child(cb, 0.5, 1, 0, -1062, 860, 96)
     for k, ln in enumerate(wrap(img, "Pas ton vrai nom, pas d'insulte. Le dé te donne une idée.", 840, 36)):
         sp.title(img, ln, (rb[0], rb[1] + 4 + k * 44, rb[2], rb[1] + 48 + k * 44), 36, color=SKY, outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 210, 780, 166), "Play", "Valider", "Check", 62)
-    sp.button(img, child(cb, 0.5, 0, 0, 66, 460, 112), "Muted", "Plus tard", None, 44)
+    sp.button(img, child(cb, 0.5, 0, 0, 224, 780, 166), "Play", "Valider", "Check", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 62, 460, 112), "Muted", "Plus tard", None, 44)
     return s
 
 
@@ -483,9 +485,9 @@ def onboard_ads():
         y0 = (rb[1] + rb[3]) / 2 - len(lines) * (size + 6) / 2
         for k, ln in enumerate(lines):
             sp.title(img, ln, (rb[0] + 130, y0 + k * (size + 6), rb[2] - 30, y0 + (k + 1) * (size + 6)), size, color=(255, 255, 255), align="lm", outline=False)
-    sp.button(img, child(cb, 0.5, 0, -222, 196, 424, 156), "Secondary", "Refuser", "Close", 52)
-    sp.button(img, child(cb, 0.5, 0, 222, 196, 424, 156), "Play", "Accepter", "Check", 52)
-    sp.button(img, child(cb, 0.5, 0, 0, 62, 460, 100), "Muted", "En savoir plus", None, 40)
+    sp.button(img, child(cb, 0.5, 0, -222, 210, 424, 156), "Secondary", "Refuser", "Close", 52)
+    sp.button(img, child(cb, 0.5, 0, 222, 210, 424, 156), "Play", "Accepter", "Check", 52)
+    sp.button(img, child(cb, 0.5, 0, 0, 58, 460, 100), "Muted", "En savoir plus", None, 40)
     return s
 
 
@@ -634,12 +636,13 @@ def balloon_screen():
     return s
 
 
-def wheel_screen(spun=False):
+def wheel_screen(spun=False, ad=False):
     s = sp.home_screen()
     img = s.img
     img.alpha_composite(Image.new("RGBA", (W, H), (20, 13, 46, 242)))
     back_and_header(img, "Roue de la chance")
-    sp.title(img, "Ton tour gratuit est prêt !", at(0.5, 1, 0, -228, 900, 70), 40, color=SOFT, outline=False)
+    status = "Prochain tour gratuit dans 21 h 14 min" if ad else "Ton tour gratuit est prêt !"
+    sp.title(img, status, at(0.5, 1, 0, -228, 900, 70), 40, color=SOFT, outline=False)
     size = 860
     hb = at(0.5, 0.5, 0, 70, size, size)
     cx, cy = (hb[0] + hb[2]) / 2, (hb[1] + hb[3]) / 2
@@ -688,7 +691,17 @@ def wheel_screen(spun=False):
     sp.tinted_icon(pt, "Play", (0, 0, 130, 130), "Primary")
     pt = pt.rotate(-90)
     img.alpha_composite(pt, (int(cx - 65), int(hb[1] - 6 - 130 * 0.3 - 40)))
-    sp.button(img, at(0.5, 0, 0, 260, 820, 170), "Play", "Tourner la roue !", "Wheel", 60)
+    sb = at(0.5, 0, 0, 260, 820, 170)
+    if ad:
+        # Tour en plus : « Encore un tour (vidéo) » et la pastille des tours vidéo qui restent.
+        sp.button(img, sb, "Purple", "Encore un tour (vidéo)", "Film", 60)
+        tag = Image.new("RGBA", (240, 90), (0, 0, 0, 0))
+        sp.pill(tag, (10, 14, 230, 76), color=c("Accent") + (255,))
+        sp.title(tag, "2 restants", (24, 16, 216, 74), 32)
+        tag = tag.rotate(-5, resample=Image.BICUBIC)
+        img.alpha_composite(tag, (int(sb[2] - 18 - 230), int(sb[1] - 2 - 45)))
+    else:
+        sp.button(img, sb, "Play", "Tourner la roue !", "Wheel", 60)
     sp.button(img, at(0.5, 0, 0, 100, 420, 110), "Muted", "Chances", None, 40)
     if spun:
         cb = at(0.5, 0.5, 0, 60, 860, 820)
@@ -738,8 +751,8 @@ def quest_screen():
             sp.title(img, str(i + 1), (db[0], db[1], db[2], db[3] - 4), 50)
         sp.title(img, t, child(rb, 0, 1, 140, -46, 500, 60, 0, 0.5), 42, color=(255, 255, 255, 160) if done else (255, 255, 255), align="lm")
         sp.title(img, r, child(rb, 0, 0, 140, 42, 520, 50, 0, 0.5), 34, color=c("Accent"), align="lm", outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 220, 760, 166), "Play", "Jouer", "Play", 62)
-    sp.button(img, child(cb, 0.5, 0, 0, 74, 460, 112), "Muted", "Retour", None, 46)
+    sp.button(img, child(cb, 0.5, 0, 0, 232, 760, 166), "Play", "Jouer", "Play", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 70, 460, 112), "Muted", "Retour", None, 46)
     return s
 
 
@@ -782,8 +795,8 @@ def event_screen():
             ch = child(tb, 1, 1, -14, -14, 58, 58, 1, 1)
             disc(img, ch, c("Play"))
             sp.tinted_icon(img, "Check", (ch[0] + 10, ch[1] + 10, ch[2] - 10, ch[3] - 10), "#FFFFFF")
-    sp.button(img, child(cb, 0.5, 0, 0, 220, 760, 166), "Play", "Jouer", "Play", 62)
-    sp.button(img, child(cb, 0.5, 0, 0, 74, 460, 112), "Muted", "Retour", None, 46)
+    sp.button(img, child(cb, 0.5, 0, 0, 232, 760, 166), "Play", "Jouer", "Play", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 70, 460, 112), "Muted", "Retour", None, 46)
     return s
 
 
@@ -801,6 +814,7 @@ if __name__ == "__main__":
     balloon_screen().img.convert("RGB").save(os.path.join(OUT, "ecran_montgolfiere.png"))
     # 1.4 : roue des années au départ, et fin du duel (victoire, défaite au temps, égalité).
     onboard_age(0).img.convert("RGB").save(os.path.join(OUT, "ecran_premier_age_debut.png"))
+    wheel_screen(ad=True).img.convert("RGB").save(os.path.join(OUT, "ecran_roue_video.png"))
     ends = [("duel_fin_victoire", duel_result("win")), ("duel_fin_temps", duel_result("lose", True)), ("duel_fin_egalite", duel_result("draw", True))]
     for name, e in ends:
         e.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
