@@ -90,6 +90,10 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 
 Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adaptateurs installés dans Unity avant un build peuvent être activés plus tard depuis LevelPlay, sans nouvelle version ; un adaptateur absent du build demande une nouvelle version.
 
+## Branchés dans LevelPlay (12/11/2026)
+
+Instances Rewarded et Interstitial actives (enchères) pour : ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost. « Google AdMob Native » laissé vide (pas de pub native dans le jeu). Restent à brancher dès validation de leur compte : AppLovin, Mintegral, DT Exchange, Pangle.
+
 ## Adaptateurs installés dans Unity (fait le 12/11/2026)
 
 Network Manager : AppLovin, Chartboost, DT Exchange, Google (AdMob), InMobi, Liftoff Monetize, Mintegral, Pangle sont installés et à jour (Unity Ads et ironSource inclus). Ils peuvent donc être activés depuis LevelPlay sans nouvelle version. À refaire seulement si on ajoute une nouvelle régie.
