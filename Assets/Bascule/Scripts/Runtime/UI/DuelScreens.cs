@@ -34,6 +34,41 @@ namespace Bascule.UI
             return null;
         }
 
+        /// <summary>Amis à afficher (pseudo et tête d'après le classement mondial), joueurs bloqués exclus.</summary>
+        public static async System.Threading.Tasks.Task<System.Collections.Generic.List<(string id, string name, int head)>> LoadFriends(GameApp app)
+        {
+            var list = new System.Collections.Generic.List<(string, string, int)>();
+            var friends = app.Profile.friends;
+            var page = await app.Leaderboard.Service.GetFriendsAsync(Boards.World, friends);
+            // Les plus récents d'abord : c'est souvent celui qu'on vient d'ajouter qu'on veut défier.
+            for (int i = friends.Count - 1; i >= 0; i--)
+            {
+                var id = friends[i];
+                if (Moderation.IsBlocked(app.Profile, id)) continue;
+                var e = page?.Entries?.Find(x => x.PlayerId == id);
+                string name = e != null ? PseudoFilter.Display(e.Name, Loc.Get("lb_player")) : Loc.Get("lb_player") + " " + FriendCode.Short(id);
+                int head = e != null ? e.Head : 0;
+                app.FriendHeads[id] = head;
+                list.Add((id, name, head));
+            }
+            return list;
+        }
+
+        /// <summary>Ligne d'ami : portrait cerclé, pseudo, et un bouton d'action à droite.</summary>
+        public static void FriendRow(GameApp app, RectTransform col, string id, string name, int head, string action, Color color, System.Action<Button> onTap)
+        {
+            var row = Ui.Image(col, Ui.Art.Pill, new Color(1f, 1f, 1f, 0.9f), "Ami", true);
+            Ui.Size(row, 132);
+            var face = Portrait(row.transform, Palette.Secondary, 108, "Tete");
+            face.sprite = Ui.Art.Portrait(HeadCatalog.Get(head));
+            Ui.Place((RectTransform)face.transform.parent, 0, 0.5f, 74, 0, 108, 108);
+            var label = Ui.Plain(Ui.Label(row.transform, name, 44, Palette.Ink, TextAnchor.MiddleLeft));
+            Ui.Stretch(label.rectTransform, 150, 8, 320, 8);
+            Button btn = null;
+            btn = Ui.Button(row.transform, action, color, () => onTap?.Invoke(btn), Icon.Swords, 40, "Action");
+            Ui.Place((RectTransform)btn.transform, 1, 0.5f, -16, 0, 290, 108, 1, 0.5f);
+        }
+
         /// <summary>Portrait rond cerclé de couleur.</summary>
         public static Image Portrait(Transform parent, Color ring, float size, string name = "Portrait")
         {
@@ -49,11 +84,7 @@ namespace Bascule.UI
 
     // ===================================================================== Salle d'attente
 
-    /// <summary>
-    /// Entrée du duel : « Défier un ami » (crée un code et l'invitation) ou « Rejoindre un duel » (saisir un code).
-    /// Puis l'attente : le code en grand, le partage, et l'arrivée de l'ami.
-    /// </summary>
-    /// <summary>Liste des amis à inviter au duel en cours (l'ami voit l'invitation sur son écran d'accueil).</summary>
+    /// <summary>Liste des amis à inviter au duel en cours (l'ami voit l'invitation sur son écran, en grand).</summary>
     public sealed class FriendPickerScreen : UiScreen
     {
         RectTransform _col;
@@ -85,163 +116,338 @@ namespace Bascule.UI
             if (!App.Leaderboard.Service.IsOnline) { _status.text = Loc.Get("lb_offline"); return; }
             _status.text = Loc.Get("lb_loading");
             int request = ++_request;
-            // Pseudos des amis (classement mondial) ; un ami qui n'a encore aucun score garde un nom générique.
-            var page = await App.Leaderboard.Service.GetFriendsAsync(Boards.World, friends);
+            var list = await DuelUi.LoadFriends(App);
             if (request != _request || !Visible) return;
             _status.text = "";
-            foreach (var id in friends)
-            {
-                if (Moderation.IsBlocked(App.Profile, id)) continue;
-                var e = page?.Entries?.Find(x => x.PlayerId == id);
-                string name = e != null ? PseudoFilter.Display(e.Name, Loc.Get("lb_player")) : Loc.Get("lb_player") + " " + FriendCode.Short(id);
-                Row(id, name, e != null ? e.Head : 0);
-            }
-        }
-
-        void Row(string id, string name, int head)
-        {
-            var row = Ui.Image(_col, Art.Pill, new Color(1f, 1f, 1f, 0.8f), "Ami", true);
-            Ui.Size(row, 130);
-            var face = Ui.Icon(row.transform, Art.Portrait(HeadCatalog.Get(head)), "Tete");
-            Ui.Place(face.rectTransform, 0, 0.5f, 80, 0, 100, 100);
-            var label = Ui.Label(row.transform, name, 42, Palette.Ink, TextAnchor.MiddleLeft);
-            Ui.Stretch(label.rectTransform, 150, 8, 330, 8);
-            Button btn = null;
-            btn = Ui.Button(row.transform, Loc.Get("duel_friend_invite"), Palette.Play, async () =>
-            {
-                btn.interactable = false;
-                bool ok = await App.InviteFriendToDuel(id, name);
-                if (btn == null) return;
-                Ui.ButtonLabel(btn).text = Loc.Get(ok ? "duel_friend_sent" : "duel_friend_invite");
-                btn.interactable = !ok;
-            }, null, 38, "Inviter");
-            Ui.Place((RectTransform)btn.transform, 1, 0.5f, -20, 0, 290, 100, 1, 0.5f);
+            foreach (var f in list)
+                DuelUi.FriendRow(App, _col, f.id, f.name, f.head, Loc.Get("duel_friend_invite"), Palette.Play, async btn =>
+                {
+                    btn.interactable = false;
+                    bool ok = await App.InviteFriendToDuel(f.id, f.name);
+                    if (btn == null) return;
+                    Ui.ButtonLabel(btn).text = Loc.Get(ok ? "duel_friend_sent" : "duel_friend_invite");
+                    btn.interactable = !ok;
+                    if (ok) Hide();
+                });
         }
     }
 
+    /// <summary>
+    /// Entrée du duel, pensée pour donner envie : une bannière « VS » (toi à gauche en bleu, ton ami à droite en
+    /// rouge, rayons qui tournent), les trois règles en pastilles, tes amis à défier en un geste, puis le code pour
+    /// un ami pas encore ajouté. Ensuite, l'attente : le code en grandes tuiles, l'invitation, et l'ami qui arrive.
+    /// </summary>
     public sealed class DuelLobbyScreen : UiScreen
     {
-        RectTransform _choice, _hosting, _busy;
-        Text _code, _busyText, _waitText, _wins;
-        Image _challenger, _spinner;
-        RectTransform _winsFill;
+        RectTransform _choice, _hosting, _busy, _friendsCol, _codeTiles;
+        Text _record, _wins, _busyTitle, _waitText, _theirName, _friendsStatus;
+        Image _challenger, _theirFace, _theirRing, _myFace;
+        RectTransform _winsFill, _theirSlot;
+        GameObject _question, _invitedTag;
+        Text _invitedText;
+        int _request;
 
         protected override void Build()
         {
             BackButton(App.DuelCancel);
             Header(Loc.Get("duel_title"));
 
-            // ---- Choix
-            _choice = Ui.Stretch(Ui.Rect("Choix", Safe));
-            var hero = Ui.Icon(_choice, Art.IconSprite(Icon.Swords), "Epees");
-            Ui.Place(hero.rectTransform, 0.5f, 1, 0, -330, 230, 230);
-            hero.color = Palette.Accent;
-            hero.gameObject.AddComponent<Pulse>().Amount = 0.04f;
-            var body = Ui.Title(_choice, Loc.Get("duel_lobby_body"), 50);
-            Ui.Place(body.rectTransform, 0.5f, 1, 0, -560, 900, 170);
-            var net = Ui.Title(_choice, Loc.Get("duel_internet"), 38, ArtCache.Hex("#BFE0FF"));
-            Ui.Place(net.rectTransform, 0.5f, 1, 0, -680, 900, 60);
+            // ---- Bannière VS (commune aux trois états)
+            var banner = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Banniere", true);
+            Ui.Place(banner.rectTransform, 0.5f, 1, 0, -250, 1000, 450, 0.5f, 1);
+            banner.gameObject.AddComponent<RectMask2D>();
+            var blue = Ui.Image(banner.transform, null, new Color(0.29f, 0.61f, 1f, 0.55f), "Bleu");
+            Ui.Place(blue.rectTransform, 0, 0.5f, -120, 0, 720, 900, 0, 0.5f);
+            blue.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
+            var red = Ui.Image(banner.transform, null, new Color(1f, 0.35f, 0.37f, 0.55f), "Rouge");
+            Ui.Place(red.rectTransform, 1, 0.5f, 120, 0, 720, 900, 1, 0.5f);
+            red.rectTransform.localRotation = Quaternion.Euler(0, 0, -14f);
+            var rays = Ui.Image(banner.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.35f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, 10, 900, 900);
+            rays.gameObject.AddComponent<Spin>().Speed = 14f;
+            Ui.Isolate(rays.gameObject);
 
-            var host = Ui.Button(_choice, Loc.Get("duel_host"), Palette.Play, App.DuelHost, Icon.Swords, 62, "Defier");
-            Ui.Place((RectTransform)host.transform, 0.5f, 1, 0, -840, 860, 190);
-            host.gameObject.AddComponent<Pulse>().Amount = 0.025f;
-            var hostSub = Ui.Title(_choice, Loc.Get("duel_host_sub"), 36, new Color(1, 1, 1, 0.85f));
-            Ui.Place(hostSub.rectTransform, 0.5f, 1, 0, -965, 860, 54);
+            // Toi, à gauche.
+            _myFace = DuelUi.Portrait(banner.transform, Palette.Secondary, 220, "Moi");
+            Ui.Place((RectTransform)_myFace.transform.parent, 0.5f, 0.5f, -300, 56, 220, 220);
+            var you = Ui.Title(banner.transform, Loc.Get("duel_you"), 46, ArtCache.Hex("#BFE0FF"));
+            Ui.Place(you.rectTransform, 0.5f, 0.5f, -300, -92, 320, 60);
+            // L'ami, à droite : point d'interrogation tant qu'il n'est pas là.
+            _theirSlot = Ui.Rect("Ami", banner.transform);
+            Ui.Place(_theirSlot, 0.5f, 0.5f, 300, 56, 220, 220);
+            _theirRing = Ui.Image(_theirSlot, Art.Ring, Palette.Accent, "Attente");
+            Ui.Place(_theirRing.rectTransform, 0.5f, 0.5f, 0, 0, 262, 262);
+            _theirRing.type = Image.Type.Filled; _theirRing.fillMethod = Image.FillMethod.Radial360; _theirRing.fillAmount = 0.7f;
+            _theirFace = DuelUi.Portrait(_theirSlot, Palette.Primary, 220, "Visage");
+            Ui.Place((RectTransform)_theirFace.transform.parent, 0.5f, 0.5f, 0, 0, 220, 220);
+            var q = Ui.Title(_theirFace.transform.parent, "?", 150, Color.white, "Question");
+            Ui.Stretch(q.rectTransform, 0, 0, 0, 10);
+            _question = q.gameObject;
+            _theirName = Ui.Title(banner.transform, Loc.Get("duel_friend"), 46, ArtCache.Hex("#FFC2C4"));
+            Ui.Place(_theirName.rectTransform, 0.5f, 0.5f, 300, -92, 340, 60);
+            // VS au centre.
+            var vsGlow = Ui.Image(banner.transform, Art.SoftDisc, new Color(1f, 0.8f, 0.3f, 0.6f), "Halo");
+            Ui.Place(vsGlow.rectTransform, 0.5f, 0.5f, 0, 50, 300, 300);
+            var vs = Ui.Title(banner.transform, "VS", 130, Palette.Accent, "VS");
+            Ui.Place(vs.rectTransform, 0.5f, 0.5f, 0, 50, 260, 170);
+            vs.gameObject.AddComponent<Pulse>().Amount = 0.06f;
+            Ui.Isolate(vs.gameObject);
+            var sub = Ui.Title(banner.transform, Loc.Get("duel_hero_sub"), 38, Color.white);
+            Ui.Place(sub.rectTransform, 0.5f, 0, 0, 22, 940, 54, 0.5f, 0);
 
-            var join = Ui.Button(_choice, Loc.Get("duel_join"), Palette.Secondary, App.DuelJoinPrompt, Icon.Play, 56, "Rejoindre");
-            Ui.Place((RectTransform)join.transform, 0.5f, 1, 0, -1100, 760, 160);
-            var joinSub = Ui.Title(_choice, Loc.Get("duel_join_sub"), 36, new Color(1, 1, 1, 0.85f));
-            Ui.Place(joinSub.rectTransform, 0.5f, 1, 0, -1210, 760, 54);
-
-            // Progression vers la tête Challenger.
-            var card = Ui.Glass(_choice, "Challenger");
-            Ui.Place(card.rectTransform, 0.5f, 0, 0, 90, 900, 200, 0.5f, 0);
-            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 160);
-            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 110, 0, 160, 160);
-            _wins = Ui.Title(card.transform, "", 46, Color.white, "Victoires");
-            Ui.Place(_wins.rectTransform, 0, 0.5f, 220, 34, 640, 64, 0, 0.5f);
-            _wins.alignment = TextAnchor.MiddleLeft;
-            var bar = Ui.Rect("Jauge", card.transform);
-            Ui.Place(bar, 0, 0.5f, 220, -36, 620, 40, 0, 0.5f);
-            _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
-            Ui.Stretch((RectTransform)_winsFill.parent);
-
-            // ---- Attente (hôte)
-            _hosting = Ui.Stretch(Ui.Rect("Attente", Safe));
-            var lbl = Ui.Title(_hosting, Loc.Get("duel_code_label"), 50, ArtCache.Hex("#BFE0FF"));
-            Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -300, 900, 70);
-            var codeCard = Ui.Card(_hosting, "Code");
-            Ui.Place(codeCard.rectTransform, 0.5f, 1, 0, -480, 760, 230);
-            codeCard.gameObject.AddComponent<PopIn>();
-            _code = Ui.Plain(Ui.Label(codeCard.transform, "", 140, Palette.Ink));
-            Ui.Stretch(_code.rectTransform, 20, 10, 20, 20);
-            _code.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var invite = Ui.Button(_hosting, Loc.Get("duel_invite"), Palette.Play, App.DuelShareInvite, Icon.Share, 58, "Inviter");
-            Ui.Place((RectTransform)invite.transform, 0.5f, 1, 0, -760, 860, 180);
-            invite.gameObject.AddComponent<Pulse>().Amount = 0.025f;
-            var copy = Ui.Button(_hosting, Loc.Get("duel_copy"), Palette.Secondary, App.DuelCopyCode, Icon.Check, 46, "Copier");
-            Ui.Place((RectTransform)copy.transform, 0.5f, 1, -225, -950, 420, 140);
-            // Inviter directement un ami : il reçoit l'invitation sur son écran d'accueil.
-            var friends = Ui.Button(_hosting, Loc.Get("duel_friends"), Palette.Purple, App.OpenFriendPicker, Icon.Face, 46, "Amis");
-            Ui.Place((RectTransform)friends.transform, 0.5f, 1, 225, -950, 420, 140);
-            _spinner = Ui.Icon(_hosting, Art.Ring, "Attente");
-            Ui.Place(_spinner.rectTransform, 0.5f, 1, -330, -1150, 70, 70);
-            _spinner.color = Palette.Accent;
-            _spinner.type = Image.Type.Filled; _spinner.fillMethod = Image.FillMethod.Radial360; _spinner.fillAmount = 0.7f;
-            _waitText = Ui.Title(_hosting, Loc.Get("duel_waiting_friend"), 48);
-            Ui.Place(_waitText.rectTransform, 0.5f, 1, 40, -1150, 700, 80);
-            _waitText.alignment = TextAnchor.MiddleLeft;
-            var cancel = Ui.Button(_hosting, Loc.Get("duel_cancel"), Palette.Muted, App.DuelCancel, Icon.Close, 46, "Annuler");
-            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 120, 520, 130, 0.5f, 0);
-
-            // ---- Connexion
-            _busy = Ui.Stretch(Ui.Rect("Connexion", Safe));
-            var ring = Ui.Icon(_busy, Art.Ring, "Anneau");
-            Ui.Place(ring.rectTransform, 0.5f, 0.5f, 0, 120, 160, 160);
-            ring.color = Palette.Accent;
-            ring.type = Image.Type.Filled; ring.fillMethod = Image.FillMethod.Radial360; ring.fillAmount = 0.72f;
-            ring.gameObject.AddComponent<Spin>().Speed = -260f;
-            _busyText = Ui.Title(_busy, Loc.Get("duel_connecting"), 56);
-            Ui.Place(_busyText.rectTransform, 0.5f, 0.5f, 0, -60, 900, 90);
-            var cancel2 = Ui.Button(_busy, Loc.Get("duel_cancel"), Palette.Muted, App.DuelCancel, Icon.Close, 46, "Annuler");
-            Ui.Place((RectTransform)cancel2.transform, 0.5f, 0, 0, 120, 520, 130, 0.5f, 0);
+            BuildChoice();
+            BuildHosting();
+            BuildBusy();
         }
 
+        // ------------------------------------------------------------------ Choix
+        void BuildChoice()
+        {
+            _choice = Ui.Stretch(Ui.Rect("Choix", Safe));
+            // Les trois règles.
+            Rule(_choice, -1, Icon.Swords, Palette.Accent, Loc.Get("duel_rule_1"));
+            Rule(_choice, 0, Icon.Film, Palette.Secondary, Loc.Get("duel_rule_2"));
+            Rule(_choice, 1, Icon.Flag, Palette.Primary, Loc.Get("duel_rule_3"));
+
+            // Amis à défier en un geste.
+            var ft = Ui.Title(_choice, Loc.Get("duel_friends_section"), 52, Palette.Accent);
+            Ui.Place(ft.rectTransform, 0, 1, 50, -925, 700, 70, 0, 0.5f);
+            ft.alignment = TextAnchor.MiddleLeft;
+            var add = Ui.Button(_choice, "", Palette.Play, App.AskFriendCode, Icon.Plus, 44, "AjouterAmi");
+            Ui.Place((RectTransform)add.transform, 1, 1, -40, -925, 110, 110, 1, 0.5f);
+            var area = Ui.Rect("Amis", _choice);
+            Ui.Stretch(area, 40, 985, 40, 520);
+            _friendsCol = Ui.Scroll(area, out _);
+            Ui.Column(_friendsCol, 14);
+            _friendsStatus = Ui.Label(_choice, "", 40, ArtCache.Hex("#D8E9FF"));
+            Ui.Stretch(_friendsStatus.rectTransform, 70, 1000, 70, 560);
+
+            // Avec un code.
+            var or = Ui.Title(_choice, Loc.Get("duel_or_code"), 42, ArtCache.Hex("#BFE0FF"));
+            Ui.Place(or.rectTransform, 0.5f, 0, 0, 470, 900, 60);
+            var host = Ui.Button(_choice, Loc.Get("duel_new_code"), Palette.Purple, App.DuelHost, Icon.Plus, 50, "CreerCode");
+            Ui.Place((RectTransform)host.transform, 0.5f, 0, -245, 330, 470, 150);
+            var join = Ui.Button(_choice, Loc.Get("duel_enter_code"), Palette.Secondary, App.DuelJoinPrompt, Icon.Play, 50, "JaiUnCode");
+            Ui.Place((RectTransform)join.transform, 0.5f, 0, 245, 330, 470, 150);
+
+            // Victoires et tête Challenger.
+            var card = Ui.Glass(_choice, "Challenger");
+            Ui.Place(card.rectTransform, 0.5f, 0, 0, 60, 1000, 210, 0.5f, 0);
+            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 160);
+            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 110, 0, 160, 160);
+            _wins = Ui.Title(card.transform, "", 44, Color.white, "Victoires");
+            Ui.Place(_wins.rectTransform, 0, 0.5f, 220, 52, 740, 60, 0, 0.5f);
+            _wins.alignment = TextAnchor.MiddleLeft;
+            var bar = Ui.Rect("Jauge", card.transform);
+            Ui.Place(bar, 0, 0.5f, 220, -6, 720, 40, 0, 0.5f);
+            _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
+            Ui.Stretch((RectTransform)_winsFill.parent);
+            _record = Ui.Title(card.transform, "", 36, ArtCache.Hex("#BFE0FF"), "Bilan");
+            Ui.Place(_record.rectTransform, 0, 0.5f, 220, -60, 740, 50, 0, 0.5f);
+            _record.alignment = TextAnchor.MiddleLeft;
+        }
+
+        void Rule(RectTransform parent, int i, Icon icon, Color tint, string text)
+        {
+            var chip = Ui.Glass(parent, "Regle");
+            Ui.Place(chip.rectTransform, 0.5f, 1, i * 336, -795, 322, 150);
+            var dot = Ui.Image(chip.transform, Art.Circle, tint, "Pastille");
+            Ui.Place(dot.rectTransform, 0.5f, 1, 0, -38, 64, 64);
+            var ic = Ui.Icon(dot.transform, Art.IconSprite(icon), "Icone");
+            Ui.Stretch(ic.rectTransform, 12, 12, 12, 12);
+            var t = Ui.Title(chip.transform, text, 32, Color.white);
+            Ui.Place(t.rectTransform, 0.5f, 0, 0, 12, 300, 72, 0.5f, 0);
+        }
+
+        // ------------------------------------------------------------------ Attente (hôte)
+        void BuildHosting()
+        {
+            _hosting = Ui.Stretch(Ui.Rect("Attente", Safe));
+            var title = Ui.Title(_hosting, Loc.Get("duel_ready_title"), 64, Palette.Accent);
+            Ui.Place(title.rectTransform, 0.5f, 1, 0, -775, 960, 90);
+            var lbl = Ui.Title(_hosting, Loc.Get("duel_code_label"), 42, ArtCache.Hex("#BFE0FF"));
+            Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -855, 900, 60);
+            // Le code en six tuiles blanches, bien lisibles à voix haute.
+            _codeTiles = Ui.Rect("Code", _hosting);
+            Ui.Place(_codeTiles, 0.5f, 1, 0, -980, 960, 170);
+            _codeTiles.gameObject.AddComponent<PopIn>();
+
+            var invite = Ui.Button(_hosting, Loc.Get("duel_invite"), Palette.Play, App.DuelShareInvite, Icon.Share, 58, "Inviter");
+            Ui.Place((RectTransform)invite.transform, 0.5f, 1, 0, -1165, 900, 170);
+            invite.gameObject.AddComponent<Pulse>().Amount = 0.025f;
+            var copy = Ui.Button(_hosting, Loc.Get("duel_copy"), Palette.Secondary, App.DuelCopyCode, Icon.Check, 44, "Copier");
+            Ui.Place((RectTransform)copy.transform, 0.5f, 1, -228, -1340, 444, 140);
+            var friends = Ui.Button(_hosting, Loc.Get("duel_friends"), Palette.Purple, App.OpenFriendPicker, Icon.Face, 44, "Amis");
+            Ui.Place((RectTransform)friends.transform, 0.5f, 1, 228, -1340, 444, 140);
+
+            // Ami invité : son nom dans une pastille ; sinon, l'astuce.
+            var tag = Ui.Image(_hosting, Art.Pill, Palette.Purple, "Invite", true);
+            Ui.Place(tag.rectTransform, 0.5f, 1, 0, -1475, 820, 86);
+            _invitedText = Ui.Title(tag.transform, "", 40, Color.white);
+            Ui.Stretch(_invitedText.rectTransform, 24, 2, 24, 0);
+            _invitedTag = tag.gameObject;
+            _waitText = Ui.Label(_hosting, Loc.Get("duel_ready_hint"), 38, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(_waitText.rectTransform, 0.5f, 1, 0, -1490, 900, 110);
+
+            var cancel = Ui.Button(_hosting, Loc.Get("duel_cancel"), Palette.Muted, App.DuelCancel, Icon.Close, 46, "Annuler");
+            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 90, 520, 130, 0.5f, 0);
+        }
+
+        // ------------------------------------------------------------------ Connexion
+        void BuildBusy()
+        {
+            _busy = Ui.Stretch(Ui.Rect("Connexion", Safe));
+            _busyTitle = Ui.Title(_busy, Loc.Get("duel_connecting"), 64, Color.white);
+            Ui.Place(_busyTitle.rectTransform, 0.5f, 1, 0, -830, 960, 100);
+            var sub = Ui.Label(_busy, Loc.Get("duel_connecting_sub"), 40, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -920, 900, 70);
+            var cancel = Ui.Button(_busy, Loc.Get("duel_cancel"), Palette.Muted, App.DuelCancel, Icon.Close, 46, "Annuler");
+            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 90, 520, 130, 0.5f, 0);
+        }
+
+        // ------------------------------------------------------------------ Mise à jour
         public override void Refresh()
         {
             var d = App.Duel;
             var phase = d.Current;
-            _choice.gameObject.SetActive(phase == DuelController.Phase.None);
-            _hosting.gameObject.SetActive(phase == DuelController.Phase.Hosting);
-            _busy.gameObject.SetActive(phase == DuelController.Phase.Connecting || phase == DuelController.Phase.Greeting);
-            _busyText.text = phase == DuelController.Phase.Greeting && !string.IsNullOrEmpty(d.TheirName)
-                ? Loc.Format("duel_found", d.TheirName) : Loc.Get("duel_connecting");
-            _code.text = SpacedCode(d.Code);
+            bool choice = phase == DuelController.Phase.None, hosting = phase == DuelController.Phase.Hosting;
+            bool busy = phase == DuelController.Phase.Connecting || phase == DuelController.Phase.Greeting;
+            _choice.gameObject.SetActive(choice);
+            _hosting.gameObject.SetActive(hosting);
+            _busy.gameObject.SetActive(busy);
 
             var p = App.Profile;
-            var head = DuelUi.ChallengerHead();
-            int need = head != null ? head.UnlockValue : App.Tuning.duel.challengerWins;
-            bool done = head != null && p.unlockedHeads.Contains(head.Id);
-            if (head != null) _challenger.sprite = done ? Art.Portrait(head) : Art.Locked(head);
-            _wins.text = done ? Loc.Get("duel_challenger_done") : Loc.Format("duel_challenger", Mathf.Min(p.duelWins, need), need);
-            MetaUi.SetFill(_winsFill, need > 0 ? p.duelWins / (float)need : 1f);
+            _myFace.sprite = Art.Portrait(HeadCatalog.Get(p.selectedHead));
+            // L'ami : connu quand il est arrivé (ou invité) ; sinon un point d'interrogation.
+            bool arrived = phase == DuelController.Phase.Greeting && !string.IsNullOrEmpty(d.TheirName);
+            bool invited = hosting && !string.IsNullOrEmpty(App.InvitedName);
+            _question.SetActive(!arrived && !invited);
+            _theirFace.sprite = arrived ? Art.Portrait(HeadCatalog.Get(d.TheirHead)) : invited ? Art.Portrait(HeadCatalog.Get(App.InvitedHead)) : null;
+            _theirFace.color = _theirFace.sprite != null ? Color.white : new Color(1, 1, 1, 0);
+            _theirName.text = arrived ? d.TheirName : invited ? App.InvitedName : Loc.Get("duel_friend");
+            _theirRing.gameObject.SetActive(!choice && !arrived);
+            _busyTitle.text = arrived ? Loc.Format("duel_found", d.TheirName) : Loc.Get("duel_connecting");
+
+            if (hosting)
+            {
+                SetCode(d.Code);
+                _invitedTag.SetActive(invited);
+                _invitedText.text = invited ? Loc.Format("duel_invited", App.InvitedName) : "";
+                _waitText.gameObject.SetActive(!invited);
+            }
+
+            if (choice)
+            {
+                var head = DuelUi.ChallengerHead();
+                int need = head != null ? head.UnlockValue : App.Tuning.duel.challengerWins;
+                bool done = head != null && p.unlockedHeads.Contains(head.Id);
+                if (head != null) _challenger.sprite = done ? Art.Portrait(head) : Art.Locked(head);
+                _wins.text = done ? Loc.Get("duel_challenger_done") : Loc.Format("duel_challenger", Mathf.Min(p.duelWins, need), need);
+                _record.text = Loc.Format("duel_record", p.duelWins, p.duelsPlayed);
+                Canvas.ForceUpdateCanvases();
+                MetaUi.SetFill(_winsFill, need > 0 ? p.duelWins / (float)need : 1f);
+                LoadFriends();
+            }
         }
 
-        /// <summary>« K7QM2X » → « K7Q M2X » : plus facile à lire et à recopier.</summary>
-        static string SpacedCode(string code)
+        async void LoadFriends()
         {
-            if (string.IsNullOrEmpty(code)) return "…";
-            return code.Length == 6 ? code.Substring(0, 3) + " " + code.Substring(3) : code;
+            Ui.Clear(_friendsCol);
+            var friends = App.Profile.friends;
+            if (friends.Count == 0) { _friendsStatus.text = Loc.Get("duel_no_friends"); return; }
+            if (!App.Leaderboard.Service.IsOnline) { _friendsStatus.text = Loc.Get("friend_offline"); return; }
+            _friendsStatus.text = Loc.Get("lb_loading");
+            int request = ++_request;
+            var list = await DuelUi.LoadFriends(App);
+            if (request != _request || !Visible || App.Duel.Current != DuelController.Phase.None) return;
+            _friendsStatus.text = "";
+            Ui.Clear(_friendsCol);
+            foreach (var f in list)
+                DuelUi.FriendRow(App, _friendsCol, f.id, f.name, f.head, Loc.Get("duel_friend_challenge"), Palette.Play, btn =>
+                {
+                    btn.interactable = false;
+                    App.ChallengeFriend(f.id, f.name);
+                });
+        }
+
+        void SetCode(string code)
+        {
+            Ui.Clear(_codeTiles);
+            code = string.IsNullOrEmpty(code) ? "······" : code;
+            int n = code.Length;
+            float tile = Mathf.Min(140f, (940f - (n - 1) * 14f) / n), x0 = -(n * tile + (n - 1) * 14f) * 0.5f + tile * 0.5f;
+            for (int i = 0; i < n; i++)
+            {
+                var t = Ui.Image(_codeTiles, Art.Panel, Color.white, "Tuile", true);
+                // Petit écart au milieu : « K7Q M2X » se lit en deux moitiés.
+                float gap = n == 6 ? (i < 3 ? -12f : 12f) : 0f;
+                Ui.Place(t.rectTransform, 0.5f, 0.5f, x0 + i * (tile + 14f) + gap, 0, tile, 160);
+                var c = Ui.Plain(Ui.Label(t.transform, code[i].ToString(), 104, Palette.Ink));
+                Ui.Stretch(c.rectTransform, 0, 6, 0, 18);
+                c.horizontalOverflow = HorizontalWrapMode.Overflow;
+            }
         }
 
         public override void Tick(float dt)
         {
-            if (_hosting.gameObject.activeSelf)
+            if (_theirRing.gameObject.activeInHierarchy) _theirRing.rectTransform.Rotate(0, 0, -240f * dt);
+            if (_hosting.gameObject.activeSelf && _waitText.gameObject.activeSelf)
             {
-                _spinner.rectTransform.Rotate(0, 0, -260f * dt);
                 int dots = 1 + (int)(Time.unscaledTime * 2.5f) % 3;
-                _waitText.text = Loc.Get("duel_waiting_friend") + new string('.', dots);
+                _waitText.text = Loc.Get("duel_ready_hint") + "\n" + Loc.Get("duel_waiting_friend") + new string('.', dots);
             }
+        }
+    }
+
+    /// <summary>
+    /// Invitation d'un ami, en grand : son portrait face au tien, « Léa te défie ! », et deux boutons. Elle arrive
+    /// sur n'importe quel menu (jamais pendant une partie), quelques secondes après l'envoi.
+    /// </summary>
+    public sealed class DuelInviteScreen : UiScreen
+    {
+        Text _title;
+        Image _theirs, _mine;
+        System.Action _accept;
+
+        protected override void Build()
+        {
+            var card = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Fenetre", true);
+            Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 40, 980, 1180);
+            card.gameObject.AddComponent<PopIn>();
+            card.gameObject.AddComponent<RectMask2D>();
+            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.32f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 1, 0, -380, 1300, 1300);
+            rays.gameObject.AddComponent<Spin>().Speed = 16f;
+            Ui.Isolate(rays.gameObject);
+            var swords = Ui.Icon(card.transform, Art.IconSprite(Icon.Swords), "Epees");
+            swords.color = Palette.Accent;
+            Ui.Place(swords.rectTransform, 0.5f, 1, 0, -110, 130, 130);
+            swords.gameObject.AddComponent<Pulse>().Amount = 0.06f;
+            _theirs = DuelUi.Portrait(card.transform, Palette.Primary, 250, "Ami");
+            Ui.Place((RectTransform)_theirs.transform.parent, 0.5f, 1, -230, -380, 250, 250);
+            _theirs.transform.parent.gameObject.AddComponent<Rock>().Angle = 5f;
+            _mine = DuelUi.Portrait(card.transform, Palette.Secondary, 250, "Moi");
+            Ui.Place((RectTransform)_mine.transform.parent, 0.5f, 1, 230, -380, 250, 250);
+            var vs = Ui.Title(card.transform, "VS", 96, Palette.Accent);
+            Ui.Place(vs.rectTransform, 0.5f, 1, 0, -380, 200, 130);
+            _title = Ui.Title(card.transform, "", 70, Color.white);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -600, 920, 110);
+            var sub = Ui.Label(card.transform, Loc.Get("duel_inv_sub"), 38, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -700, 880, 110);
+            var yes = Ui.Button(card.transform, Loc.Get("duel_inv_accept"), Palette.Play, () => { Hide(); var a = _accept; _accept = null; a?.Invoke(); }, Icon.Swords, 62, "Accepter");
+            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 220, 800, 170);
+            yes.gameObject.AddComponent<Pulse>().Amount = 0.03f;
+            var no = Ui.Button(card.transform, Loc.Get("duel_inv_later"), Palette.Muted, () => { Hide(); _accept = null; }, null, 46, "PlusTard");
+            Ui.Place((RectTransform)no.transform, 0.5f, 0, 0, 70, 520, 120);
+        }
+
+        public void Open(string name, int head, System.Action accept)
+        {
+            _accept = accept;
+            Show();
+            _title.text = Loc.Format("duel_inv_title", name);
+            _theirs.sprite = Art.Portrait(HeadCatalog.Get(head));
+            _mine.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
         }
     }
 

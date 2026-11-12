@@ -112,6 +112,7 @@ namespace Bascule.Core
             [60] = O(Top.Robe, "#FFFFFF", "#FFE066", Motif.None, Emblem.Star, Bottom.Trousers, "#FFFFFF", Shoe.Sneakers, "#FFE066"),      // Ange
             [61] = O(Top.Tank, "#FFD45A", "#FFFFFF", Motif.None, Emblem.B, Bottom.Shorts, "#C8901E", Shoe.Sneakers, "#FFD45A", "#FFFFFF", true), // Basile doré
             [62] = O(Top.Suit, "#1F2645", "#F8F7F2", Motif.Pinstripe, Emblem.None, Bottom.Trousers, "#1F2645", Shoe.Dress, "#1C1B22"),    // Challenger
+            [63] = O(Top.Jacket, "#7B2CBF", "#FFD60A", Motif.Stars, Emblem.Star, Bottom.Jeans, "#2B2D42", Shoe.Sneakers, "#FF4FA3"),    // Superstar
         };
 
         static readonly Top[] FallbackTops = { Top.TShirt, Top.Hoodie, Top.Jersey, Top.Sweater, Top.Shirt, Top.Jacket };

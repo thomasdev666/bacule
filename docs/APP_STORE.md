@@ -13,7 +13,7 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 | 4.0 / 4.2 Contenu minimal | Jeu complet hors ligne. En ligne : classement, défi du jour, duel en direct. |
 | 1.2 Contenu des utilisateurs | Pseudos filtrés (`PseudoFilter`). Signaler (drapeau) et Bloquer depuis le classement. Règles publiées sur la page d'aide. Contact sous 24 h. Pas de discussion entre joueurs. Noms des adversaires de duel filtrés aussi. |
 | 5.1.1 Suppression des données | Réglages → « Supprimer mes données en ligne ». Il n'y a pas de compte à créer. |
-| 5.1.2 Suivi publicitaire | Pas de demande ATT. Pubs non personnalisées (`SetConsent(false)`, `do_not_sell`), identifiant publicitaire non collecté (`is_deviceid_optout`). |
+| 5.1.2 Suivi publicitaire | Demande ATT seulement après l'accord du joueur dans le jeu (15 ans et plus), texte NSUserTrackingUsageDescription clair. Refus ou moins de 15 ans : pubs non personnalisées (`SetConsent(false)`, `do_not_sell`, `is_deviceid_optout`, enfant signalé). |
 | Manifeste de confidentialité (ITMS-91053) | `Assets/Plugins/iOS/PrivacyInfo.xcprivacy` : pas de suivi, données collectées, API à raison obligatoire (UserDefaults CA92.1, dates de fichiers C617.1). Les SDK fournissent le leur. |
 | Conformité à l'export (question bloquante avant TestFlight) | `ITSAppUsesNonExemptEncryption = NO` ajouté à chaque build (`Editor/IosBuildPost.cs`). |
 | ITMS-90068 (iOS trop ancien) | iOS 15 minimum, iPhone uniquement. |
@@ -49,7 +49,7 @@ Bascule is a free balance game (French only). No account and no login are requir
 
 HOW TO PLAY: drag to aim, release to drop a weight on Basile's plank. Equal weights merge. Keep the plank balanced as long as possible.
 
-FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !".
+FIRST LAUNCH: a one-time welcome screen appears ("Bienvenue !"), tap "C'est parti !" (see FIRST LAUNCH STEPS below).
 
 ONLINE FEATURES (internet required, all optional):
 - Leaderboards (Home > trophy): anonymous player, optional nickname. Nicknames are filtered. Tap any player to Report ("Signaler") or Block ("Bloquer"). Reports are handled within 24h at contact@orpheex.fr.
@@ -59,7 +59,9 @@ ONLINE FEATURES (internet required, all optional):
 
 IN-APP PURCHASES: cosmetics (heads, planks, coins) and "Sans publicité" (removes forced interstitials). Coins only buy cosmetics and never change the score or the gameplay. "Restaurer mes achats" is in Settings and in the Shop.
 
-ADS: non-personalized ads via Unity LevelPlay. No App Tracking Transparency prompt because the app does not track users and does not read the IDFA. Interstitials only appear between two games, never during a game. The "second chance" after losing is always an optional rewarded ad.
+FIRST LAUNCH STEPS: after the welcome screen, the player chooses a nickname (can be skipped), then enters a year of birth (neutral grid of years). Players aged 15+ are then asked whether they accept personalized ads ("Accepter" / "Refuser", same size, same place). Only if they accept, the iOS App Tracking Transparency prompt is shown. Under 15: ads are never personalized, no ATT prompt, ad networks are told the user is a child. The choice can be changed anytime in Settings > "Pubs personnalisées".
+
+ADS: Unity LevelPlay mediation. Interstitials only appear between two games, never during a game. All other ads are optional rewarded videos chosen by the player: second chance after losing, free chest, double the chest, and an exclusive cosmetic head and plank earned after 8 videos (cosmetic only, never a gameplay advantage).
 
 NOTIFICATIONS: optional, at most one local reminder per day, asked only after the first games.
 
@@ -70,22 +72,22 @@ DATA DELETION: Settings > "Supprimer mes données en ligne" deletes the online p
 
 Voir plus bas « Nouveautés de cette version » (texte à jour, avec le duel en direct).
 
-### Confidentialité de l'app (App Privacy)
+### Confidentialité de l'app (App Privacy), à refaire pour la 1.3
 
-Mettre à jour les réponses pour qu'elles collent au manifeste et à la politique de confidentialité :
+Depuis la 1.3, les pubs peuvent être personnalisées (avec l'accord du joueur et la demande de suivi d'iOS). Il faut donc déclarer du **suivi** pour les données de la régie.
 
 - **Collecte de données : Oui.**
-- **Identifiants → Identifiant d'utilisateur** : fonctionnalité de l'app ; lié à l'utilisateur : oui ; suivi : non.
-- **Contenu utilisateur → Contenu de jeu** (scores, partie envoyée pendant un duel) : fonctionnalité de l'app ; lié : oui ; suivi : non.
-- **Contenu utilisateur → Autre contenu** (pseudo, code ami) : fonctionnalité de l'app ; lié : oui ; suivi : non.
-- **Données collectées par la régie publicitaire** (Unity LevelPlay et ses réseaux) : comparer avec le guide « Apple privacy » de LevelPlay sur le site d'Unity. En général :
-  - Identifiants → Identifiant de l'appareil ;
-  - Données d'utilisation → Interaction avec le produit, Données publicitaires ;
-  - Diagnostics ;
-  - Localisation approximative (déduite de l'adresse IP).
-
-  Finalités : publicité tierce et analyses. Liées : non. Suivi : non, car il n'y a pas de demande ATT et l'IDFA n'est pas lu.
-- Déclarer un peu trop n'est jamais un motif de refus ; déclarer trop peu peut l'être.
+- Données du jeu (non utilisées pour le suivi) :
+  - **Identifiants → Identifiant d'utilisateur** : fonctionnalité de l'app ; lié à l'utilisateur : oui ; suivi : non.
+  - **Contenu utilisateur → Contenu de jeu** (scores, partie envoyée pendant un duel) : fonctionnalité de l'app ; lié : oui ; suivi : non.
+  - **Contenu utilisateur → Autre contenu** (pseudo, code ami) : fonctionnalité de l'app ; lié : oui ; suivi : non.
+- Données de la régie publicitaire (Unity LevelPlay et ses réseaux) :
+  - **Identifiants → Identifiant de l'appareil** : publicité tierce, analyses ; lié : non ; **utilisé pour le suivi : oui**.
+  - **Données d'utilisation → Données publicitaires** : publicité tierce, analyses ; lié : non ; **suivi : oui**.
+  - **Données d'utilisation → Interaction avec le produit** : publicité tierce, analyses ; lié : non ; suivi : oui.
+  - **Localisation → Localisation approximative** (déduite de l'adresse IP) : publicité tierce ; lié : non ; suivi : oui.
+  - **Diagnostics → Données de performance, données de plantage** : analyses ; lié : non ; suivi : non.
+- Comparer avec le guide « Apple privacy » de LevelPlay et de chaque réseau activé (`docs/PUBS.md`). Déclarer un peu trop n'est jamais un motif de refus ; déclarer trop peu peut l'être.
 
 ### Classification d'âge
 
@@ -125,17 +127,17 @@ Pour les refaire après un changement de dessin : exporter les décors en haute 
 ### Texte promotionnel (170 caractères maximum, modifiable sans nouvelle version)
 
 ```
-Nouveau : 14 mondes jusqu'à la Lune, une tenue pour chaque tête et un défi chaque jour. Garde Basile en équilibre et bats ton record !
+Nouveau : défie tes amis en duel en un geste, gagne la Superstar exclusive et grimpe au classement ! Garde Basile en équilibre et bats ton record.
 ```
 
-### Nouveautés de cette version
+### Nouveautés de cette version (1.3)
 
 ```
-Bascule fait peau neuve !
-• 14 mondes à traverser en montant ton score : plage, forêt, désert, montagne, ville, volcan, banquise… jusqu'à la Lune.
-• Un petit village en bois dès les premiers points.
-• Une tenue différente pour chacune des 63 têtes.
-• Défi du jour : un vrai défi chaque jour, avec sa barre de progression en direct.
-• Nouveau : le DUEL EN DIRECT ! Défie un ami avec les mêmes poids et vois sa planche en direct. Invite-le depuis ta liste d'amis ou par message.
-• Coffres plus vivants, partage de ton score en un geste, pastille sur les nouvelles têtes.
+Duels, amis et récompenses : grosse mise à jour !
+• DUEL EN DIRECT tout neuf : défie un ami en un geste depuis ta liste, il reçoit l'invitation en quelques secondes. Connexion bien plus rapide.
+• Nouveau classement avec podium, et ta place affichée en fin de partie : vois combien de places tu gagnes !
+• Superstar : une tête exclusive et sa planche « Scène étoilée », à gagner avec des vidéos dans la boutique.
+• Coffre gratuit en vidéo, et double le butin de tes coffres.
+• Choisis ton pseudo dès le premier lancement.
+• 14 mondes jusqu'à la Lune, une tenue pour chacune des 64 têtes, un défi chaque jour.
 ```

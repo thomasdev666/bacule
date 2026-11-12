@@ -28,7 +28,9 @@ namespace Bascule.Services
 
     public static class Placements
     {
-        public const string Revive = "revive", DoubleCoins = "double_coins", GiftDouble = "gift_double", FreeCoins = "free_coins", Reroll = "mission_reroll";
+        public const string Revive = "revive", DoubleCoins = "double_coins", GiftDouble = "gift_double", FreeCoins = "free_coins", Reroll = "mission_reroll",
+            // 1.4 : boutique (tête et planche exclusives, coffre gratuit) et coffre de fin de partie doublé
+            ExclusiveHead = "exclusive_head", ExclusivePlank = "exclusive_plank", VideoChest = "video_chest", ChestDouble = "chest_double";
     }
 
     /// <summary>Pub simulée (éditeur, ou tant que la régie n'est pas branchée) : un écran noir avec un compte à rebours.</summary>
@@ -81,8 +83,8 @@ namespace Bascule.Services
 
 #if BASCULE_UNITYADS
     /// <summary>
-    /// Unity Ads (paquet com.unity.ads, gratuit). Pubs non personnalisées : on déclare au SDK que le joueur
-    /// n'a pas consenti au ciblage (RGPD) et qu'il faut des pubs « non comportementales ».
+    /// Unity Ads (paquet com.unity.ads, gratuit). Pubs personnalisées seulement avec l'accord d'un joueur de 15 ans
+    /// ou plus (Core/Privacy.cs) ; sinon pubs « non comportementales ».
     /// Identifiants à remplir dans GameApp (AdIds) depuis le tableau de bord Unity Ads.
     /// </summary>
     public sealed class UnityAdsService : IAdService, UnityEngine.Advertisements.IUnityAdsInitializationListener,
@@ -94,22 +96,29 @@ namespace Bascule.Services
         Action _interstitialDone;
         int _retries;
 
-        public UnityAdsService(string gameId, string rewardedId, string interstitialId, bool testMode)
+        public UnityAdsService(string gameId, string rewardedId, string interstitialId, bool testMode, AdPrivacy privacy)
         {
             _rewardedId = rewardedId;
             _interstitialId = interstitialId;
-            var gdpr = new UnityEngine.Advertisements.MetaData("gdpr");
-            gdpr.Set("consent", "false");
-            UnityEngine.Advertisements.Advertisement.SetMetaData(gdpr);
-            var privacy = new UnityEngine.Advertisements.MetaData("privacy");
-            privacy.Set("consent", "false");
-            privacy.Set("mode", "mixed"); // public mixte : enfants possibles, donc jamais de ciblage
-            UnityEngine.Advertisements.Advertisement.SetMetaData(privacy);
-            var user = new UnityEngine.Advertisements.MetaData("user");
-            user.Set("nonbehavioral", "true");
-            UnityEngine.Advertisements.Advertisement.SetMetaData(user);
+            ApplyPrivacy(privacy);
             if (!UnityEngine.Advertisements.Advertisement.isInitialized && UnityEngine.Advertisements.Advertisement.isSupported)
                 UnityEngine.Advertisements.Advertisement.Initialize(gameId, testMode, this);
+        }
+
+        /// <summary>Consentement (RGPD) et public mixte : un enfant n'a jamais de pub « comportementale ».</summary>
+        public static void ApplyPrivacy(AdPrivacy privacy)
+        {
+            string consent = privacy.Personalized ? "true" : "false";
+            var gdpr = new UnityEngine.Advertisements.MetaData("gdpr");
+            gdpr.Set("consent", consent);
+            UnityEngine.Advertisements.Advertisement.SetMetaData(gdpr);
+            var privacyMeta = new UnityEngine.Advertisements.MetaData("privacy");
+            privacyMeta.Set("consent", consent);
+            privacyMeta.Set("mode", "mixed"); // public mixte : des enfants peuvent jouer
+            UnityEngine.Advertisements.Advertisement.SetMetaData(privacyMeta);
+            var user = new UnityEngine.Advertisements.MetaData("user");
+            user.Set("nonbehavioral", privacy.Personalized && !privacy.Child ? "false" : "true");
+            UnityEngine.Advertisements.Advertisement.SetMetaData(user);
         }
 
         public bool IsSimulated => false;
@@ -183,8 +192,11 @@ namespace Bascule.Services
 #if BASCULE_LEVELPLAY
     /// <summary>
     /// Unity LevelPlay (paquet com.unity.services.levelplay, « Ads Mediation ») : la régie de Unity depuis 2026
-    /// (le paquet Advertisement Legacy ne sert plus à gagner de l'argent). Pubs non personnalisées : pas de
-    /// consentement au ciblage (RGPD) et « ne pas vendre » (CCPA), déclarés avant le démarrage.
+    /// (le paquet Advertisement Legacy ne sert plus à gagner de l'argent). Médiation : chaque pub est mise aux
+    /// enchères entre tous les réseaux branchés (Unity Ads, AppLovin, Google, Meta…, docs/PUBS.md) ; plus il y a
+    /// d'enchérisseurs, mieux la pub est payée, sans montrer une pub de plus.
+    /// Confidentialité (Core/Privacy.cs), déclarée avant le démarrage : pubs personnalisées seulement avec l'accord
+    /// d'un joueur de 15 ans ou plus ; un enfant est signalé comme tel à toutes les régies.
     /// Clé d'app et identifiants des blocs à remplir dans GameApp (AdIds), depuis le tableau de bord Unity.
     /// Les rappels du SDK sont repassés sur le fil principal avant de toucher au jeu.
     /// </summary>
@@ -208,16 +220,12 @@ namespace Bascule.Services
         public string Diagnostic => "LevelPlay " + _init + " | Récompensée : " + (_rewarded != null && _rewarded.IsAdReady() ? "prête" : _rewardedState)
             + " | Entre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState);
 
-        public LevelPlayAdService(string appKey, string rewardedId, string interstitialId)
+        public LevelPlayAdService(string appKey, string rewardedId, string interstitialId, AdPrivacy privacy)
         {
             _rewardedId = rewardedId;
             _interstitialId = interstitialId;
             if (GameApp.Instance != null) GameApp.Instance.StartCoroutine(Pump());
-            // Avant le démarrage : aucune donnée utilisée pour cibler le joueur.
-            global::Unity.Services.LevelPlay.LevelPlay.SetConsent(false);
-            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("do_not_sell", "true");
-            // Public mixte (des collégiens jouent) : l'identifiant publicitaire de l'appareil n'est pas collecté.
-            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("is_deviceid_optout", "true");
+            ApplyPrivacy(privacy);
             _testSuite = PlayerPrefs.GetInt(TestSuitePref, 0) == 1;
             if (_testSuite)
             {
@@ -232,6 +240,29 @@ namespace Bascule.Services
                 Debug.LogWarning("[Bascule] LevelPlay : démarrage impossible (" + _init + ")");
             });
             global::Unity.Services.LevelPlay.LevelPlay.Init(appKey);
+        }
+
+        /// <summary>
+        /// Consentement et âge, transmis à LevelPlay et à chaque réseau de la médiation. Appelé avant le démarrage, puis
+        /// à chaque changement dans les réglages (pris en compte pour les pubs suivantes).
+        /// </summary>
+        public static void ApplyPrivacy(AdPrivacy privacy)
+        {
+            bool personal = privacy.Personalized && !privacy.Child;
+            string child = privacy.Child ? "true" : "false";
+            global::Unity.Services.LevelPlay.LevelPlay.SetConsent(personal);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("do_not_sell", personal ? "false" : "true");
+            // Sans accord (ou enfant) : l'identifiant publicitaire de l'appareil n'est pas utilisé.
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("is_deviceid_optout", personal ? "false" : "true");
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("is_child_directed", child);
+            // Réglages propres aux réseaux (clés de la documentation LevelPlay, ignorées si le réseau n'est pas branché).
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("AdMob_TFCD", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("AdMob_TFUA", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("AppLovin_AgeRestrictedUser", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("Meta_Mixed_Audience", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("UnityAds_coppa", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("Chartboost_Coppa", child);
+            global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("InMobi_AgeRestricted", child);
         }
 
         static string Err(global::Unity.Services.LevelPlay.LevelPlayAdError e) => e == null ? "erreur" : "erreur " + e.ErrorCode + " " + e.ErrorMessage;

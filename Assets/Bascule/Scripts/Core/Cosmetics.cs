@@ -8,7 +8,7 @@ namespace Bascule.Core
     // la physique ou la difficulté. Le classement reste équitable, que l'on ait payé ou non.
     // =====================================================================================================
 
-    public enum PlankPattern { Grain, Bamboo, Grip, Surf, Marble, Candy, Gold }
+    public enum PlankPattern { Grain, Bamboo, Grip, Surf, Marble, Candy, Gold, Stars }
 
     /// <summary>Apparence de la planche. Même taille, même poids, mêmes rebords : seul le dessin change.</summary>
     public sealed class PlankSkin
@@ -18,6 +18,8 @@ namespace Bascule.Core
         public int Price;
         public Rgba Base, Dark;
         public PlankPattern Pattern;
+        /// <summary>Planche exclusive : ne s'achète pas, se gagne seulement en regardant des vidéos (Core/AdRewards.cs).</summary>
+        public bool AdExclusive;
         public string Name(string lang) => lang == "en" ? En : Fr;
     }
 
@@ -33,6 +35,8 @@ namespace Bascule.Core
             new PlankSkin { Id = 4, Fr = "Marbre", En = "Marble", Price = 1500, Base = Rgba.FromHex("#F2F0EC"), Dark = Rgba.FromHex("#8E8A99"), Pattern = PlankPattern.Marble },
             new PlankSkin { Id = 5, Fr = "Sucre d'orge", En = "Candy cane", Price = 2000, Base = Rgba.FromHex("#FF4F6D"), Dark = Rgba.FromHex("#B3203E"), Pattern = PlankPattern.Candy },
             new PlankSkin { Id = 6, Fr = "Or massif", En = "Solid gold", Price = 5000, Base = Rgba.FromHex("#FFCC3D"), Dark = Rgba.FromHex("#B07A12"), Pattern = PlankPattern.Gold },
+            // 1.4 : assortie à la Superstar (violet nuit, étoiles roses et or), gagnée avec des vidéos uniquement.
+            new PlankSkin { Id = 7, Fr = "Scène étoilée", En = "Starry stage", Price = 0, Base = Rgba.FromHex("#7B2CBF"), Dark = Rgba.FromHex("#3C096C"), Pattern = PlankPattern.Stars, AdExclusive = true },
         };
 
         public static bool Exists(int id)
@@ -54,7 +58,7 @@ namespace Bascule.Core
 
         public static bool BuyPlank(Profile p, PlankSkin s)
         {
-            if (s == null || OwnsPlank(p, s.Id)) return false;
+            if (s == null || s.AdExclusive || OwnsPlank(p, s.Id)) return false; // l'exclusive ne s'achète pas
             if (!Wallet.Spend(p, s.Price)) return false;
             p.ownedPlanks.Add(s.Id);
             p.selectedPlank = s.Id;

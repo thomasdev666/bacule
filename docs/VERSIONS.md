@@ -2,6 +2,18 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
+## 1.3 (build 7) – duel, amis, pubs mieux payées, Superstar
+- **Premier lancement** : après « Bienvenue ! », choix du pseudo (idée au hasard avec le dé, « Plus tard » possible), année de naissance (grille neutre), puis « Des pubs qui te ressemblent ? » pour les 15 ans et plus (Accepter / Refuser, même taille). Un joueur déjà installé ne voit que ce qui lui manque (`UI/OnboardScreens.cs`, `Core/Privacy.cs`).
+- **Pubs personnalisées** : consentement transmis à LevelPlay et aux réseaux ; demande de suivi d'iPhone (ATT) seulement après l'accord ; moins de 15 ans : jamais personnalisées, signalé « enfant » à toutes les régies. Réglage « Pubs personnalisées » dans Réglages → Aide. La régie ne démarre qu'une fois l'âge et le choix connus.
+- **Réseaux publicitaires** : 84 identifiants SKAdNetwork, identifiant AdMob ajouté au build s'il est rempli (`Editor/AdNetworkSettings.cs`), guide `docs/PUBS.md`.
+- **Boutique « Gratuit avec une vidéo »** : la **Superstar** (tête n° 63, lunettes en étoile, exclusive) après 8 vidéos, la planche assortie **« Scène étoilée »** après 8 vidéos, coffre gratuit (3 par jour). Chaque vidéo compte, même des jours après (`Core/AdRewards.cs`). Coffre de fin de partie : bouton **« Doubler »** (vidéo).
+- **Duel** : nouvelle entrée (bannière VS, règles, amis à défier en un geste, code), code en grandes tuiles, invitation reçue en grand (« Léa te défie ! ») sur n'importe quel menu, vérifiée toutes les 4 s (au lieu de 20 s, seulement sur l'accueil). Relais en Europe d'office (plus de mesure de toutes les régions) : le code arrive plus vite.
+- **Amis** : les liens d'amitié sont republiés à chaque lancement (un ajout fait hors ligne ou avec une ancienne version finit par arriver), vérification des amis réciproques toutes les 30 s sur les menus. « Défier » dans le menu d'un ami.
+- **Classement** : onglets en verre, podium des 3 premiers (couronne, socles or, argent, bronze), bouton « Défier » sur chaque ami, « Ta place » toujours visible en bas.
+- **Fin de partie** : autocollant « +12 places · 34e mondial » (ou du jour) dès que le score est envoyé.
+- **Notes sur l'App Store** : l'identifiant de l'app était resté à zéro dans le lien de notation (corrigé) ; iPhone : fenêtre de notation d'Apple directement après un record (jusqu'à 3 fois, à 4 jours d'écart).
+- Aperçus : `python3 Tools/screens_preview_v14.py Exports/art docs/apercu`.
+
 ## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
 - **Retours de test** :
   - **Amis réciproques** : quand tu ajoutes quelqu'un, il te retrouve dans ses amis (vérifié toutes les 20 s à l'accueil). **Retirer des amis** depuis le classement des amis (toucher le joueur) ; un ami retiré ne revient pas tout seul.

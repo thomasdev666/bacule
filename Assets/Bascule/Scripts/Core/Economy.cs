@@ -49,7 +49,11 @@ namespace Bascule.Core
         /// <summary>Pas de pub imposée après une partie de moins de N secondes (la frustration s'ajouterait à la pub).</summary>
         public float minRunSecondsForInterstitial = 25f;
         public int maxInterstitialsPerDay = 12;
-        public int maxRewardedPerDay = 20;
+        public int maxRewardedPerDay = 30;
+        /// <summary>Boutique, vidéos : tête exclusive après N vidéos, planche assortie après N vidéos, coffres par jour.</summary>
+        public int adsForExclusiveHead = 8;
+        public int adsForExclusivePlank = 8;
+        public int adChestsPerDay = 3;
         /// <summary>Pièces gratuites en vidéo dans la boutique.</summary>
         public int freeCoinsPerDay = 5;
         public int freeCoinsAmount = 60;

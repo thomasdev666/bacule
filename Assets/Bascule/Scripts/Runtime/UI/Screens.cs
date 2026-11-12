@@ -745,6 +745,11 @@ namespace Bascule.UI
     {
         Text _title, _subtitle, _score, _best, _details, _nextText, _level, _xp, _coins;
         Button _revive, _double;
+        // Place au classement, en « autocollant » sur le coin de la carte (« +12 places · 34e mondial »).
+        RectTransform _rankTag;
+        Image _rankBg;
+        Text _rankText;
+        int _rankPriority;
         RectTransform _heads, _rays, _card, _xpFill;
         GameObject _nextBlock;
         Image _nextPortrait, _nextFill;
@@ -793,6 +798,18 @@ namespace Bascule.UI
             card.gameObject.AddComponent<PopIn>();
             var lbl = Ui.Label(card.transform, Loc.Get("score_label"), 46, Palette.Muted);
             Ui.Place(lbl.rectTransform, 0.5f, 1, 0, -58, 600, 56);
+            var tag = Ui.Image(card.transform, Art.Pill, Palette.Play, "Classement", true);
+            _rankBg = tag;
+            _rankTag = tag.rectTransform;
+            Ui.Place(_rankTag, 1, 1, 24, 30, 470, 84, 1, 0.5f);
+            _rankTag.localRotation = Quaternion.Euler(0, 0, -4f);
+            var trophy = Ui.Icon(tag.transform, Art.IconSprite(Icon.Trophy), "Trophee");
+            Ui.Place(trophy.rectTransform, 0, 0.5f, 18, 0, 58, 58, 0, 0.5f);
+            _rankText = Ui.Title(tag.transform, "", 38, Color.white);
+            Ui.Stretch(_rankText.rectTransform, 84, 2, 22, 0);
+            _rankText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Ui.Isolate(tag.gameObject);
+            tag.gameObject.SetActive(false);
             _score = Ui.Title(card.transform, "0", 170, Palette.Accent);
             // Contour plus fin que celui d'un titre de cette taille (10 px, ombre de 19 px) : il empiétait sur « Record ».
             foreach (var sh in _score.GetComponents<Shadow>()) UnityEngine.Object.DestroyImmediate(sh);
@@ -902,6 +919,8 @@ namespace Bascule.UI
         public void Present(RunResult r, RunRewards rewards, EconomyGain gain, bool canRevive, bool reviveFree, Texture card)
         {
             Show();
+            _rankTag.gameObject.SetActive(false);
+            _rankPriority = 0;
             _gain = gain;
             _xpV = gain.XpFractionBefore;
             _xpTo = gain.LevelsGained + gain.XpFractionAfter;
@@ -1201,6 +1220,30 @@ namespace Bascule.UI
         }
 
         public void HideRevive() => _revive.gameObject.SetActive(false);
+
+        /// <summary>
+        /// Place au classement après l'envoi du score (quelques instants après l'écran de fin). Le plus parlant
+        /// l'emporte : places gagnées au mondial, puis au classement du jour, puis la simple place.
+        /// </summary>
+        public void ShowRank(bool world, int rank, int previous)
+        {
+            if (rank <= 0) return;
+            int gained = previous > 0 ? previous - rank : 0;
+            int priority = (gained > 0 ? 4 : previous == 0 ? 2 : 1) + (world ? 1 : 0);
+            if (priority <= _rankPriority) return;
+            _rankPriority = priority;
+            string where = Loc.Format(world ? "go_rank_world" : "go_rank_daily", Loc.Rank(rank));
+            _rankText.text = gained > 0 ? Loc.Format("go_rank_up", Loc.FormatScore(gained)) + " · " + where
+                : previous == 0 ? Loc.Get("go_rank_new") + " · " + where : where;
+            _rankBg.color = gained > 0 ? Palette.Play : world ? Palette.Purple : Palette.Secondary;
+            float w = Mathf.Clamp(_rankText.preferredWidth + 120f, 360f, 640f);
+            _rankTag.sizeDelta = new Vector2(w, 84);
+            _rankTag.gameObject.SetActive(true);
+            var pop = _rankTag.GetComponent<PopIn>();
+            if (pop == null) pop = _rankTag.gameObject.AddComponent<PopIn>();
+            pop.enabled = false; pop.enabled = true;
+            if (gained > 0) { App.PlaySfx(Sfx.Chime, 12, 0.7f); App.HapticLight(); }
+        }
     }
 
     // ===================================================================== Collection
@@ -1493,37 +1536,68 @@ namespace Bascule.UI
     public sealed class LeaderboardScreen : UiScreen
     {
         string _board = Boards.World;
-        RectTransform _list, _area;
-        Text _status;
+        RectTransform _list, _area, _meBar;
+        Text _status, _meRank, _meName, _meScore;
+        Image _meFace;
         Button _pseudo;
         GameObject _friendButtons;
         Button _myCode;
-        readonly Dictionary<string, Button> _tabs = new Dictionary<string, Button>();
+        readonly Dictionary<string, (Image bg, Text label)> _tabs = new Dictionary<string, (Image, Text)>();
         readonly List<(Image image, int head)> _pending = new List<(Image, int)>();
         int _request;
 
         const string Mine = "mine", Friends = "friends";
+        static readonly Color Gold = ArtCache.Hex("#FFC93C"), Silver = ArtCache.Hex("#C9D3E3"), Bronze = ArtCache.Hex("#E08A4F");
 
         protected override void Build()
         {
             BackButton(App.GoHome);
             Header(Loc.Get("leaderboard"));
+            // Onglets : une barre de verre, l'onglet choisi en pastille rouge.
+            var bar = Ui.Glass(Safe, "Onglets");
+            Ui.Place(bar.rectTransform, 0.5f, 1, 0, -270, 1010, 120);
             var tabs = new[] { (Boards.World, "lb_world"), (Boards.Daily, "lb_daily"), (Friends, "lb_friends"), (Mine, "lb_mine") };
             for (int i = 0; i < tabs.Length; i++)
             {
                 string board = tabs[i].Item1;
-                var tab = Ui.Button(Safe, Loc.Get(tabs[i].Item2), Palette.Dark, () => { _board = board; Refresh(); }, null, 42, "Onglet");
-                Ui.Place((RectTransform)tab.transform, 0.5f, 1, -378 + i * 252, -270, 244, 116);
-                _tabs[board] = tab;
+                var bg = Ui.Image(bar.transform, Art.Pill, Palette.Primary, "Onglet", true);
+                Ui.Place(bg.rectTransform, 0, 0.5f, 10 + i * 248, 0, 242, 100, 0, 0.5f);
+                bg.raycastTarget = true;
+                var b = bg.gameObject.AddComponent<Button>();
+                var nav = b.navigation; nav.mode = Navigation.Mode.None; b.navigation = nav;
+                b.transition = Selectable.Transition.None;
+                b.onClick.AddListener(() => { Ui.Click?.Invoke(); _board = board; Refresh(); });
+                bg.gameObject.AddComponent<PressScale>();
+                var label = Ui.Title(bg.transform, Loc.Get(tabs[i].Item2), 40);
+                Ui.Stretch(label.rectTransform, 8, 2, 8, 0);
+                _tabs[board] = (bg, label);
             }
             _status = Ui.Title(Safe, "", 44);
-            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -440, 920, 200); // assez haut pour un message sur trois lignes
+            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -480, 920, 200); // assez haut pour un message sur trois lignes
             _status.resizeTextForBestFit = true; _status.resizeTextMinSize = 36; _status.resizeTextMaxSize = 44;
 
             _area = Ui.Rect("Liste", Safe);
-            Ui.Stretch(_area, 36, 430, 36, 200);
+            Ui.Stretch(_area, 36, 350, 36, 345);
             _list = Ui.Scroll(_area, out _);
             Ui.Column(_list, 14);
+
+            // Ta place, toujours visible en bas (classements mondial et du jour).
+            var me = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#FFE9A8"), "MaPlace", true);
+            _meBar = me.rectTransform;
+            Ui.Place(_meBar, 0.5f, 0, 0, 265, 1008, 136);
+            var meTag = Ui.Label(me.transform, Loc.Get("lb_your_place"), 30, Palette.Muted);
+            Ui.Place(meTag.rectTransform, 0, 1, 34, -8, 200, 36, 0, 1);
+            meTag.alignment = TextAnchor.UpperLeft;
+            _meRank = Ui.Title(me.transform, "", 56, Palette.Primary);
+            Ui.Place(_meRank.rectTransform, 0, 0.5f, 30, -24, 190, 66, 0, 0.5f);
+            _meRank.alignment = TextAnchor.MiddleLeft;
+            _meRank.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _meFace = Ui.Icon(me.transform, null, "Tete");
+            Ui.Place(_meFace.rectTransform, 0, 0.5f, 220, 0, 116, 116, 0, 0.5f);
+            _meName = Ui.Plain(Ui.Label(me.transform, "", 46, Palette.Ink, TextAnchor.MiddleLeft));
+            Ui.Place(_meName.rectTransform, 0, 0.5f, 350, 0, 380, 90, 0, 0.5f);
+            _meScore = Ui.Plain(Ui.Label(me.transform, "", 52, Palette.Ink, TextAnchor.MiddleRight));
+            Ui.Place(_meScore.rectTransform, 1, 0.5f, -34, 0, 260, 90, 1, 0.5f);
 
             // Amis : partager son code, ajouter celui d'un ami.
             var fb = Ui.Rect("BoutonsAmis", Safe);
@@ -1560,22 +1634,27 @@ namespace Bascule.UI
         public override async void Refresh()
         {
             foreach (var kv in _tabs)
-                kv.Value.GetComponent<Image>().color = kv.Key == _board ? Palette.Primary : Palette.Dark;
+            {
+                bool on = kv.Key == _board;
+                kv.Value.bg.color = on ? Palette.Primary : new Color(1, 1, 1, 0f);
+                kv.Value.label.color = on ? Color.white : ArtCache.Hex("#D8E9FF");
+            }
             var pl = Ui.ButtonLabel(_pseudo);
             if (pl != null) pl.text = string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("pseudo_title") : App.Profile.pseudo;
-            bool friends = _board == Friends;
+            bool friends = _board == Friends, mine = _board == Mine;
             _friendButtons.SetActive(friends);
+            _meBar.gameObject.SetActive(false);
             // Le code court s'affiche sur le bouton : on peut le lire à voix haute à un ami.
             var codeLabel = Ui.ButtonLabel(_myCode);
             if (codeLabel != null)
                 codeLabel.text = string.IsNullOrEmpty(App.Profile.friendCode) ? Loc.Get("friend_code_btn")
                     : Loc.Format("friend_code_short", FriendCode.FormatShort(App.Profile.friendCode));
-            Ui.Stretch(_area, 36, 430, 36, friends ? 345 : 200);
+            Ui.Stretch(_area, 36, 350, 36, mine ? 200 : 345);
             Ui.Clear(_list);
             _pending.Clear();
             int request = ++_request;
 
-            if (_board == Mine)
+            if (mine)
             {
                 _status.text = "";
                 var top = App.Profile.personalTop;
@@ -1588,8 +1667,8 @@ namespace Bascule.UI
             if (!service.IsOnline)
             {
                 _status.text = Loc.Get(friends ? "friend_offline" : "lb_offline");
-                int mine = _board == Boards.Daily ? (App.Profile.daily.bestDate == App.TodayKey ? App.Profile.daily.bestScoreToday : 0) : App.Profile.bestScore;
-                if (mine > 0 && !friends) Row(0, App.Profile.pseudo, mine, App.Profile.selectedHead, true);
+                int best = _board == Boards.Daily ? (App.Profile.daily.bestDate == App.TodayKey ? App.Profile.daily.bestScoreToday : 0) : App.Profile.bestScore;
+                if (best > 0 && !friends) Row(0, App.Profile.pseudo, best, App.Profile.selectedHead, true);
                 return;
             }
 
@@ -1605,54 +1684,140 @@ namespace Bascule.UI
             }
             else page = await service.GetTopAsync(_board, 50);
             if (request != _request || !Visible) return;
-            // Classement du jour vide : on explique qu'il se remplit avec les parties du défi du jour (pas les parties normales).
-            _status.text = page.Entries.Count == 0 ? Loc.Get(friends ? "friends_empty" : _board == Boards.Daily ? "lb_daily_empty" : "lb_empty") : "";
+            // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas). Pseudos filtrés à l'affichage.
+            var shown = new List<LeaderboardEntry>();
             foreach (var e in page.Entries)
             {
-                // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas).
                 if (!e.IsMe && Moderation.IsBlocked(App.Profile, e.PlayerId)) continue;
-                // Pseudo des autres joueurs : filtré aussi à l'affichage (ancienne version, appareil modifié).
-                Row(e.Rank, e.IsMe ? e.Name : PseudoFilter.Display(e.Name, Loc.Get("lb_player")), e.Score, e.Head, e.IsMe, e.PlayerId);
+                if (!e.IsMe) e.Name = PseudoFilter.Display(e.Name, Loc.Get("lb_player"));
+                if (friends && !string.IsNullOrEmpty(e.PlayerId)) App.FriendHeads[e.PlayerId] = e.Head;
+                shown.Add(e);
             }
-            if (!friends && page.Me != null && !page.Entries.Exists(e => e.IsMe)) Row(page.Me.Rank, page.Me.Name, page.Me.Score, App.Profile.selectedHead, true);
+            _status.text = shown.Count == 0 ? Loc.Get(friends ? "friends_empty" : _board == Boards.Daily ? "lb_daily_empty" : "lb_empty") : "";
+            // Podium des trois premiers, puis les autres en lignes.
+            int podium = shown.Count >= 2 ? Mathf.Min(3, shown.Count) : 0;
+            if (podium > 0) Podium(shown.GetRange(0, podium), friends);
+            for (int i = podium; i < shown.Count; i++)
+            {
+                var e = shown[i];
+                Row(e.Rank, e.Name, e.Score, e.Head, e.IsMe, e.PlayerId, friends);
+            }
+            // Ta place (mondial et du jour) : en bas, toujours visible, même hors des 50 premiers.
+            if (!friends)
+            {
+                var me = shown.Find(e => e.IsMe) ?? page.Me;
+                _meBar.gameObject.SetActive(true);
+                if (me != null && me.Rank > 0)
+                {
+                    _meRank.text = Loc.Rank(me.Rank);
+                    _meScore.text = Loc.FormatScore(me.Score);
+                }
+                else { _meRank.text = "–"; _meScore.text = ""; }
+                _meName.text = me != null ? (string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("lb_you") : App.Profile.pseudo) : Loc.Get("lb_not_ranked");
+                _meFace.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
+            }
         }
 
-        void Row(int rank, string name, int score, int head, bool me, string playerId = null)
+        /// <summary>
+        /// Podium : le 1er au centre (plus haut, couronne), le 2e à gauche, le 3e à droite. Socles or, argent et
+        /// bronze avec le pseudo et le score ; le portrait posé dessus, sa place dans une pastille.
+        /// </summary>
+        void Podium(List<LeaderboardEntry> top, bool friends)
+        {
+            var holder = Ui.Rect("Podium", _list);
+            Ui.Size(holder, 590);
+            float[] xs = { 0f, -330f, 330f };
+            float[] heights = { 250f, 200f, 170f };
+            Color[] medals = { Gold, Silver, Bronze };
+            // Le 1er est dessiné en dernier : sa couronne et son portrait passent devant.
+            foreach (int i in new[] { 1, 2, 0 })
+            {
+                if (i >= top.Count) continue;
+                var e = top[i];
+                float x = xs[i], h = heights[i], size = i == 0 ? 230f : 190f;
+                var block = Ui.Image(holder, Art.Panel, medals[i], "Socle", true);
+                Ui.Place(block.rectTransform, 0.5f, 0, x, 0, 312, h, 0.5f, 0);
+                var name = Ui.Title(block.transform, string.IsNullOrEmpty(e.Name) ? "-" : e.Name, 40, e.IsMe ? Palette.Accent : Color.white);
+                Ui.Place(name.rectTransform, 0.5f, 1, 0, -54, 290, 56);
+                var score = Ui.Title(block.transform, Loc.FormatScore(e.Score), 40, ArtCache.Hex("#FFF5D6"));
+                Ui.Place(score.rectTransform, 0.5f, 1, 0, -112, 290, 54);
+
+                var ring = Ui.Image(holder, Art.Circle, e.IsMe ? Palette.Primary : medals[i], "Cercle");
+                Ui.Place(ring.rectTransform, 0.5f, 0, x, h + size * 0.5f - 14, size, size);
+                var inner = Ui.Image(ring.transform, Art.Circle, Palette.Paper, "Fond");
+                Ui.Place(inner.rectTransform, 0.5f, 0.5f, 0, 0, size - 18, size - 18);
+                var face = Ui.Icon(ring.transform, Art.PortraitIfLoaded(HeadCatalog.Get(e.Head), false), "Tete");
+                Ui.Place(face.rectTransform, 0.5f, 0.5f, 0, 2, size - 24, size - 24);
+                if (face.sprite == null) { face.sprite = Art.SoftDisc; face.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((face, e.Head)); }
+                var badge = Ui.Image(ring.transform, Art.Circle, medals[i], "Place");
+                Ui.Place(badge.rectTransform, 1, 0, -18, 18, 76, 76);
+                var badgeRim = Ui.Image(badge.transform, Art.Ring, Color.white, "Bord");
+                Ui.Stretch(badgeRim.rectTransform);
+                var num = Ui.Title(badge.transform, (i + 1).ToString(), 44);
+                Ui.Stretch(num.rectTransform, 0, 0, 0, 4);
+                if (i == 0)
+                {
+                    var crown = Ui.Icon(holder, Art.IconSprite(Icon.Crown), "Couronne");
+                    crown.color = Gold;
+                    Ui.Place(crown.rectTransform, 0.5f, 0, x, h + size + 20, 130, 104);
+                    crown.gameObject.AddComponent<Rock>().Angle = 6f;
+                }
+                // Toucher un joueur du podium : défier un ami, ou signaler / bloquer.
+                if (!e.IsMe && !string.IsNullOrEmpty(e.PlayerId))
+                {
+                    string id = e.PlayerId, who = e.Name;
+                    ring.raycastTarget = true;
+                    var b = ring.gameObject.AddComponent<Button>();
+                    b.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerMenu(id, who); });
+                    ring.gameObject.AddComponent<PressScale>();
+                }
+            }
+        }
+
+        void Row(int rank, string name, int score, int head, bool me, string playerId = null, bool friend = false)
         {
             bool report = !me && !string.IsNullOrEmpty(playerId);
+            bool challenge = friend && report && App.DuelAvailable;
             var row = Ui.Card(_list, "Ligne");
             row.color = me ? ArtCache.Hex("#FFE9A8") : Color.white;
-            Ui.Size(row, 150);
+            Ui.Size(row, 140);
             var medal = rank >= 1 && rank <= 3;
             if (medal)
             {
-                // Podium : médaille or, argent ou bronze, numéro blanc cerné.
-                var disc = Ui.Image(row.transform, Art.Circle, new[] { ArtCache.Hex("#FFC93C"), ArtCache.Hex("#B8C2D6"), ArtCache.Hex("#E08A4F") }[rank - 1], "Medaille");
-                Ui.Place(disc.rectTransform, 0, 0.5f, 34, 0, 96, 96, 0, 0.5f);
-                var shine = Ui.Image(disc.transform, Art.Circle, new Color(1, 1, 1, 0.3f), "Reflet");
-                Ui.Place(shine.rectTransform, 0.5f, 0.5f, -16, 18, 38, 26);
-                var num = Ui.Title(disc.transform, rank.ToString(), 52);
+                var disc = Ui.Image(row.transform, Art.Circle, new[] { Gold, Silver, Bronze }[rank - 1], "Medaille");
+                Ui.Place(disc.rectTransform, 0, 0.5f, 34, 0, 90, 90, 0, 0.5f);
+                var num = Ui.Title(disc.transform, rank.ToString(), 50);
                 Ui.Stretch(num.rectTransform, 0, 0, 0, 4);
             }
             else
             {
-                var r = Ui.Title(row.transform, rank > 0 ? rank.ToString() : "-", 52, me ? Palette.Primary : ArtCache.Hex("#AEB6C8"));
-                Ui.Place(r.rectTransform, 0, 0.5f, 26, 0, 110, 110, 0, 0.5f);
+                var r = Ui.Title(row.transform, rank > 0 ? rank.ToString() : "-", 50, me ? Palette.Primary : ArtCache.Hex("#AEB6C8"));
+                Ui.Place(r.rectTransform, 0, 0.5f, 24, 0, 116, 110, 0, 0.5f);
+                r.horizontalOverflow = HorizontalWrapMode.Overflow;
             }
             var icon = Ui.Icon(row.transform, Art.PortraitIfLoaded(HeadCatalog.Get(head), false));
             if (icon.sprite == null) { icon.sprite = Art.SoftDisc; icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((icon, head)); }
-            Ui.Place(icon.rectTransform, 0, 0.5f, 140, 0, 130, 130, 0, 0.5f);
-            var n = Ui.Label(row.transform, string.IsNullOrEmpty(name) ? "-" : name, 48, Palette.Ink, TextAnchor.MiddleLeft);
-            Ui.Place(n.rectTransform, 0, 0.5f, 290, 0, report ? 340 : 400, 100, 0, 0.5f);
-            var s = Ui.Label(row.transform, Loc.FormatScore(score), 54, Palette.Ink, TextAnchor.MiddleRight);
-            Ui.Place(s.rectTransform, 1, 0.5f, -36, 0, 240, 100, 1, 0.5f);
-            if (report)
+            Ui.Place(icon.rectTransform, 0, 0.5f, 146, 0, 120, 120, 0, 0.5f);
+            float nameW = challenge ? 300 : report ? 330 : 400;
+            var n = Ui.Plain(Ui.Label(row.transform, string.IsNullOrEmpty(name) ? "-" : name, 46, Palette.Ink, TextAnchor.MiddleLeft));
+            Ui.Place(n.rectTransform, 0, 0.5f, 286, 0, nameW, 100, 0, 0.5f);
+            var s = Ui.Plain(Ui.Label(row.transform, Loc.FormatScore(score), 50, Palette.Ink, TextAnchor.MiddleRight));
+            Ui.Place(s.rectTransform, 1, 0.5f, challenge ? -150 : -36, 0, 220, 100, 1, 0.5f);
+            string id = playerId, who = name;
+            if (challenge)
+            {
+                // Ami : défi en un geste (épées) ; le drapeau reste dans le menu du joueur (appui sur le portrait).
+                var duel = Ui.Button(row.transform, "", Palette.Play, () => App.ChallengeFriend(id, who), Icon.Swords, 40, "Defier");
+                Ui.Place((RectTransform)duel.transform, 1, 0.5f, -18, 0, 116, 108, 1, 0.5f);
+                icon.raycastTarget = true;
+                icon.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerMenu(id, who));
+            }
+            else if (report)
             {
                 // Pseudo choquant : petit drapeau discret pour le signaler ou bloquer le joueur (App Store, règle 1.2).
                 // Le dessin est petit, la zone touchable reste grande (88 × 100).
-                string id = playerId, who = name;
                 var hit = Ui.Rect("Signaler", row.transform);
-                Ui.Place(hit, 1, 0.5f, -284, 0, 88, 100, 1, 0.5f);
+                Ui.Place(hit, 1, 0.5f, -264, 0, 88, 100, 1, 0.5f);
                 var hitImg = hit.gameObject.AddComponent<Image>();
                 hitImg.color = new Color(0, 0, 0, 0);
                 hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerMenu(id, who));
@@ -1723,11 +1888,16 @@ namespace Bascule.UI
 
             bool online = App.Leaderboard.Service.IsOnline;
             bool blocked = App.Profile.blocked.Count > 0;
-            var help = Section(Loc.Get("sec_help"), (online ? 3 : 2) + (blocked ? 1 : 0));
-            LinkRow(help, 0, Icon.Bell, Palette.Secondary, Loc.Get("support"), App.OpenSupport);
-            LinkRow(help, 1, Icon.Lock, Palette.Dark, Loc.Get("privacy"), App.OpenPrivacy);
-            if (blocked) LinkRow(help, 2, Icon.Face, Palette.Secondary, Loc.Get("mod_unblock_all"), App.UnblockAll);
-            if (online) LinkRow(help, blocked ? 3 : 2, Icon.Close, Palette.Primary, Loc.Get("delete_data"), App.AskDeleteOnlineData, true);
+            var help = Section(Loc.Get("sec_help"), (online ? 4 : 3) + (blocked ? 1 : 0));
+            int h = 0;
+            LinkRow(help, h++, Icon.Bell, Palette.Secondary, Loc.Get("support"), App.OpenSupport);
+            LinkRow(help, h++, Icon.Lock, Palette.Dark, Loc.Get("privacy"), App.OpenPrivacy);
+            // Pubs personnalisées : le choix du premier lancement, modifiable à tout moment (RGPD).
+            bool adult = !PrivacyRules.IsMinor(App.Profile, GameApp.CurrentYear);
+            SwitchRow(help, h++, Icon.Film, Palette.Purple, Loc.Get(adult ? "ads_personal" : "ads_personal_minor"),
+                PrivacyRules.Personalized(App.Profile, GameApp.CurrentYear), v => App.SetAdChoice(v ? AdChoice.Personalized : AdChoice.Standard, Refresh));
+            if (blocked) LinkRow(help, h++, Icon.Face, Palette.Secondary, Loc.Get("mod_unblock_all"), App.UnblockAll);
+            if (online) LinkRow(help, h++, Icon.Close, Palette.Primary, Loc.Get("delete_data"), App.AskDeleteOnlineData, true);
 
             // Outils de test : jamais dans la version publiée.
             if (Application.isEditor || Debug.isDebugBuild)
@@ -1917,11 +2087,13 @@ namespace Bascule.UI
     {
         Text _title;
         string _id, _name;
-        GameObject _unfriend;
+        GameObject _unfriend, _duel;
+        Image _card;
 
         protected override void Build()
         {
             var card = Ui.Card(Safe, "Fenetre");
+            _card = card;
             Ui.Place(card.rectTransform, 0.5f, 0.55f, 0, 0, 940, 1130);
             card.gameObject.AddComponent<PopIn>();
             _title = Ui.Title(card.transform, "", 64, Palette.Ink);
@@ -1938,6 +2110,10 @@ namespace Bascule.UI
             var unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Secondary, () => { Hide(); App.RemoveFriend(_id); }, null, 52, "RetirerAmi");
             Ui.Place((RectTransform)unfriend.transform, 0.5f, 0, 0, 640, 780, 140);
             _unfriend = unfriend.gameObject;
+            // Ami : défi en duel directement depuis son nom.
+            var duel = Ui.Button(card.transform, Loc.Get("duel_friend_challenge"), Palette.Play, () => { Hide(); App.ChallengeFriend(_id, _name); }, Icon.Swords, 52, "Defier");
+            Ui.Place((RectTransform)duel.transform, 0.5f, 0, 0, 810, 780, 140);
+            _duel = duel.gameObject;
         }
 
         public void Open(string playerId, string name)
@@ -1946,8 +2122,11 @@ namespace Bascule.UI
             _id = playerId;
             _name = string.IsNullOrEmpty(name) ? "-" : name;
             _title.text = _name;
-            // « Retirer des amis » seulement pour un ami.
-            _unfriend.SetActive(App.Profile.friends.Contains(playerId));
+            // « Retirer des amis » et « Défier » seulement pour un ami ; la fenêtre grandit pour les accueillir.
+            bool friend = App.Profile.friends.Contains(playerId);
+            _unfriend.SetActive(friend);
+            _duel.SetActive(friend && App.DuelAvailable);
+            _card.rectTransform.sizeDelta = new Vector2(940, friend && App.DuelAvailable ? 1300 : 1130);
         }
     }
 

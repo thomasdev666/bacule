@@ -183,7 +183,7 @@ namespace Bascule.Services
         // tableau de bord (Cloud Save → Indexes → Player, accès public, type texte), comme friend_code.
 
         public const int FriendLinkSlots = 5;
-        public const string FriendLinkKey = "link", DuelToKey = "duel_to", DuelCodeKey = "duel_code", DuelAtKey = "duel_at", DuelNameKey = "duel_name";
+        public const string FriendLinkKey = "link", DuelToKey = "duel_to", DuelCodeKey = "duel_code", DuelAtKey = "duel_at", DuelNameKey = "duel_name", DuelHeadKey = "duel_head";
 
         public async Task<bool> PublishFriendLinkAsync(string friendId, int slot)
         {
@@ -196,6 +196,28 @@ namespace Bascule.Services
                 return true;
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Ami réciproque : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        public async Task<bool> PublishFriendLinksAsync(IList<string> friendIds)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || friendIds == null) return false;
+            try
+            {
+                // Même case que lors de l'ajout : l'ami n° k (dans l'ordre d'ajout) va dans la case 1 + k % 5.
+                var data = new Dictionary<string, object>();
+                for (int s = 1; s <= FriendLinkSlots; s++) data[FriendLinkKey + s] = "-";
+                int n = friendIds.Count;
+                for (int k = Math.Max(0, n - FriendLinkSlots); k < n; k++)
+                    if (!string.IsNullOrEmpty(friendIds[k])) data[FriendLinkKey + (1 + k % FriendLinkSlots)] = friendIds[k];
+                await SavePublic(data);
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Amis réciproques (republication) : " + e.Message); return false; }
 #else
             await Task.CompletedTask;
             return false;
@@ -223,7 +245,7 @@ namespace Bascule.Services
             return ids;
         }
 
-        public async Task<bool> SendDuelInviteAsync(string friendId, string code, string myName)
+        public async Task<bool> SendDuelInviteAsync(string friendId, string code, string myName, int myHead)
         {
 #if BASCULE_CLOUDSAVE
             if (!IsOnline || string.IsNullOrEmpty(friendId) || string.IsNullOrEmpty(code)) return false;
@@ -231,7 +253,7 @@ namespace Bascule.Services
             {
                 await SavePublic(new Dictionary<string, object>
                 {
-                    { DuelToKey, friendId }, { DuelCodeKey, code }, { DuelNameKey, Sanitize(myName) },
+                    { DuelToKey, friendId }, { DuelCodeKey, code }, { DuelNameKey, Sanitize(myName) }, { DuelHeadKey, myHead.ToString() },
                     { DuelAtKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() },
                 });
                 return true;
@@ -263,7 +285,7 @@ namespace Bascule.Services
             try
             {
                 string me = AuthenticationService.Instance.PlayerId;
-                foreach (var e in await QueryPublic(DuelToKey, me, 10, DuelCodeKey, DuelNameKey, DuelAtKey))
+                foreach (var e in await QueryPublic(DuelToKey, me, 10, DuelCodeKey, DuelNameKey, DuelAtKey, DuelHeadKey))
                 {
                     var inv = new DuelInvite { FromId = e.Id };
                     if (e.Data != null)
@@ -273,6 +295,7 @@ namespace Bascule.Services
                             if (item.Key == DuelCodeKey) inv.Code = v;
                             else if (item.Key == DuelNameKey) inv.FromName = v;
                             else if (item.Key == DuelAtKey) long.TryParse(v, out inv.At);
+                            else if (item.Key == DuelHeadKey) int.TryParse(v, out inv.Head);
                         }
                     if (!string.IsNullOrEmpty(inv.Code)) list.Add(inv);
                 }

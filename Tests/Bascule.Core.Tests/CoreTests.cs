@@ -716,14 +716,151 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class PrivacyTests
+    {
+        [Test]
+        public void AgeIsCountedCarefullyWithOnlyTheYear()
+        {
+            // Né en 2011, en 2026 : 14 ou 15 ans selon l'anniversaire. Prudence : mineur.
+            var p = new Profile();
+            Assert.True(PrivacyRules.IsMinor(p, 2026), "âge inconnu : traité comme un enfant");
+            Assert.True(PrivacyRules.NeedsAsking(p, 2026));
+            Assert.True(PrivacyRules.SetBirthYear(p, 2011, 2026));
+            Assert.True(PrivacyRules.IsMinor(p, 2026));
+            Assert.False(PrivacyRules.NeedsAsking(p, 2026), "un mineur n'a pas de choix de pubs à faire");
+            Assert.AreEqual((int)AdChoice.Standard, p.adChoice);
+            Assert.True(PrivacyRules.ChildDirected(p, 2026));
+            // Né en 2010 : 15 ans au moins en 2026.
+            var q = new Profile();
+            PrivacyRules.SetBirthYear(q, 2010, 2026);
+            Assert.False(PrivacyRules.IsMinor(q, 2026));
+            Assert.True(PrivacyRules.NeedsAsking(q, 2026), "adulte numérique : on lui demande son choix");
+        }
+
+        [Test]
+        public void PersonalizedAdsNeedAnAdultAndConsent()
+        {
+            var p = new Profile();
+            PrivacyRules.SetBirthYear(p, 1995, 2026);
+            Assert.False(PrivacyRules.Personalized(p, 2026));
+            PrivacyRules.SetChoice(p, AdChoice.Personalized, 2026);
+            Assert.True(PrivacyRules.Personalized(p, 2026));
+            Assert.False(PrivacyRules.ChildDirected(p, 2026));
+            PrivacyRules.SetChoice(p, AdChoice.Standard, 2026);
+            Assert.False(PrivacyRules.Personalized(p, 2026), "refus : jamais personnalisées");
+            // Un mineur ne peut pas consentir seul.
+            var kid = new Profile();
+            PrivacyRules.SetBirthYear(kid, 2014, 2026);
+            PrivacyRules.SetChoice(kid, AdChoice.Personalized, 2026);
+            Assert.False(PrivacyRules.Personalized(kid, 2026));
+            Assert.False(PrivacyRules.SetBirthYear(kid, 2030, 2026), "année impossible refusée");
+            Assert.False(PrivacyRules.SetBirthYear(kid, 1800, 2026));
+        }
+
+        [Test]
+        public void PrivacyChoiceSurvivesASeasonReset()
+        {
+            var p = new Profile { birthYear = 1990, adChoice = (int)AdChoice.Personalized, pseudoAsked = true };
+            var fresh = Seasons.Reset(p);
+            Assert.AreEqual(1990, fresh.birthYear);
+            Assert.AreEqual((int)AdChoice.Personalized, fresh.adChoice);
+            Assert.True(fresh.pseudoAsked);
+            var bad = new Profile { birthYear = 12, adChoice = 9 };
+            bad.Sanitize();
+            Assert.AreEqual(0, bad.birthYear);
+            Assert.AreEqual(0, bad.adChoice);
+        }
+
+        [Test]
+        public void YearListIsNeutralAndComplete()
+        {
+            var years = PrivacyRules.Years(2026);
+            Assert.AreEqual(2022, years[0]);
+            Assert.AreEqual(PrivacyRules.OldestYear, years[years.Count - 1]);
+            Assert.AreEqual(years.Count, years.Distinct().Count());
+        }
+    }
+
+    public class AdRewardTests
+    {
+        static AdTuning T => new AdTuning();
+
+        [Test]
+        public void EightVideosWinTheExclusiveHeadAtAnyPace()
+        {
+            var p = new Profile();
+            var head = AdRewards.ExclusiveHead;
+            Assert.NotNull(head);
+            Assert.AreEqual(UnlockKind.Ads, head.Unlock);
+            Assert.AreEqual(Rarity.Legendary, HeadCatalog.RarityOf(head));
+            for (int i = 0; i < 7; i++) Assert.False(AdRewards.WatchedForHead(T, p), "vidéo " + (i + 1));
+            Assert.AreEqual(7, AdRewards.HeadProgress(T, p));
+            Assert.False(p.unlockedHeads.Contains(head.Id));
+            Assert.True(AdRewards.WatchedForHead(T, p), "8e vidéo : gagnée");
+            Assert.True(p.unlockedHeads.Contains(head.Id));
+            Assert.False(AdRewards.WatchedForHead(T, p), "déjà gagnée : plus rien");
+            Assert.AreEqual(8, AdRewards.HeadProgress(T, p));
+            Assert.False(HeadCatalog.IsEarned(head, new RunAchievements { Score = 999999, DuelWins = 99 }), "rien d'autre ne la donne");
+        }
+
+        [Test]
+        public void ExclusivePlankIsWonOnlyWithVideos()
+        {
+            var p = new Profile { coins = 100000 };
+            var plank = AdRewards.ExclusivePlank;
+            Assert.NotNull(plank);
+            Assert.True(plank.AdExclusive);
+            Assert.False(Cosmetics.BuyPlank(p, plank), "ne s'achète pas avec des pièces");
+            Assert.AreEqual(100000, p.coins);
+            Assert.False(DailyGift.NextPlank(p) == plank, "pas dans le cadeau du jour");
+            foreach (var prize in SurpriseBox.Odds(p)) Assert.AreNotEqual(plank, prize.Plank, "pas dans la machine à surprises");
+            for (int i = 0; i < 7; i++) Assert.False(AdRewards.WatchedForPlank(T, p));
+            Assert.True(AdRewards.WatchedForPlank(T, p));
+            Assert.True(Cosmetics.OwnsPlank(p, plank.Id));
+            Assert.AreEqual(plank.Id, p.selectedPlank, "posée tout de suite");
+        }
+
+        [Test]
+        public void VideoChestsAreLimitedPerDayAndDoubleOnce()
+        {
+            var p = new Profile();
+            var t = T;
+            for (int i = 0; i < t.adChestsPerDay; i++) Assert.NotNull(AdRewards.OpenChest(t, p, "2026-11-12", 7u));
+            Assert.Null(AdRewards.OpenChest(t, p, "2026-11-12", 7u), "plus de coffre aujourd'hui");
+            Assert.AreEqual(t.adChestsPerDay, AdRewards.ChestsLeft(t, p, "2026-11-13"), "demain : de nouveau");
+            int before = p.coins;
+            var loot = new Chest.Loot { Coins = 120 };
+            Assert.AreEqual(120, AdRewards.DoubleChest(p, loot));
+            Assert.AreEqual(before + 120, p.coins);
+            Assert.AreEqual(0, AdRewards.DoubleChest(p, null));
+        }
+
+        [Test]
+        public void TuningHasVideoRewards()
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Assets"))) dir = dir.Parent;
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(dir.FullName, "Assets/Bascule/Resources/bascule_tuning.json")));
+            var ads = doc.RootElement.GetProperty("ads");
+            Assert.AreEqual(8, ads.GetProperty("adsForExclusiveHead").GetInt32());
+            Assert.AreEqual(8, ads.GetProperty("adsForExclusivePlank").GetInt32());
+            Assert.GreaterOrEqual(ads.GetProperty("adChestsPerDay").GetInt32(), 1);
+            Assert.AreEqual(new AdTuning().adsForExclusiveHead, ads.GetProperty("adsForExclusiveHead").GetInt32(), "code et fichier d'accord");
+            Assert.True(Loc.HasKey("unlock_ads"));
+            Assert.AreEqual(Loc.Format("unlock_ads", 8), Loc.UnlockText(AdRewards.ExclusiveHead));
+        }
+    }
+
     public class HeadTests
     {
         [Test]
         public void HeadIdsAreUniqueAndStable()
         {
-            Assert.AreEqual(63, HeadCatalog.All.Count);
-            Assert.AreEqual(63, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
+            Assert.AreEqual(64, HeadCatalog.All.Count);
+            Assert.AreEqual(64, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
             Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.DuelWins));
+            Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Ads));
+            Assert.AreEqual(63, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Ads).Id, "la Superstar arrive à la fin");
             for (int i = 0; i < HeadCatalog.All.Count; i++) Assert.AreEqual(i, HeadCatalog.All[i].Id, "les identifiants sont sauvegardés : ne jamais les renuméroter");
             Assert.AreEqual(UnlockKind.Default, HeadCatalog.Get(0).Unlock);
             Assert.AreEqual(20, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Score));

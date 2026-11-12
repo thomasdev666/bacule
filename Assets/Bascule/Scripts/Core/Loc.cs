@@ -356,7 +356,7 @@ namespace Bascule.Core
             ["welcome_sub"] = new[] { "Merci d'avoir téléchargé Bascule !", "Thanks for downloading Bascule!" },
             ["welcome_launch"] = new[] { "C'EST LE LANCEMENT", "IT'S LAUNCH DAY" },
             ["welcome_f1"] = new[] { "14 mondes à traverser, jusqu'à la Lune", "14 worlds to cross, all the way to the Moon" },
-            ["welcome_f2"] = new[] { "63 têtes à gagner, chacune avec sa tenue", "63 heads to win, each with its own outfit" },
+            ["welcome_f2"] = new[] { "64 têtes à gagner, chacune avec sa tenue", "64 heads to win, each with its own outfit" },
             ["welcome_f3"] = new[] { "Un nouveau défi chaque jour", "A new challenge every day" },
             ["welcome_f4"] = new[] { "Défie tes amis en duel, en direct", "Challenge your friends in live duels" },
             ["welcome_f4_solo"] = new[] { "Grimpe dans le classement mondial", "Climb the world leaderboard" },
@@ -560,6 +560,81 @@ namespace Bascule.Core
             ["stat_balloons"] = new[] { "128 envolés : {0}", "128s lifted: {0}" },
             ["stat_days"] = new[] { "Jours joués : {0}", "Days played: {0}" },
 
+            // 1.4 : premier lancement, pubs personnalisées, vidéos de la boutique, duel, classement
+            ["onboard_pseudo_title"] = new[] { "Ton pseudo", "Your nickname" },
+            ["onboard_pseudo_sub"] = new[] { "Il s'affiche dans les classements et pendant les duels.", "It shows in the leaderboards and during duels." },
+            ["onboard_pseudo_placeholder"] = new[] { "Écris ton pseudo", "Type your nickname" },
+            ["onboard_pseudo_rules"] = new[] { "Pas ton vrai nom, pas d'insulte. Le dé te donne une idée.", "Not your real name, nothing rude. The dice gives you an idea." },
+            ["onboard_pseudo_empty"] = new[] { "Écris un pseudo, ou touche le dé pour une idée", "Type a nickname, or tap the dice for an idea" },
+            ["onboard_next"] = new[] { "Valider", "Next" },
+            ["onboard_later"] = new[] { "Plus tard", "Later" },
+            ["onboard_age_title"] = new[] { "Ton année de naissance", "Your year of birth" },
+            ["onboard_age_sub"] = new[] { "Pour te montrer des pubs adaptées à ton âge.", "So we show ads suited to your age." },
+            ["onboard_age_note"] = new[] { "Elle reste sur ton téléphone et n'est jamais affichée.", "It stays on your phone and is never shown." },
+            ["onboard_age_picked"] = new[] { "Né(e) en {0}", "Born in {0}" },
+            ["onboard_ads_title"] = new[] { "Des pubs qui te ressemblent ?", "Ads that suit you?" },
+            ["onboard_ads_sub"] = new[] { "Bascule est gratuit grâce aux pubs. À toi de choisir lesquelles tu vois.", "Bascule is free thanks to ads. You choose which ones you see." },
+            ["onboard_ads_p1"] = new[] { "Accepter : nos partenaires utilisent des données de ton téléphone (identifiant publicitaire, appareil) pour des pubs plus adaptées.", "Accept: our partners use data from your phone (advertising ID, device) for better-suited ads." },
+            ["onboard_ads_p2"] = new[] { "Refuser : autant de pubs, mais au hasard. Le jeu reste exactement le même.", "Decline: as many ads, just random ones. The game stays exactly the same." },
+            ["onboard_ads_p3"] = new[] { "Tu peux changer d'avis à tout moment dans les réglages.", "You can change your mind anytime in the settings." },
+            ["onboard_ads_yes"] = new[] { "Accepter", "Accept" },
+            ["onboard_ads_no"] = new[] { "Refuser", "Decline" },
+            ["onboard_ads_more"] = new[] { "En savoir plus", "Learn more" },
+            ["ads_personal"] = new[] { "Pubs personnalisées", "Personalized ads" },
+            ["ads_personal_minor"] = new[] { "Pubs personnalisées (dès 15 ans)", "Personalized ads (15+)" },
+            ["ads_personal_minor_toast"] = new[] { "Les pubs personnalisées sont réservées aux 15 ans et plus.", "Personalized ads are for players aged 15 and over." },
+            ["shop_video_title"] = new[] { "Gratuit avec une vidéo", "Free with a video" },
+            ["shop_video_sub"] = new[] { "Une vidéo quand tu veux : chacune compte, même plusieurs jours après.", "Watch a video whenever you like: each one counts, even days later." },
+            ["video_exclusive"] = new[] { "EXCLUSIF", "EXCLUSIVE" },
+            ["video_head_desc"] = new[] { "Tête introuvable ailleurs : {0} vidéos pour la gagner.", "A head you can't get anywhere else: {0} videos to win it." },
+            ["video_plank_desc"] = new[] { "Assortie à la Superstar : {0} vidéos.", "Matches the Superstar: {0} videos." },
+            ["video_progress"] = new[] { "{0} / {1} vidéos", "{0} / {1} videos" },
+            ["video_watch"] = new[] { "Regarder", "Watch" },
+            ["video_owned"] = new[] { "À toi !", "Yours!" },
+            ["video_left"] = new[] { "Encore {0} vidéos pour {1} !", "{0} more videos for {1}!" },
+            ["video_last"] = new[] { "Plus qu'une vidéo pour {0} !", "Just one more video for {0}!" },
+            ["video_won_head"] = new[] { "{0} est à toi !", "{0} is yours!" },
+            ["video_won_head_detail"] = new[] { "Tête exclusive : tu la portes maintenant", "Exclusive head: you're wearing it now" },
+            ["video_won_plank"] = new[] { "Planche {0} gagnée !", "{0} plank won!" },
+            ["video_chest_title"] = new[] { "Coffre gratuit", "Free chest" },
+            ["video_chest_left"] = new[] { "Encore {0} aujourd'hui", "{0} left today" },
+            ["video_chest_none"] = new[] { "Reviens demain pour {0} coffres", "Come back tomorrow for {0} chests" },
+            ["video_chest_won"] = new[] { "Coffre gratuit !", "Free chest!" },
+            ["unlock_ads"] = new[] { "{0} vidéos (boutique)", "{0} videos (shop)" },
+            ["plank_exclusive_hint"] = new[] { "Exclusive : gagne-la avec des vidéos dans la boutique", "Exclusive: win it with videos in the shop" },
+            ["chest_double"] = new[] { "Doubler", "Double it" },
+            ["chest_doubled"] = new[] { "Butin doublé !", "Loot doubled!" },
+            ["duel_hero_sub"] = new[] { "1 contre 1 · en direct · mêmes poids", "1 vs 1 · live · same weights" },
+            ["duel_rule_1"] = new[] { "Mêmes poids pour vous deux", "Same weights for both of you" },
+            ["duel_rule_2"] = new[] { "Tu vois sa planche en direct", "Watch their plank live" },
+            ["duel_rule_3"] = new[] { "Le premier qui lâche a perdu", "First to drop loses" },
+            ["duel_friends_section"] = new[] { "Défie un ami", "Challenge a friend" },
+            ["duel_friend_challenge"] = new[] { "Défier", "Challenge" },
+            ["duel_no_friends"] = new[] { "Ajoute tes amis avec leur code (Classement → Amis) pour les défier en un geste.", "Add friends with their code (Leaderboard → Friends) to challenge them in one tap." },
+            ["duel_or_code"] = new[] { "Ou avec un code", "Or with a code" },
+            ["duel_new_code"] = new[] { "Créer un code", "Create a code" },
+            ["duel_enter_code"] = new[] { "J'ai un code", "I have a code" },
+            ["duel_ready_title"] = new[] { "Ton duel est prêt !", "Your duel is ready!" },
+            ["duel_ready_hint"] = new[] { "Envoie le code à ton ami : il touche « J'ai un code » et le tape.", "Send the code to your friend: they tap \"I have a code\" and type it." },
+            ["duel_invited"] = new[] { "Invitation envoyée à {0}", "Invite sent to {0}" },
+            ["duel_record"] = new[] { "{0} victoires · {1} duels", "{0} wins · {1} duels" },
+            ["duel_connecting_sub"] = new[] { "On relie vos deux téléphones…", "Linking your two phones…" },
+            ["duel_inv_title"] = new[] { "{0} te défie !", "{0} challenges you!" },
+            ["duel_inv_sub"] = new[] { "Duel en direct · mêmes poids · le premier qui lâche a perdu", "Live duel · same weights · first to drop loses" },
+            ["duel_inv_accept"] = new[] { "J'accepte !", "Accept!" },
+            ["duel_inv_later"] = new[] { "Pas maintenant", "Not now" },
+            ["duel_online_dot"] = new[] { "En ligne", "Online" },
+            ["friend_request_sent"] = new[] { "{0} est dans tes amis ! Il te verra dès qu'il ouvre le jeu.", "{0} is in your friends! They'll see you as soon as they open the game." },
+            ["lb_you"] = new[] { "Toi", "You" },
+            ["lb_your_place"] = new[] { "Ta place", "Your rank" },
+            ["lb_not_ranked"] = new[] { "Pas encore classé : joue une partie !", "Not ranked yet: play a game!" },
+            ["lb_rank_first"] = new[] { "1er", "1st" },
+            ["lb_rank_nth"] = new[] { "{0}e", "#{0}" },
+            ["go_rank_up"] = new[] { "+{0} places", "+{0} places" },
+            ["go_rank_world"] = new[] { "{0} mondial", "{0} worldwide" },
+            ["go_rank_daily"] = new[] { "{0} du jour", "{0} today" },
+            ["go_rank_new"] = new[] { "Te voilà classé !", "You're ranked!" },
+
         };
 
         /// <summary>
@@ -616,6 +691,9 @@ namespace Bascule.Core
 
         public static IEnumerable<string> Keys => Table.Keys;
 
+        /// <summary>Place dans un classement : « 1er », « 2e », « 34e » (« 1st », « #34 » en anglais).</summary>
+        public static string Rank(int rank) => rank == 1 ? Get("lb_rank_first") : Format("lb_rank_nth", FormatScore(rank));
+
         /// <summary>Texte de la condition de déblocage d'une tête.</summary>
         public static string UnlockText(HeadDef h)
         {
@@ -631,6 +709,7 @@ namespace Bascule.Core
                 case UnlockKind.Level: return Format("unlock_level", h.UnlockValue);
                 case UnlockKind.Shop: return FormatScore(h.UnlockValue);
                 case UnlockKind.DuelWins: return Format("unlock_duel", h.UnlockValue);
+                case UnlockKind.Ads: return Format("unlock_ads", h.UnlockValue);
                 default: return "";
             }
         }

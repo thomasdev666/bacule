@@ -98,10 +98,16 @@ namespace Bascule.Duel
             try
             {
                 _link = NewLink();
-                var options = new Unity.Services.Multiplayer.SessionOptions { MaxPlayers = 2, IsPrivate = true, Name = "Bascule duel" };
-                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options);
-                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithNetworkHandler(options, _link);
-                var session = await Unity.Services.Multiplayer.MultiplayerService.Instance.CreateSessionAsync(options);
+                Unity.Services.Multiplayer.ISession session;
+                try { session = await Create(RelayRegion); }
+                catch (Exception e)
+                {
+                    // Région refusée ou indisponible : on laisse le relais choisir lui-même (un peu plus lent).
+                    Debug.LogWarning("[Bascule] Duel : région " + RelayRegion + " indisponible, choix automatique : " + e.Message);
+                    _link.Dispose();
+                    _link = NewLink();
+                    session = await Create(null);
+                }
                 Watch(session);
                 IsHost = true;
                 Code = session.Code ?? "";
@@ -113,6 +119,20 @@ namespace Bascule.Duel
                 await LeaveAsync();
                 return "duel_create_failed";
             }
+        }
+
+        /// <summary>
+        /// Région du relais : le jeu est publié en France, les deux joueurs sont presque toujours en Europe. La donner
+        /// d'office évite la mesure de toutes les régions du monde (QoS) à chaque duel : le code arrive plus vite.
+        /// </summary>
+        const string RelayRegion = "europe-west4";
+
+        async Task<Unity.Services.Multiplayer.ISession> Create(string region)
+        {
+            var options = new Unity.Services.Multiplayer.SessionOptions { MaxPlayers = 2, IsPrivate = true, Name = "Bascule duel" };
+            options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options, region);
+            options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithNetworkHandler(options, _link);
+            return await Unity.Services.Multiplayer.MultiplayerService.Instance.CreateSessionAsync(options);
         }
 
         public async Task<string> JoinAsync(string code)

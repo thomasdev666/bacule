@@ -15,6 +15,8 @@ namespace Bascule.Core
         TopHat, Pirate, Viking, Chef, CatEars, Flower, PartyHat, Wizard, Astronaut, Unicorn, DevilHorns,
         // 1.3
         ThinMustache,
+        // 1.4 : lunettes en étoile de la tête exclusive (gagnée avec des vidéos)
+        StarGlasses,
     }
 
     public enum UnlockKind
@@ -30,6 +32,7 @@ namespace Bascule.Core
         Level,        // atteindre un niveau de joueur (progresse avec le temps de jeu)
         Shop,         // achetée avec des pièces (UnlockValue = prix)
         DuelWins,     // gagner X duels en temps réel
+        Ads,          // regarder X vidéos dans la boutique (tête exclusive, Core/AdRewards.cs)
     }
 
     public enum Rarity { Common, Rare, Epic, Legendary }
@@ -70,8 +73,8 @@ namespace Bascule.Core
     }
 
     /// <summary>
-    /// 62 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
-    /// 16 à acheter avec des pièces, 6 premium (achats). Les visuels sont dessinés par le code (HeadArtist).
+    /// 64 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
+    /// 16 à acheter avec des pièces, 6 premium (achats), la Challenger (duels) et la Superstar (vidéos). Les visuels sont dessinés par le code (HeadArtist).
     /// Simulation (docs/RAPPORT.md) : avec les anciens paliers (jusqu'à 60 000 points), 25 têtes sur 33 étaient
     /// hors de portée de presque tous les joueurs ; les niveaux et la boutique donnent un objectif à chaque partie.
     /// </summary>
@@ -127,6 +130,7 @@ namespace Bascule.Core
                 case UnlockKind.Balloon: case UnlockKind.Combo: return Rarity.Rare;
                 case UnlockKind.NearMiss: return Rarity.Epic;
                 case UnlockKind.DuelWins: return Rarity.Epic;
+                case UnlockKind.Ads: return Rarity.Legendary; // exclusive : on ne l'obtient que comme ça
                 default: return Rarity.Legendary; // classement mondial, têtes premium
             }
         }
@@ -312,6 +316,8 @@ namespace Bascule.Core
             var challenger = H(id++, "Challenger", "Challenger", UnlockKind.DuelWins, 15, "#D9A071", HairStyle.Curls, "#24170F", Accessory.ThinMustache, Expression.Grin);
             challenger.Outfit = Outfit.Suit;
             list.Add(challenger);
+            // 1.4 : tête exclusive, gagnée en regardant des vidéos dans la boutique (AdRewards). Rien d'autre ne la donne.
+            list.Add(H(id++, "Superstar", "Superstar", UnlockKind.Ads, 8, S3, HairStyle.Swoosh, "#FF4FA3", Accessory.StarGlasses, Expression.Grin));
             return list;
         }
 

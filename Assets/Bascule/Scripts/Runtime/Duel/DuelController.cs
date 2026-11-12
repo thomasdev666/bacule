@@ -39,6 +39,8 @@ namespace Bascule.Duel
         public DuelHello Them { get; private set; }
         /// <summary>Nom de l'adversaire, filtré (jamais vide).</summary>
         public string TheirName { get; private set; } = "";
+        /// <summary>Tête de l'adversaire (salle d'attente, résultats).</summary>
+        public int TheirHead => Them != null ? Them.Head : 0;
         public OpponentView View => _view;
         public DuelSnapshot Opponent { get; private set; }
         public uint Seed { get; private set; }

@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Manifeste de confidentialité de Bascule (exigé par Apple depuis mai 2024).
-  - Pas de suivi publicitaire (pas de demande ATT, identifiant publicitaire non collecté).
+  - Le code du jeu ne fait pas de suivi. Depuis la 1.3, les régies publicitaires (LevelPlay et ses réseaux) peuvent
+    personnaliser les pubs, seulement après l'accord du joueur (15 ans et plus) puis la demande ATT d'iOS : ce suivi
+    est déclaré par le manifeste de chaque SDK publicitaire, et dans App Store Connect (docs/APP_STORE.md).
   - Données envoyées : identifiant de joueur anonyme, pseudo, scores (classement), code ami, partie en direct
     pendant un duel. Ces données sont liées au compte de jeu anonyme (déclarées « liées » par prudence), jamais utilisées pour du ciblage.
   - API « à raison obligatoire » utilisées par le code du jeu : réglages (PlayerPrefs = UserDefaults, CA92.1)

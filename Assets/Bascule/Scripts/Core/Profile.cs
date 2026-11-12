@@ -62,8 +62,10 @@ namespace Bascule.Core
         public int duelWins;
         /// <summary>La demande d'autorisation des notifications a déjà été faite.</summary>
         public bool notificationsAsked;
-        /// <summary>La demande de note sur le store a déjà été faite (une seule fois).</summary>
+        /// <summary>La demande de note sur le store a déjà été faite ; nombre de demandes et jour de la dernière (iPhone : 3 au plus).</summary>
         public bool ratingAsked;
+        public int ratingAsks;
+        public string ratingLastDay = "";
         /// <summary>Amis ajoutés par code (identifiants de joueur en ligne).</summary>
         public List<string> friends = new List<string>();
         /// <summary>Amis retirés : ils ne reviennent pas tout seuls par l'ajout réciproque.</summary>
@@ -85,6 +87,17 @@ namespace Bascule.Core
         public int season;
         /// <summary>L'écran de bienvenue (lancement du jeu) reste à montrer à l'accueil.</summary>
         public bool welcomePending;
+        /// <summary>1.4 : année de naissance (0 = pas encore demandée) et choix des pubs (AdChoice). Core/Privacy.cs.</summary>
+        public int birthYear;
+        public int adChoice;
+        /// <summary>Le choix du pseudo a déjà été proposé au premier lancement (on ne le redemande pas).</summary>
+        public bool pseudoAsked;
+        /// <summary>Vidéos de la boutique : tête et planche exclusives, coffres (Core/AdRewards.cs).</summary>
+        public AdRewardState adRewards = new AdRewardState();
+        /// <summary>Dernières places connues au classement mondial et du jour (pour « +12 places » en fin de partie).</summary>
+        public int worldRank;
+        public int dailyRank;
+        public string dailyRankDay = "";
 
         public void Sanitize()
         {
@@ -134,6 +147,12 @@ namespace Bascule.Core
             if (level < 1) level = 1;
             if (xp < 0) xp = 0;
             if (coins < 0) coins = 0;
+            PrivacyRules.Sanitize(this);
+            AdRewards.Sanitize(this);
+            if (dailyRankDay == null) dailyRankDay = "";
+            if (ratingLastDay == null) ratingLastDay = "";
+            if (worldRank < 0) worldRank = 0;
+            if (dailyRank < 0) dailyRank = 0;
             // Anciennes sauvegardes : les achats définitifs déjà faits gardent leurs effets.
             if (ownedProducts.Contains(Shop.RemoveAds) || ownedProducts.Contains(Shop.Starter)) adsRemoved = true;
         }
@@ -178,8 +197,14 @@ namespace Bascule.Core
             fresh.blocked = old.blocked ?? new List<string>();
             fresh.settings = old.settings ?? new Settings();
             fresh.consentVersion = old.consentVersion;
+            // Âge et choix des pubs : ce n'est pas de la progression, on ne redemande pas.
+            fresh.birthYear = old.birthYear;
+            fresh.adChoice = old.adChoice;
+            fresh.pseudoAsked = old.pseudoAsked;
             fresh.notificationsAsked = old.notificationsAsked;
             fresh.ratingAsked = old.ratingAsked;
+            fresh.ratingAsks = old.ratingAsks;
+            fresh.ratingLastDay = old.ratingLastDay ?? "";
             // Ce qui s'apprend une fois pour toutes : pas besoin de le réexpliquer.
             fresh.tutorialDone = old.tutorialDone;
             fresh.balloonTipShown = old.balloonTipShown;

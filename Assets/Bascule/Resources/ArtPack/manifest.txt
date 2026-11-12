@@ -75,6 +75,7 @@ headback6
 headback60
 headback61
 headback62
+headback63
 headback7
 headback8
 headback9
@@ -138,6 +139,7 @@ headfront6
 headfront60
 headfront61
 headfront62
+headfront63
 headfront7
 headfront8
 headfront9
@@ -231,6 +233,7 @@ locked6
 locked60
 locked61
 locked62
+locked63
 locked7
 locked8
 locked9
@@ -486,6 +489,15 @@ mascot_E0AC69_h50_shorts
 mascot_E0AC69_h50_thigh
 mascot_E0AC69_h50_torso
 mascot_E0AC69_h50_upperArm
+mascot_E0AC69_h63_cushion
+mascot_E0AC69_h63_forearm
+mascot_E0AC69_h63_hand
+mascot_E0AC69_h63_shin
+mascot_E0AC69_h63_shoe
+mascot_E0AC69_h63_shorts
+mascot_E0AC69_h63_thigh
+mascot_E0AC69_h63_torso
+mascot_E0AC69_h63_upperArm
 mascot_E0AC69_h8_cushion
 mascot_E0AC69_h8_forearm
 mascot_E0AC69_h8_hand
@@ -861,6 +873,7 @@ portrait6
 portrait60
 portrait61
 portrait62
+portrait63
 portrait7
 portrait8
 portrait9

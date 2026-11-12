@@ -353,7 +353,7 @@ namespace Bascule.UI
             var note = Ui.Label(card.transform, Loc.Get("welcome_note"), 36, Palette.Muted);
             Ui.Place(note.rectTransform, 0.5f, 1, 0, -1178, 840, 100);
 
-            var go = Ui.Button(card.transform, Loc.Get("welcome_ok"), Palette.Play, Hide, Icon.Play, 62, "Partir");
+            var go = Ui.Button(card.transform, Loc.Get("welcome_ok"), Palette.Play, () => { Hide(); App.AfterWelcome(); }, Icon.Play, 62, "Partir");
             Ui.Place((RectTransform)go.transform, 0.5f, 0, 0, 120, 760, 160);
             go.gameObject.AddComponent<Pulse>().Amount = 0.025f;
         }
@@ -694,6 +694,8 @@ namespace Bascule.UI
                 _starterTimer.alignment = TextAnchor.MiddleLeft;
                 card.gameObject.AddComponent<Pulse>().Amount = 0.012f;
             }
+            // Gratuit avec une vidéo : tête et planche exclusives, coffre, pièces. Toujours au choix du joueur.
+            VideoSection();
             // Ce que l'on fait de ses pièces : surprises, planches, protège-série. Rien ne change le score.
             SurpriseCard();
             PlankSection();
@@ -745,6 +747,119 @@ namespace Bascule.UI
             var restore = Ui.Button(_col, Loc.Get("restore"), Palette.Dark, App.RestorePurchases, Icon.Replay, 46);
             Ui.Size(restore, 130);
             Tick(0);
+        }
+
+        // ------------------------------------------------------------------ Gratuit avec une vidéo
+
+        void VideoSection()
+        {
+            var p = App.Profile;
+            var t = App.Tuning.ads;
+            var title = Ui.Title(_col, Loc.Get("shop_video_title"), 52, Palette.Accent);
+            title.alignment = TextAnchor.LowerLeft;
+            Ui.Size(title, 84);
+            var sub = Ui.Label(_col, Loc.Get("shop_video_sub"), 38, ArtCache.Hex("#D8E9FF"), TextAnchor.UpperLeft);
+            Ui.Size(sub, 100);
+
+            var head = AdRewards.ExclusiveHead;
+            if (head != null)
+            {
+                bool owned = AdRewards.HeadOwned(p);
+                ExclusiveCard(head.Name(Loc.Language), Loc.Format("video_head_desc", AdRewards.HeadNeeded(t)), Palette.Purple, ArtCache.Hex("#5A189A"),
+                    Art.Portrait(head), false, AdRewards.HeadProgress(t, p), AdRewards.HeadNeeded(t), owned,
+                    owned ? (p.selectedHead == head.Id ? (System.Action)null : () => App.SelectHead(head.Id)) : App.WatchForExclusiveHead);
+            }
+            var plank = AdRewards.ExclusivePlank;
+            if (plank != null)
+            {
+                bool owned = AdRewards.PlankOwned(p);
+                ExclusiveCard(Loc.Format("gift_item_plank", plank.Name(Loc.Language)), Loc.Format("video_plank_desc", AdRewards.PlankNeeded(t)), ArtCache.Hex("#3C096C"), ArtCache.Hex("#240046"),
+                    PlankSprite(plank), true, AdRewards.PlankProgress(t, p), AdRewards.PlankNeeded(t), owned,
+                    owned ? (p.selectedPlank == plank.Id ? (System.Action)null : () => App.TapPlank(plank)) : App.WatchForExclusivePlank);
+            }
+
+            // Coffre gratuit.
+            int chests = AdRewards.ChestsLeft(t, p, App.LocalDay);
+            var card = Ui.Card(_col, "CoffreVideo");
+            Ui.Size(card, 250);
+            var chest = MetaUi.MiniChest(card.transform, Art, 170);
+            Ui.Place(chest, 0, 0.5f, 34, -6, 170, 153, 0, 0.5f);
+            var ct = Ui.Label(card.transform, Loc.Get("video_chest_title"), 52, Palette.Ink, TextAnchor.MiddleLeft);
+            ct.fontStyle = FontStyle.Bold;
+            Ui.Place(ct.rectTransform, 0, 0.5f, 230, 36, 450, 80, 0, 0.5f);
+            var cl = Ui.Label(card.transform, chests > 0 ? Loc.Format("video_chest_left", chests) : Loc.Format("video_chest_none", t.adChestsPerDay), 40, Palette.Muted, TextAnchor.MiddleLeft);
+            Ui.Place(cl.rectTransform, 0, 0.5f, 230, -40, 450, 64, 0, 0.5f);
+            var cb = Ui.Button(card.transform, "", chests > 0 ? Palette.Play : Palette.Muted, App.WatchForChest, Icon.Film, 50, "Voir");
+            Ui.Place((RectTransform)cb.transform, 1, 0.5f, -30, 0, 220, 150, 1, 0.5f);
+            cb.interactable = chests > 0;
+            if (chests > 0) cb.gameObject.AddComponent<Pulse>().Amount = 0.03f;
+        }
+
+        /// <summary>
+        /// Carte « exclusif » : fond violet nuit, rayons qui tournent derrière l'objet, étiquette EXCLUSIF, barre des
+        /// vidéos (3 / 8) et bouton « Regarder ». Une fois gagné : « À toi ! » et « Choisir ».
+        /// </summary>
+        void ExclusiveCard(string name, string desc, Color color, Color deep, Sprite picture, bool wide, int progress, int needed, bool owned, System.Action action)
+        {
+            var card = Ui.Image(_col, Art.Panel, color, "Exclusif", true);
+            Ui.Size(card, wide ? 400 : 460);
+            card.gameObject.AddComponent<RectMask2D>();
+            var glow = Ui.Image(card.transform, Art.SoftDisc, new Color(1f, 0.55f, 0.85f, 0.45f), "Halo");
+            Ui.Place(glow.rectTransform, 0, 0.5f, wide ? 230 : 180, 10, 520, 520);
+            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.28f), "Rayons");
+            Ui.Place(rays.rectTransform, 0, 0.5f, wide ? 230 : 180, 10, 720, 720);
+            rays.gameObject.AddComponent<Spin>().Speed = 9f;
+            Ui.Isolate(rays.gameObject);
+            var pic = Ui.Icon(card.transform, picture, "Objet");
+            if (wide)
+            {
+                Ui.Place(pic.rectTransform, 0, 0.5f, 230, 40, 400, 150);
+                pic.rectTransform.localRotation = Quaternion.Euler(0, 0, 6f);
+            }
+            else
+            {
+                Ui.Place(pic.rectTransform, 0, 0.5f, 180, 20, 300, 300);
+                pic.gameObject.AddComponent<Rock>().Angle = 3f;
+            }
+            var tag = Ui.Image(card.transform, Art.Pill, Palette.Accent, "Etiquette", true);
+            Ui.Place(tag.rectTransform, 0, 1, 26, -24, 230, 62, 0, 1);
+            var tagText = Ui.Title(tag.transform, Loc.Get("video_exclusive"), 34, Color.white);
+            Ui.Stretch(tagText.rectTransform, 12, 2, 12, 0);
+
+            float x = wide ? 450 : 360;
+            var t = Ui.Title(card.transform, name, 58, Color.white);
+            Ui.Place(t.rectTransform, 0, 1, x, -60, 1000 - x - 40, 80, 0, 1);
+            t.alignment = TextAnchor.MiddleLeft;
+            var d = Ui.Label(card.transform, desc, 36, new Color(1f, 1f, 1f, 0.88f), TextAnchor.UpperLeft);
+            Ui.Place(d.rectTransform, 0, 1, x, -146, 1000 - x - 40, 100, 0, 1);
+
+            if (owned)
+            {
+                var ownedPill = Ui.Image(card.transform, Art.Pill, Palette.Play, "AToi", true);
+                Ui.Place(ownedPill.rectTransform, 0, 0, x, 40, 220, 84, 0, 0);
+                var ot = Ui.Title(ownedPill.transform, Loc.Get("video_owned"), 40, Color.white);
+                Ui.Stretch(ot.rectTransform, 10, 2, 10, 0);
+                if (action != null)
+                {
+                    var choose = Ui.Button(card.transform, Loc.Get("plank_choose"), Palette.Secondary, action, null, 46, "Choisir");
+                    Ui.Place((RectTransform)choose.transform, 1, 0, -26, 30, 270, 120, 1, 0);
+                }
+                return;
+            }
+            // Barre des vidéos vues, avec le compte au-dessus.
+            var count = Ui.Title(card.transform, Loc.Format("video_progress", progress, needed), 40, Palette.Accent);
+            Ui.Place(count.rectTransform, 0, 0, x, 112, 380, 56, 0, 0);
+            count.alignment = TextAnchor.MiddleLeft;
+            var bar = Ui.Rect("Jauge", card.transform);
+            Ui.Place(bar, 0, 0, x, 52, 1000 - x - 330, 44, 0, 0);
+            var fill = MetaUi.Bar(bar, Art, Palette.Accent);
+            Ui.Stretch((RectTransform)fill.parent);
+            fill.parent.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.3f);
+            Canvas.ForceUpdateCanvases();
+            MetaUi.SetFill(fill, needed > 0 ? progress / (float)needed : 1f);
+            var watch = Ui.Button(card.transform, Loc.Get("video_watch"), Palette.Play, action, Icon.Film, 44, "Regarder");
+            Ui.Place((RectTransform)watch.transform, 1, 0, -24, 26, 290, 130, 1, 0);
+            watch.gameObject.AddComponent<Pulse>().Amount = 0.03f;
         }
 
         Image Offer(ProductDef def, float height, Color color, HeadDef head, Icon icon = Icon.Star)
@@ -889,6 +1004,10 @@ namespace Bascule.UI
                     b.interactable = false;
                 }
                 else if (owned) b = Ui.Button(cell.transform, Loc.Get("plank_choose"), Palette.Secondary, () => App.TapPlank(s), null, 46, "Choisir");
+                else if (s.AdExclusive)
+                {
+                    b = Ui.Button(cell.transform, Loc.Get("video_exclusive"), Palette.Purple, () => App.Toast(Loc.Get("plank_exclusive_hint"), 3f), Icon.Film, 40, "Exclusif");
+                }
                 else b = CoinButton(cell.transform, s.Price, () => App.TapPlank(s));
                 Ui.Place((RectTransform)b.transform, 0.5f, 0, 0, 22, 380, 116, 0.5f, 0);
             }
@@ -982,8 +1101,11 @@ namespace Bascule.UI
         Image _catcher, _beamImg;
         readonly List<(Image img, float age, float life, float size)> _rings = new List<(Image, float, float, float)>();
         readonly List<(RectTransform rt, Image img, Vector2 v, float spin, float age)> _confetti = new List<(RectTransform, Image, Vector2, float, float)>();
-        int _coinsTarget, _coinsShown;
+        int _coinsTarget, _coinsShown, _countFrom;
         float _countStart = -1f;
+        /// <summary>Coffre de fin de partie : « Doubler » avec une vidéo (null si on ne peut pas doubler).</summary>
+        Action<Action<int>> _doubler;
+        Button _double;
         /// <summary>Couleur de la lumière : elle change à chaque coup (or, orange, rose), puis explose en violet à l'ouverture.</summary>
         static readonly Color[] TapColors = { new Color(1f, 0.85f, 0.35f), new Color(1f, 0.6f, 0.25f), new Color(1f, 0.38f, 0.62f), new Color(0.72f, 0.45f, 1f) };
         static readonly Color[] RingColors = { new Color(1f, 0.83f, 0.28f), new Color(1f, 0.42f, 0.55f), new Color(0.45f, 0.72f, 1f), new Color(0.6f, 1f, 0.6f), new Color(0.78f, 0.5f, 1f) };
@@ -1070,6 +1192,12 @@ namespace Bascule.UI
             _ok = Ui.Button(Safe, Loc.Get("chest_ok"), Palette.Play, Close, null, 64, "Super");
             Ui.Place((RectTransform)_ok.transform, 0.5f, 0, 0, 170, 700, 160);
             _ok.gameObject.AddComponent<PopIn>().Delay = 0.9f;
+            // Doubler les pièces du coffre avec une vidéo (coffre de fin de partie seulement).
+            _double = Ui.Button(Safe, Loc.Get("chest_double"), Palette.Purple, DoubleLoot, Icon.Film, 58, "Doubler");
+            Ui.Place((RectTransform)_double.transform, 0.5f, 0, 215, 170, 440, 160);
+            _double.gameObject.AddComponent<PopIn>().Delay = 1.05f;
+            _double.gameObject.AddComponent<Pulse>().Amount = 0.03f;
+            _double.gameObject.SetActive(false);
 
             // Éclair blanc à l'ouverture.
             _flashImg = Ui.Image(Safe, null, new Color(1f, 0.97f, 0.85f, 0f), "Eclair");
@@ -1080,6 +1208,7 @@ namespace Bascule.UI
         public void PresentLoot(int coins, HeadDef head, string title, Action after)
         {
             _after = after;
+            _doubler = null;
             Show();
             Reset(coins, head, title);
             Ui.Clear(_list);
@@ -1123,16 +1252,22 @@ namespace Bascule.UI
             _rings.Clear();
             foreach (var c in _confetti) if (c.rt != null) UnityEngine.Object.Destroy(c.rt.gameObject);
             _confetti.Clear();
-            _coinsTarget = coins; _coinsShown = 0; _countStart = -1f;
+            _coinsTarget = coins; _coinsShown = 0; _countFrom = 0; _countStart = -1f;
+            _double.gameObject.SetActive(false);
+            Ui.Place((RectTransform)_ok.transform, 0.5f, 0, 0, 170, 700, 160);
             _amount.text = "+0";
             _catcher.gameObject.SetActive(true);
             _beamImg.color = new Color(1f, 0.95f, 0.75f, 0f);
         }
 
-        /// <summary>Présente le coffre de la partie (et les autres récompenses). <paramref name="after"/> : à la fermeture.</summary>
-        public void Present(EconomyGain gain, int goal, Action after)
+        /// <summary>
+        /// Présente le coffre de la partie. <paramref name="after"/> : à la fermeture. <paramref name="doubler"/> : montre
+        /// « Doubler » (vidéo) ; il rappelle avec les pièces ajoutées quand la vidéo a été vue.
+        /// </summary>
+        public void Present(EconomyGain gain, int goal, Action after, Action<Action<int>> doubler = null)
         {
             _after = after;
+            _doubler = doubler;
             Show();
             var loot = gain.Chest;
             Reset(loot?.Coins ?? 0, loot?.Head, Loc.Get("chest_won"));
@@ -1230,6 +1365,29 @@ namespace Bascule.UI
             next?.Invoke();
         }
 
+        void DoubleLoot()
+        {
+            var d = _doubler;
+            if (d == null) return;
+            d(added =>
+            {
+                if (!Visible || added <= 0) return;
+                _doubler = null;
+                _double.gameObject.SetActive(false);
+                Ui.Place((RectTransform)_ok.transform, 0.5f, 0, 0, 170, 700, 160);
+                _title.text = Loc.Get("chest_doubled");
+                // Le compteur repart du total actuel jusqu'au double, avec une nouvelle pluie de pièces.
+                _countFrom = _coinsShown;
+                _coinsTarget += added;
+                _countStart = _t + 0.1f;
+                if (!App.Profile.settings.reducedMotion)
+                {
+                    Ring(RingColors[4], 0.7f, 1700f, new Vector2(0, 330));
+                    Confetti(50, new Vector2(0, 360), 1500f, true, Color.white);
+                }
+            });
+        }
+
         /// <summary>Bouton retour (Android) : ouvre le coffre s'il est fermé, sinon ferme l'écran.</summary>
         public void Back() { if (_openAt < 0) Tap(); else if (_ok.gameObject.activeSelf) Close(); }
 
@@ -1303,6 +1461,12 @@ namespace Bascule.UI
                 _loot.localScale = Vector3.one * 0.2f;
                 _list.gameObject.SetActive(true);
                 _ok.gameObject.SetActive(true);
+                if (_doubler != null && _coinsTarget > 0)
+                {
+                    // Deux boutons côte à côte : « Super » (garder) et « Doubler » (vidéo).
+                    Ui.Place((RectTransform)_ok.transform, 0.5f, 0, -215, 170, 440, 160);
+                    _double.gameObject.SetActive(true);
+                }
                 App.PlaySfx(Sfx.Chime, 6, 0.9f);
                 App.PlaySfx(Sfx.Lift, 0, 0.8f);
                 App.HapticMedium();
@@ -1330,7 +1494,7 @@ namespace Bascule.UI
             if (_countStart >= 0f && _coinsShown < _coinsTarget && _t >= _countStart)
             {
                 float k = Mathf.Clamp01((_t - _countStart) / 0.9f);
-                int v = Mathf.RoundToInt(_coinsTarget * (1f - (1f - k) * (1f - k)));
+                int v = _countFrom + Mathf.RoundToInt((_coinsTarget - _countFrom) * (1f - (1f - k) * (1f - k)));
                 if (v != _coinsShown)
                 {
                     if (v / Mathf.Max(1, _coinsTarget / 8) != _coinsShown / Mathf.Max(1, _coinsTarget / 8)) App.PlaySfx(Sfx.Click, 2, 0.35f);

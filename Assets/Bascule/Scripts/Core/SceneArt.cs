@@ -394,6 +394,25 @@ namespace Bascule.Core
                         img.FillClipped(board, star, Rgba.FromHex("#FFFBEA").WithAlpha(0.95f), 1.2f);
                     }
                     break;
+                case PlankPattern.Stars:
+                {
+                    // Scène étoilée : violet nuit qui s'éclaircit vers le haut, étoiles roses et dorées, fine bande lumineuse.
+                    img.Fill(board, Paint.Custom((x, y) =>
+                    {
+                        float v = (y - y0) / th;
+                        float glow = (float)Math.Sin(x * 0.01f + 0.6f) * 0.5f + 0.5f;
+                        return Rgba.Lerp(dark, baseC.Light(1.15f), v * 0.75f + glow * 0.15f);
+                    }));
+                    img.FillClipped(board, Shape.Box(w * 0.5f, y0 + th * 0.24f, (x1 - x0) * 0.5f, th * 0.045f), Rgba.FromHex("#FF4FA3").WithAlpha(0.9f), 1.5f);
+                    var pink = Rgba.FromHex("#FF8FC8"); var gold = Rgba.FromHex("#FFD60A");
+                    for (int i = 0; i < 9; i++)
+                    {
+                        float sx = x0 + (x1 - x0) * (0.07f + i * 0.108f + rng.NextFloat() * 0.03f), sy = y0 + th * (0.48f + rng.NextFloat() * 0.3f);
+                        float ro = th * (i % 3 == 1 ? 0.24f : 0.16f);
+                        img.FillClipped(board, Star5(sx, sy, ro, ro * 0.45f), (i % 2 == 0 ? gold : pink).WithAlpha(0.95f), 1.2f);
+                    }
+                    break;
+                }
             }
             // Chant supérieur éclairé et dessous sombre (toutes les planches).
             var top = skin.Pattern == PlankPattern.Grip ? dark.Light(1.6f) : baseC.Light(1.32f);
@@ -423,6 +442,31 @@ namespace Bascule.Core
                 }
             }
             return img;
+        }
+
+
+        /// <summary>Étoile à 5 branches (pointe en haut).</summary>
+
+        static Shape Star5(float cx, float cy, float ro, float ri)
+
+        {
+
+            var pts = new float[20];
+
+            for (int i = 0; i < 10; i++)
+
+            {
+
+                double a = Math.PI / 2 + i * Math.PI / 5;
+
+                float rr = i % 2 == 0 ? ro : ri;
+
+                pts[i * 2] = cx + (float)Math.Cos(a) * rr; pts[i * 2 + 1] = cy + (float)Math.Sin(a) * rr;
+
+            }
+
+            return Shape.Poly(pts);
+
         }
 
         /// <summary>Arrondi des bouts de planche, en fraction de l'épaisseur.</summary>
@@ -458,6 +502,7 @@ namespace Bascule.Core
             float inset = skin.Pattern == PlankPattern.Marble ? 0.03f * U
                 : skin.Pattern == PlankPattern.Surf ? (w * 0.72f - w * 0.5f) + 0.012f * U
                 : skin.Pattern == PlankPattern.Grip ? (w * 0.62f - w * 0.5f) + 0.012f * U
+                : skin.Pattern == PlankPattern.Stars ? (w * 0.78f - w * 0.5f) + 0.012f * U
                 : skin.Pattern == PlankPattern.Gold ? 0.008f * U : 0f;
             ax += inset;
             float cx = ax + w * 0.5f;
@@ -548,6 +593,24 @@ namespace Bascule.Core
                     float stx = cx + rr * 1.1f, sty = sy + rr * 0.9f, k = 0.022f * U;
                     img.Fill(Shape.Union(Shape.Poly(stx, sty - k, stx + k * 0.25f, sty, stx, sty + k, stx - k * 0.25f, sty),
                         Shape.Poly(stx - k, sty, stx, sty + k * 0.25f, stx + k, sty, stx, sty - k * 0.25f)), Rgba.FromHex("#FFFBEA"), 1f);
+                    break;
+                }
+                case PlankPattern.Stars:
+                {
+                    // Pied violet et grosse étoile dorée cerclée de rose : le trophée de la Superstar.
+                    float postH = h * 0.5f;
+                    var post = Shape.Box(cx, ay + postH * 0.5f, w * 0.3f, postH * 0.5f, 0.01f * U);
+                    Outlined(post, Cylinder(skin.Base), skin.Dark.Outline());
+                    img.FillClipped(post, Shape.Box(cx, ay + postH * 0.6f, w, 0.01f * U), Rgba.FromHex("#FF4FA3"), 1.5f);
+                    float sr = w * 0.78f, sy = ay + postH + sr * 0.8f;
+                    var star = Star5(cx, sy, sr, sr * 0.48f);
+                    img.Fill(star.Grow(0.022f * U), Rgba.FromHex("#FF4FA3"));
+                    Outlined(star, Paint.Custom((x, y) =>
+                    {
+                        float t = Math.Max(0f, Math.Min(1f, (y - (sy - sr)) / (2f * sr)));
+                        return Rgba.Lerp(Rgba.FromHex("#E09F00"), Rgba.FromHex("#FFE45C"), t);
+                    }), Rgba.FromHex("#6E4A0A"));
+                    img.Fill(Shape.Ellipse(cx - sr * 0.22f, sy + sr * 0.2f, sr * 0.16f, sr * 0.1f), white.WithAlpha(0.85f), 1.5f);
                     break;
                 }
                 case PlankPattern.Grip:

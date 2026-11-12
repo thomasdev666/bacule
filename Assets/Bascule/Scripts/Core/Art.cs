@@ -110,6 +110,19 @@ namespace Bascule.Core
             Shape.Smooth(Shape.Circle(cx, cy + 0.04f * r, r * 0.98f), Shape.Ellipse(cx, cy - 0.36f * r, 0.84f * r, 0.62f * r), 0.25f * r);
 
         /// <summary>Forme « nuage » (afro, boucles) : cercle bordé de petits cercles.</summary>
+
+        /// <summary>Étoile à 5 branches, légèrement tournée de <paramref name="rotDeg"/> degrés.</summary>
+        static Shape StarShape(float cx, float cy, float ro, float ri, float rotDeg)
+        {
+            var pts = new float[20];
+            for (int i = 0; i < 10; i++)
+            {
+                double a = Math.PI / 2 + i * Math.PI / 5 + rotDeg * Math.PI / 180;
+                float rr = i % 2 == 0 ? ro : ri;
+                pts[i * 2] = cx + (float)Math.Cos(a) * rr; pts[i * 2 + 1] = cy + (float)Math.Sin(a) * rr;
+            }
+            return Shape.Poly(pts);
+        }
         static Shape Puff(float cx, float cy, float radius, int bumps, float bump)
         {
             var s = Shape.Circle(cx, cy, radius - bump);
@@ -428,6 +441,26 @@ namespace Bascule.Core
                     }
                     img.Fill(Shape.Arc(cx, ey + 0.02f * r, 0.12f * r, 30f, 150f, 0.05f * r), Ink);
                     break;
+                case Accessory.StarGlasses:
+                {
+                    // Superstar : lunettes en étoile, monture rose, verres violet nuit, un éclat sur chaque verre.
+                    var frame = Rgba.FromHex("#FF4FA3");
+                    for (int s = -1; s <= 1; s += 2)
+                    {
+                        float lx = cx + s * ex, ly = ey + 0.01f * r;
+                        var lens = StarShape(lx, ly, 0.33f * r, 0.16f * r, s * 6f);
+                        img.Fill(lens.Grow(0.075f * r), Ink);
+                        img.Fill(lens.Grow(0.05f * r), frame);
+                        img.Fill(lens, Paint.Linear(Rgba.FromHex("#9D4EDD"), 0, ly + 0.3f * r, Rgba.FromHex("#240046"), 0, ly - 0.3f * r));
+                        img.FillClipped(lens, Shape.Capsule(lx - 0.1f * r, ly + 0.06f * r, lx - 0.01f * r, ly + 0.15f * r, 0.035f * r), Rgba.White.WithAlpha(0.7f), 1f);
+                    }
+                    img.Fill(Shape.Arc(cx, ey + 0.04f * r, 0.11f * r, 25f, 155f, 0.055f * r), frame);
+                    // Petite étincelle dorée au coin de la monture.
+                    float sx = cx + ex + 0.36f * r, sy = ey + 0.3f * r, k = 0.11f * r;
+                    img.Fill(Shape.Union(Shape.Poly(sx, sy - k, sx + k * 0.24f, sy, sx, sy + k, sx - k * 0.24f, sy),
+                        Shape.Poly(sx - k, sy, sx, sy + k * 0.24f, sx + k, sy, sx, sy - k * 0.24f)), Rgba.FromHex("#FFD60A"), 1f);
+                    break;
+                }
                 case Accessory.Sunglasses:
                     for (int s = -1; s <= 1; s += 2)
                     {

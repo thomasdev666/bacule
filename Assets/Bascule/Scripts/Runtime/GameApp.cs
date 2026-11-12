@@ -75,6 +75,7 @@ namespace Bascule
         MusicPlayer _music;
         HapticsService _haptics;
         IAdService _ads;
+        bool _adsStarted;
         IPurchaseService _purchases;
         IShareService _share;
         INotificationService _notifications;
@@ -105,6 +106,7 @@ namespace Bascule
         ConfirmScreen _confirm;
         DailyScreen _daily;
         WelcomeScreen _welcome;
+        OnboardScreen _onboard;
         DuelLobbyScreen _duelLobby;
         DuelHudScreen _duelHud;
         DuelResultScreen _duelResult;
@@ -205,16 +207,9 @@ namespace Bascule
             InitDuel();
             Missions.DuelsAvailable = DuelAvailable;
 
-#if BASCULE_LEVELPLAY && !UNITY_EDITOR
-            _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial);
-#elif BASCULE_UNITYADS && !UNITY_EDITOR
-            _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode);
-#else
-            // Pubs simulées seulement dans l'éditeur et les versions de test ; une version publiée sans régie n'en montre aucune.
-            if (Application.isEditor || Debug.isDebugBuild)
-                _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
-            else _ads = new NoAdService();
-#endif
+            // La régie démarre une fois l'âge et le choix des pubs connus (premier lancement : après les questions).
+            _ads = new NoAdService();
+            if (!PrivacyRules.NeedsAsking(Profile, CurrentYear)) StartAds();
 #if BASCULE_IAP && !UNITY_EDITOR
             _purchases = new UnityIapService();
 #else
@@ -255,6 +250,47 @@ namespace Bascule
             // Pas d'écran d'explication au lancement : on arrive directement sur le jeu.
             if (Profile.consentVersion < ConsentVersion) { Profile.consentVersion = ConsentVersion; SaveProfile(); }
             ShowHome();
+        }
+
+        /// <summary>Année en cours (âge du joueur, Core/Privacy.cs).</summary>
+        public static int CurrentYear => DateTime.UtcNow.Year;
+
+        /// <summary>Ce que la régie a le droit de faire pour ce joueur.</summary>
+        public AdPrivacy AdPrivacyNow => new AdPrivacy
+        {
+            Personalized = PrivacyRules.Personalized(Profile, CurrentYear),
+            Child = PrivacyRules.ChildDirected(Profile, CurrentYear),
+        };
+
+        /// <summary>
+        /// Démarre la régie (une seule fois), avec le consentement du joueur. Avant les questions du premier lancement,
+        /// aucune pub n'est chargée : rien n'est envoyé aux régies sans connaître l'âge et le choix du joueur.
+        /// </summary>
+        void StartAds()
+        {
+            if (_adsStarted) return;
+            _adsStarted = true;
+#if BASCULE_LEVELPLAY && !UNITY_EDITOR
+            _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial, AdPrivacyNow);
+#elif BASCULE_UNITYADS && !UNITY_EDITOR
+            _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode, AdPrivacyNow);
+#else
+            // Pubs simulées seulement dans l'éditeur et les versions de test ; une version publiée sans régie n'en montre aucune.
+            if (Application.isEditor || Debug.isDebugBuild)
+                _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
+            else _ads = new NoAdService();
+#endif
+        }
+
+        /// <summary>Le joueur a changé son choix (réglages) : la régie le sait pour les pubs suivantes.</summary>
+        void ApplyAdPrivacy()
+        {
+            if (!_adsStarted) { StartAds(); return; }
+#if BASCULE_LEVELPLAY && !UNITY_EDITOR
+            LevelPlayAdService.ApplyPrivacy(AdPrivacyNow);
+#elif BASCULE_UNITYADS && !UNITY_EDITOR
+            UnityAdsService.ApplyPrivacy(AdPrivacyNow);
+#endif
         }
 
         /// <summary>
@@ -327,6 +363,11 @@ namespace Bascule
             if (!await Leaderboard.Service.InitializeAsync()) return;
             if (!string.IsNullOrEmpty(Profile.pseudo)) await Leaderboard.Service.SetPseudoAsync(Profile.pseudo);
             Leaderboard.Flush(TodayKey);
+            // Amis réciproques : les derniers amis ajoutés sont republiés à chaque lancement (un ajout fait hors ligne,
+            // ou avec une ancienne version, finit ainsi par arriver chez l'ami).
+            if (Profile.friends.Count > 0) _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
+            _socialTimer = 2f;
+            _inviteTimer = 1f;
             // Code ami court (Cloud Save) : publié une fois, puis gardé dans le profil.
             string code = await Leaderboard.Service.PublishFriendCodeAsync();
             if (!string.IsNullOrEmpty(code) && code != Profile.friendCode)
@@ -400,7 +441,9 @@ namespace Bascule
             _duelResult = Make<DuelResultScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.93f));
             _daily = Make<DailyScreen>(t, Palette.Shade);
             _friendPicker = Make<FriendPickerScreen>(t, Palette.Shade);
+            _duelInvite = Make<DuelInviteScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.9f));
             _welcome = Make<WelcomeScreen>(t, Palette.Shade);
+            _onboard = Make<OnboardScreen>(t, Palette.Shade);
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
@@ -472,7 +515,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _friendPicker, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _onboard, _friendPicker, _duelInvite, _duelLobby, _duelResult })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -499,6 +542,7 @@ namespace Bascule
         {
             Show(_home);
             _socialTimer = Mathf.Min(_socialTimer, 1.5f); // amis et invitations vérifiés peu après le retour à l'accueil
+            _inviteTimer = Mathf.Min(_inviteTimer, 0.5f);
             if (!string.IsNullOrEmpty(_pendingDuelCode)) { ConsumePendingDuelLink(); return; }
             HomePopups();
         }
@@ -517,6 +561,8 @@ namespace Bascule
                 _welcome.Show();
                 return;
             }
+            // Puis pseudo, âge et pubs (seulement ce qui manque ; un joueur déjà installé ne voit que l'âge et les pubs).
+            if (NeedsOnboarding) { _onboard.Open(AfterOnboarding); return; }
             // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.
             if (Profile.gamesPlayed >= 1 && DailyGift.Available(Profile.gift, LocalDay)) { _gift.Show(); return; }
             if (_starterPopupPending && Offers.StarterActive(Profile, Now))
@@ -537,14 +583,23 @@ namespace Bascule
                     Loc.Get("p_removeads") + "  " + _purchases.Price(Shop.RemoveAds), () => BuyProduct(Shop.RemoveAds), Loc.Get("later"), null);
                 return;
             }
-            // Note sur le store : une seule fois, juste après un record, chez un joueur revenu au moins une fois.
-            if (_ratePending && !Profile.ratingAsked && Profile.gamesPlayed >= 8 && Profile.daysPlayed >= 2)
+            // Note sur le store, juste après un record (le joueur est content) : c'est ce qui fait le plus monter le jeu
+            // dans la recherche. iPhone : la fenêtre de notation d'Apple directement (pas de question avant : Apple
+            // décide de l'afficher, au plus 3 fois par an), au plus 3 fois, à 4 jours d'écart au moins.
+            // Android : une seule fois, avec une question avant (la page du jeu s'ouvre dans Google Play).
+            if (_ratePending && RatingDue())
             {
                 _ratePending = false;
                 Profile.ratingAsked = true;
+                Profile.ratingAsks++;
+                Profile.ratingLastDay = LocalDay;
                 SaveProfile();
-                Stats.Event("rate_prompt");
+                Stats.Event("rate_prompt", ("n", Profile.ratingAsks));
+#if UNITY_IOS && !UNITY_EDITOR
+                OpenStoreReview();
+#else
                 _confirm.Ask(Loc.Get("rate_title"), Loc.Get("rate_body"), Art.IconSprite(Icon.Star), Loc.Get("rate_yes"), OpenStoreReview, Loc.Get("rate_no"), null);
+#endif
                 return;
             }
             if (!Profile.notificationsAsked && _notifications.IsSupported && Profile.gamesPlayed >= 3)
@@ -715,6 +770,7 @@ namespace Bascule
         // ------------------------------------------------------------------ Amis : ajout réciproque et invitations au duel
 
         FriendPickerScreen _friendPicker;
+        DuelInviteScreen _duelInvite;
         float _socialTimer;
         bool _socialBusy, _inviteSent;
         readonly HashSet<string> _seenInvites = new HashSet<string>();
@@ -726,10 +782,40 @@ namespace Bascule
         public async System.Threading.Tasks.Task<bool> InviteFriendToDuel(string friendId, string name)
         {
             if (string.IsNullOrEmpty(Duel.Code)) return false;
-            bool ok = await Leaderboard.Service.SendDuelInviteAsync(friendId, Duel.Code, Profile.pseudo);
-            if (ok) { _inviteSent = true; Stats.Event("duel_invite_friend"); }
-            _toast.Say(ok ? Loc.Format("duel_invite_sent", name) : Loc.Get("duel_invite_failed"), 2.5f);
+            bool ok = await Leaderboard.Service.SendDuelInviteAsync(friendId, Duel.Code, Profile.pseudo, Profile.selectedHead);
+            if (ok)
+            {
+                _inviteSent = true;
+                InvitedName = name;
+                InvitedHead = FriendHeads.TryGetValue(friendId, out var h) ? h : 0;
+                Stats.Event("duel_invite_friend");
+                if (_duelLobby.Visible) _duelLobby.Refresh();
+            }
+            else _toast.Say(Loc.Get("duel_invite_failed"), 2.5f);
             return ok;
+        }
+
+        /// <summary>Ami invité au duel en cours (affiché dans la salle d'attente), vide sinon.</summary>
+        public string InvitedName { get; private set; } = "";
+        public int InvitedHead { get; private set; }
+        /// <summary>Têtes des amis (vues dans le classement des amis), pour leurs portraits.</summary>
+        public readonly Dictionary<string, int> FriendHeads = new Dictionary<string, int>();
+        (string id, string name) _challengeAfterHost;
+
+        /// <summary>Défier un ami en un geste : le duel est créé, puis l'invitation part dès que le code existe.</summary>
+        public void ChallengeFriend(string friendId, string name)
+        {
+            if (!DuelAvailable) { _toast.Say(Loc.Get("duel_unavailable")); return; }
+            if (Duel.InDuel)
+            {
+                if (Duel.Current == DuelController.Phase.Hosting) _ = InviteFriendToDuel(friendId, name);
+                return;
+            }
+            FinalizeRun();
+            Show(_duelLobby);
+            _challengeAfterHost = (friendId, name);
+            Stats.Event("duel_challenge_friend");
+            DuelHost();
         }
 
         void ClearDuelInvite()
@@ -739,11 +825,14 @@ namespace Bascule
             _ = Leaderboard.Service.ClearDuelInviteAsync();
         }
 
+        float _inviteTimer;
+        bool _inviteBusy;
+
         /// <summary>
-        /// À l'accueil, toutes les 20 s : ajoute les joueurs qui nous ont ajouté en ami (amitié réciproque) et montre
-        /// une invitation au duel d'un ami, s'il y en a une récente.
+        /// Amis réciproques (toutes les 30 s hors partie) : ajoute les joueurs qui nous ont ajouté en ami. Une seule
+        /// requête par case, et seulement hors partie : le jeu ne se met jamais à attendre le réseau.
         /// </summary>
-        async void SyncSocial()
+        async void SyncFriends()
         {
             if (_socialBusy || !Leaderboard.Service.IsOnline) return;
             _socialBusy = true;
@@ -759,9 +848,23 @@ namespace Bascule
                     Stats.Event("friend_mutual", ("added", added));
                     _toast.Say(Loc.Get("friend_added_you_generic"), 3f);
                     if (_leaderboard.Visible) _leaderboard.Refresh();
+                    if (_duelLobby.Visible) _duelLobby.Refresh();
                 }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Amis réciproques : " + e.Message); }
+            finally { _socialBusy = false; }
+        }
 
-                if (!DuelAvailable || Duel.InDuel || !_home.Visible || _confirm.Visible) return;
+        /// <summary>
+        /// Invitations au duel (toutes les 4 s sur les menus) : la plus récente d'un ami s'affiche en grand
+        /// (DuelInviteScreen). Une invitation de plus de 5 minutes, ou déjà vue, ne revient pas.
+        /// </summary>
+        async void CheckInvites()
+        {
+            if (_inviteBusy || !Leaderboard.Service.IsOnline || !DuelAvailable || Duel.InDuel || Profile.friends.Count == 0) return;
+            _inviteBusy = true;
+            try
+            {
                 long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 DuelInvite best = null;
                 foreach (var inv in await Leaderboard.Service.FindDuelInvitesAsync())
@@ -770,18 +873,26 @@ namespace Bascule
                     if (Math.Abs(now - inv.At) > InviteMaxAge || _seenInvites.Contains(inv.FromId + inv.Code)) continue;
                     if (best == null || inv.At > best.At) best = inv;
                 }
-                if (best == null || !_home.Visible || _confirm.Visible || Duel.InDuel) return;
+                if (best == null || !CanShowInvite) return;
                 _seenInvites.Add(best.FromId + best.Code);
                 string name = PseudoFilter.Display(best.FromName, Loc.Get("lb_player"));
                 Stats.Event("duel_invite_received");
                 _haptics.Medium();
+                PlaySfx(Sfx.Chime, 8, 0.9f);
                 string code = best.Code;
-                _confirm.Ask(Loc.Get("duel_invite_title"), Loc.Format("duel_invite_body", name), Art.IconSprite(Icon.Swords),
-                    Loc.Get("duel_invite_join"), () => JoinDuel(code), Loc.Get("later"), null);
+                _duelInvite.Open(name, best.Head, () => { Stats.Event("duel_invite_accept"); JoinDuel(code); });
             }
-            catch (Exception e) { Debug.LogWarning("[Bascule] Amis / invitations : " + e.Message); }
-            finally { _socialBusy = false; }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Invitations au duel : " + e.Message); }
+            finally { _inviteBusy = false; }
         }
+
+        /// <summary>Une invitation peut s'afficher : pas de partie, de pub, de coffre ni d'autre fenêtre en cours.</summary>
+        bool CanShowInvite => !Duel.InDuel && !AdBusy && !Session.IsRunning && !_confirm.Visible && !_prompt.Visible
+            && !_chest.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
+
+        /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
+        bool SocialScreen => _home.Visible || _leaderboard.Visible || _shop.Visible || _collection.Visible || _missions.Visible
+            || _settings.Visible || (_duelLobby.Visible && !Duel.InDuel);
 
         public void DuelCancel()
         {
@@ -833,11 +944,19 @@ namespace Bascule
             switch (Duel.Current)
             {
                 case DuelController.Phase.None:
+                    _challengeAfterHost = (null, null);
+                    InvitedName = "";
                     if (_duelLobby.Visible) _duelLobby.Refresh();
                     break;
                 case DuelController.Phase.Connecting:
                 case DuelController.Phase.Hosting:
                 case DuelController.Phase.Greeting:
+                    if (Duel.Current == DuelController.Phase.Hosting && !string.IsNullOrEmpty(_challengeAfterHost.id))
+                    {
+                        var (fid, fname) = _challengeAfterHost;
+                        _challengeAfterHost = (null, null);
+                        _ = InviteFriendToDuel(fid, fname);
+                    }
                     if (!_duelLobby.Visible) Show(_duelLobby); else _duelLobby.Refresh();
                     break;
                 case DuelController.Phase.Countdown:
@@ -1055,7 +1174,17 @@ namespace Bascule
             int goal = _pendingResult.Goal;
             FinalizeRun();
             _gameOver.HideRevive();
-            _chest.Present(_pendingGain, goal, () => { _gameOver.OnChestOpened(); after?.Invoke(); });
+            var loot = _pendingGain.Chest;
+            // Coffre de fin de partie : ses pièces peuvent être doublées avec une vidéo (une fois, au choix du joueur).
+            Action<Action<int>> doubler = null;
+            if (loot != null && loot.Coins > 0)
+                doubler = done => WatchRewarded(Placements.ChestDouble, () =>
+                {
+                    int added = AdRewards.DoubleChest(Profile, loot);
+                    Stats.Event("chest_doubled", ("coins", added));
+                    done?.Invoke(added);
+                });
+            _chest.Present(_pendingGain, goal, () => { _gameOver.OnChestOpened(); after?.Invoke(); }, doubler);
         }
 
         public void PlaySfx(Sfx s, int step = 0, float volume = 1f) => _audio.Play(s, step, volume);
@@ -1173,7 +1302,14 @@ namespace Bascule
 
         void OnRankKnown(string board, int rank)
         {
-            if (board != Boards.World) return;
+            // Places gagnées depuis la dernière fois (mondial, ou du jour pour le jour en cours), affichées en fin de partie.
+            bool world = board == Boards.World;
+            int previous = world ? Profile.worldRank : (Profile.dailyRankDay == TodayKey ? Profile.dailyRank : 0);
+            if (world) Profile.worldRank = rank;
+            else if (board == Boards.Daily) { Profile.dailyRank = rank; Profile.dailyRankDay = TodayKey; }
+            SaveProfile();
+            if (_gameOver.Visible && (world || board == Boards.Daily)) _gameOver.ShowRank(world, rank, previous);
+            if (!world) return;
             foreach (var h in HeadCatalog.All)
             {
                 if (h.Unlock != UnlockKind.WorldTop || Profile.unlockedHeads.Contains(h.Id) || rank > h.UnlockValue) continue;
@@ -1248,6 +1384,7 @@ namespace Bascule
         /// <summary>Planche touchée dans la boutique : la choisir, ou l'acheter.</summary>
         public void TapPlank(PlankSkin s)
         {
+            if (s.AdExclusive && !Cosmetics.OwnsPlank(Profile, s.Id)) { _toast.Say(Loc.Get("plank_exclusive_hint"), 3f); return; }
             if (Cosmetics.OwnsPlank(Profile, s.Id))
             {
                 Cosmetics.SelectPlank(Profile, s.Id);
@@ -1420,6 +1557,73 @@ namespace Bascule
             });
         }
 
+        // ------------------------------------------------------------------ Vidéos de la boutique (Core/AdRewards.cs)
+
+        /// <summary>Une vidéo pour la Superstar (tête exclusive) : chaque vidéo vue compte, même des jours après.</summary>
+        public void WatchForExclusiveHead()
+        {
+            var head = AdRewards.ExclusiveHead;
+            if (head == null || AdRewards.HeadOwned(Profile)) return;
+            WatchRewarded(Placements.ExclusiveHead, () =>
+            {
+                bool won = AdRewards.WatchedForHead(Tuning.ads, Profile);
+                string name = head.Name(Loc.Language);
+                if (won)
+                {
+                    Stats.Event("video_head_won", ("views", Profile.adRewards.headViews));
+                    SelectHead(head.Id);
+                    _toast.Reward(Icon.Crown, Palette.Purple, Loc.Format("video_won_head", name), Loc.Get("video_won_head_detail"), 0);
+                    _haptics.Medium();
+                }
+                else VideoStepToast(AdRewards.HeadNeeded(Tuning.ads) - Profile.adRewards.headViews, name);
+                if (_shop.Visible) _shop.Refresh();
+            });
+        }
+
+        /// <summary>Une vidéo pour la planche « Scène étoilée » (assortie, exclusive).</summary>
+        public void WatchForExclusivePlank()
+        {
+            var plank = AdRewards.ExclusivePlank;
+            if (plank == null || AdRewards.PlankOwned(Profile)) return;
+            WatchRewarded(Placements.ExclusivePlank, () =>
+            {
+                bool won = AdRewards.WatchedForPlank(Tuning.ads, Profile);
+                string name = plank.Name(Loc.Language);
+                if (won)
+                {
+                    Stats.Event("video_plank_won", ("views", Profile.adRewards.plankViews));
+                    Session.SetPlank(plank);
+                    _toast.Reward(Icon.Star, Palette.Purple, Loc.Format("video_won_plank", name), Loc.Get("plank_equipped_detail"), 0);
+                    _haptics.Medium();
+                }
+                else VideoStepToast(AdRewards.PlankNeeded(Tuning.ads) - Profile.adRewards.plankViews, name);
+                if (_shop.Visible) _shop.Refresh();
+            });
+        }
+
+        void VideoStepToast(int left, string name)
+        {
+            _toast.Say(left <= 1 ? Loc.Format("video_last", name) : Loc.Format("video_left", left, name), Icon.Film, Palette.Purple);
+        }
+
+        /// <summary>Un coffre gratuit contre une vidéo (quelques fois par jour).</summary>
+        public void WatchForChest()
+        {
+            if (AdRewards.ChestsLeft(Tuning.ads, Profile, LocalDay) <= 0)
+            {
+                _toast.Say(Loc.Format("video_chest_none", Tuning.ads.adChestsPerDay));
+                return;
+            }
+            WatchRewarded(Placements.VideoChest, () =>
+            {
+                var loot = AdRewards.OpenChest(Tuning.ads, Profile, LocalDay, (uint)Environment.TickCount);
+                if (loot == null) return;
+                SaveProfile();
+                Stats.Event("video_chest", ("coins", loot.Coins), ("head", loot.Head != null ? 1 : 0));
+                _chest.PresentLoot(loot.Coins, loot.Head, Loc.Get("video_chest_won"), () => { if (_shop.Visible) _shop.Refresh(); });
+            });
+        }
+
         // ------------------------------------------------------------------ Rappels
 
         public void SetNotifications(bool on)
@@ -1460,17 +1664,70 @@ namespace Bascule
 
         public void AskPseudo()
         {
-            _prompt.Ask(Loc.Get("pseudo_title"), Profile.pseudo, InputField.ContentType.Standard, async name =>
+            _prompt.Ask(Loc.Get("pseudo_title"), Profile.pseudo, InputField.ContentType.Standard, name =>
             {
                 if (string.IsNullOrWhiteSpace(name)) return;
                 // Pseudo visible par tout le monde : longueur, caractères et grossièretés vérifiés.
                 name = PseudoFilter.Clean(name);
                 if (name == null) { _toast.Say(Loc.Get("pseudo_refused"), 3.5f); return; }
-                Profile.pseudo = name;
-                SaveProfile();
-                await Leaderboard.Service.SetPseudoAsync(name);
-                if (_leaderboard.Visible) _leaderboard.Refresh();
+                SetPseudo(name);
             }, 16, Loc.Get("pseudo_rules"));
+        }
+
+        /// <summary>Pseudo déjà vérifié (PseudoFilter) : enregistré et envoyé au classement.</summary>
+        public async void SetPseudo(string name)
+        {
+            Profile.pseudo = name;
+            SaveProfile();
+            Stats.Event("pseudo_set");
+            await Leaderboard.Service.SetPseudoAsync(name);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
+        // ------------------------------------------------------------------ Premier lancement : pseudo, âge, pubs
+
+        bool NeedsOnboarding => (string.IsNullOrEmpty(Profile.pseudo) && !Profile.pseudoAsked) || PrivacyRules.NeedsAsking(Profile, CurrentYear);
+
+        /// <summary>« C'est parti ! » sur l'écran de bienvenue : on enchaîne sur le pseudo, l'âge et les pubs.</summary>
+        public void AfterWelcome()
+        {
+            if (NeedsOnboarding) _onboard.Open(AfterOnboarding);
+            else AfterOnboarding();
+        }
+
+        void AfterOnboarding()
+        {
+            SaveProfile();
+            StartAds(); // la régie démarre maintenant, avec le choix du joueur (sans effet si elle tourne déjà)
+        }
+
+        /// <summary>
+        /// Choix des pubs (premier lancement ou réglages). Accord d'un joueur de 15 ans ou plus sur iPhone : la demande
+        /// d'iOS suit (une seule fois dans la vie de l'app). <paramref name="then"/> : quand tout est fini.
+        /// </summary>
+        public void SetAdChoice(AdChoice choice, Action then)
+        {
+            if (choice == AdChoice.Personalized && PrivacyRules.IsMinor(Profile, CurrentYear))
+            {
+                _toast.Say(Loc.Get("ads_personal_minor_toast"), 3f);
+                then?.Invoke();
+                return;
+            }
+            PrivacyRules.SetChoice(Profile, choice, CurrentYear);
+            SaveProfile();
+            Stats.Event("ads_choice", ("personal", choice == AdChoice.Personalized ? 1 : 0));
+            if (choice == AdChoice.Personalized && TrackingPermission.CanAsk)
+            {
+                TrackingPermission.Request(this, granted =>
+                {
+                    Stats.Event("att", ("granted", granted ? 1 : 0));
+                    ApplyAdPrivacy();
+                    then?.Invoke();
+                });
+                return;
+            }
+            ApplyAdPrivacy();
+            then?.Invoke();
         }
 
         // ------------------------------------------------------------------ Diagnostic des pubs (caché)
@@ -1522,6 +1779,7 @@ namespace Bascule
         {
             if (!FriendCode.Remove(Profile, playerId)) return;
             SaveProfile();
+            _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
             Stats.Event("friend_remove");
             _toast.Say(Loc.Get("friend_removed"), 2.5f);
             if (_leaderboard.Visible) _leaderboard.Refresh();
@@ -1582,10 +1840,10 @@ namespace Bascule
                 if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
                 if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
                 SaveProfile();
-                // Amitié réciproque : l'ami nous retrouvera et nous ajoutera à son tour.
-                _ = Leaderboard.Service.PublishFriendLinkAsync(id, Profile.friends.Count);
+                // Amitié réciproque : l'ami nous retrouvera et nous ajoutera à son tour (dès qu'il ouvre le jeu).
+                _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
                 Stats.Event("friend_add", ("friends", Profile.friends.Count));
-                _toast.Say(Loc.Get("friend_added"));
+                _toast.Say(Loc.Get("friend_added"), Icon.Check, Palette.Play);
                 if (_leaderboard.Visible) _leaderboard.Refresh();
             }, 120);
         }
@@ -1710,6 +1968,17 @@ namespace Bascule
         }
 
         /// <summary>iOS : fenêtre de note native d'Apple. Android : page du jeu sur Google Play.</summary>
+        bool RatingDue()
+        {
+            if (Profile.gamesPlayed < 5) return false;
+#if UNITY_IOS && !UNITY_EDITOR
+            if (Profile.ratingAsks >= 3) return false;
+            return string.IsNullOrEmpty(Profile.ratingLastDay) || Dates.DaysBetween(Profile.ratingLastDay, LocalDay) >= 4;
+#else
+            return !Profile.ratingAsked && Profile.daysPlayed >= 2;
+#endif
+        }
+
         void OpenStoreReview()
         {
             Stats.Event("rate_yes");
@@ -1720,8 +1989,8 @@ namespace Bascule
 #endif
         }
 
-        /// <summary>Identifiant numérique du jeu sur l'App Store (App Store Connect), à remplir après la création de la fiche.</summary>
-        const string AppStoreId = "0000000000";
+        /// <summary>Identifiant numérique du jeu sur l'App Store (App Store Connect → Informations sur l'app → Apple ID).</summary>
+        const string AppStoreId = "6831568074";
 
         public void Toast(string message, float seconds = 2.5f) => _toast.Say(message, seconds);
         public void Reward(Icon icon, Color color, string title, string detail, int coins) => _toast.Reward(icon, color, title, detail, coins);
@@ -1757,12 +2026,14 @@ namespace Bascule
             if (_duelHud.Visible) _duelHud.Tick(dt);
             if (_duelLobby.Visible) _duelLobby.Tick(dt);
             if (_duelResult.Visible) _duelResult.Tick(dt);
-            if (_home.Visible)
+            if (_home.Visible) _home.Tick(dt);
+            // Hors partie : invitations au duel toutes les 4 s, amis réciproques toutes les 30 s.
+            if (SocialScreen)
             {
-                _home.Tick(dt);
-                // Amis réciproques et invitations au duel : vérifiés toutes les 20 s à l'accueil.
+                _inviteTimer -= dt;
+                if (_inviteTimer <= 0f) { _inviteTimer = 4f; CheckInvites(); }
                 _socialTimer -= dt;
-                if (_socialTimer <= 0f) { _socialTimer = 20f; SyncSocial(); }
+                if (_socialTimer <= 0f) { _socialTimer = 30f; SyncFriends(); }
             }
             // Le duel a commencé : l'invitation envoyée à l'ami n'a plus lieu d'être.
             if (_inviteSent && Duel.InMatch) ClearDuelInvite();
@@ -1791,7 +2062,9 @@ namespace Bascule
                 else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
-                else if (_welcome.Visible) _welcome.Hide();
+                else if (_welcome.Visible) { _welcome.Hide(); AfterWelcome(); }
+                else if (_onboard.Visible) { /* questions du premier lancement : on y répond */ }
+                else if (_duelInvite.Visible) _duelInvite.Hide();
                 else if (_daily.Visible) _daily.Hide();
                 else if (_current == _hud && Session.Mode == GameMode.Duel && Duel.InMatch) DuelAskQuit();
                 else if (_current == _duelLobby) DuelCancel();
