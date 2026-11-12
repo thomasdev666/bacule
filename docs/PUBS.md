@@ -94,6 +94,10 @@ Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adap
 
 Instances Rewarded et Interstitial actives et ajoutées aux groupes de médiation (enchères, All Countries) pour : ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost. Blocs AdMob iOS : interstitiel `ca-app-pub-3087780473555937/4650789819`, récompensé `ca-app-pub-3087780473555937/9212676344`. « Google AdMob Native » laissé vide (pas de pub native dans le jeu). Restent à brancher dès validation de leur compte : AppLovin, Mintegral, DT Exchange, Pangle.
 
+## Plafond côté LevelPlay (12/11/2026)
+
+Ad unit **Interstitial_iOS** (Setup → Ad units → Advanced settings) : **Capping 6 par jour**, **Pacing 1 pub toutes les 10 minutes**. S'applique tout de suite à toutes les versions installées, en plus des règles du jeu (`AdPolicy`). Mis en place après un retour de joueur (« une pub à chaque partie »).
+
 ## Adaptateurs installés dans Unity (fait le 12/11/2026)
 
 Network Manager : AppLovin, Chartboost, DT Exchange, Google (AdMob), InMobi, Liftoff Monetize, Mintegral, Pangle sont installés et à jour (Unity Ads et ironSource inclus). Ils peuvent donc être activés depuis LevelPlay sans nouvelle version. À refaire seulement si on ajoute une nouvelle régie.
