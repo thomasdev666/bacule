@@ -2,7 +2,7 @@
 
 Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la main dans App Store Connect, avec les textes prêts à coller.
 
-## Déjà réglé dans le projet (version 1.3)
+## Déjà réglé dans le projet (version 1.4)
 
 | Motif de refus fréquent | Ce que fait Bascule |
 |---|---|
@@ -19,9 +19,9 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 | ITMS-90068 (iOS trop ancien) | iOS 15 minimum, iPhone uniquement. |
 | Lien d'invitation | Schéma `bascule://` déclaré (réglages du projet et vérification après build). |
 
-## À faire avant d'envoyer la 1.3
+## À faire avant d'envoyer la 1.4
 
-1. **Unity** : ouvrir le projet, « Bascule → Configurer le projet » (version 1.3, schéma `bascule`). Installer **Multiplayer Services** (Package Manager). Dashboard Unity : activer **Relay** et **Lobby**, et régler une alerte de dépense.
+1. **Unity** : ouvrir le projet, « Bascule → Configurer le projet » (version 1.4, build 8, schéma `bascule`). Installer **Multiplayer Services** (Package Manager). Dashboard Unity : activer **Relay** et **Lobby**, et régler une alerte de dépense.
 2. **Site orpheex.fr** : mettre en ligne `docs/site/bascule/` à jour (`index.html`, `confidentialite.html`, `duel.html`, `style.css`), **avant** l'envoi. Apple ouvre les liens d'aide et de confidentialité.
    - `confidentialite.html` : forme juridique (entrepreneur individuel) et SIREN 939 004 032 renseignés ; reste l'adresse de domiciliation à choisir (surlignée).
    - Section « Âge » : la page dit « 13 ans et plus », mais la pub vise les 11–17 ans. Choisir une seule règle et l'aligner avec la classification App Store.
@@ -35,8 +35,8 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 
 ## Lancement (avant l'envoi)
 
-- Tableau de bord Unity Cloud → **Leaderboards** : créer `bascule_monde_s2` (décroissant, garder le meilleur score) et `bascule_jour_s2` (pareil, remise à zéro quotidienne à 00:00 UTC). Sans eux, le classement reste vide et les scores ne partent pas.
-- Au premier lancement de la nouvelle version, chaque joueur repart de zéro (`Core.Seasons`) ; ses achats définitifs et ses pièces achetées non dépensées sont conservés (règle 3.1.1) (obligatoire pour Apple : un achat définitif ne se perd jamais, et « Restaurer mes achats » les rend aussi).
+- **Rien n'est remis à zéro** : les joueurs de la 1.2 gardent record, têtes, pièces, niveau, planches, missions, série, code ami et amis (`Seasons.ResetOldSaves = false`, test `A12SaveIsKeptIntactWhenUpdating`).
+- **Classements** : les mêmes que la 1.2, `bascule_monde` et `bascule_jour` (déjà créés dans Unity Cloud) : les records actuels restent. Les classements `_s2`, s'ils ont été créés pour les tests, ne servent plus.
 
 ## App Store Connect
 
@@ -74,9 +74,9 @@ DATA DELETION: Settings > "Supprimer mes données en ligne" deletes the online p
 
 Voir plus bas « Nouveautés de cette version » (texte à jour, avec le duel en direct).
 
-### Confidentialité de l'app (App Privacy), à refaire pour la 1.3
+### Confidentialité de l'app (App Privacy), à refaire pour la 1.4
 
-Depuis la 1.3, les pubs peuvent être personnalisées (avec l'accord du joueur et la demande de suivi d'iOS). Il faut donc déclarer du **suivi** pour les données de la régie.
+Depuis la 1.4, les pubs peuvent être personnalisées (avec l'accord du joueur et la demande de suivi d'iOS). Il faut donc déclarer du **suivi** pour les données de la régie.
 
 - **Collecte de données : Oui.**
 - Données du jeu (non utilisées pour le suivi) :
@@ -132,16 +132,17 @@ Pour les refaire après un changement de dessin : exporter les décors en haute 
 Nouveau : défie tes amis en duel en un geste, gagne la Superstar exclusive et grimpe au classement ! Garde Basile en équilibre et bats ton record.
 ```
 
-### Nouveautés de cette version (1.3)
+### Nouveautés de cette version (1.4)
 
 ```
-Duels, amis et récompenses : grosse mise à jour !
-• DUEL EN DIRECT tout neuf : défie un ami en un geste depuis ta liste, il reçoit l'invitation en quelques secondes. Connexion bien plus rapide.
-• Nouveau classement avec podium, et ta place affichée en fin de partie : vois combien de places tu gagnes !
-• Superstar : une tête exclusive et sa planche « Scène étoilée », à gagner avec des vidéos dans la boutique.
-• Coffre gratuit en vidéo, et double le butin de tes coffres.
-• Choisis ton pseudo dès le premier lancement.
-• 14 mondes jusqu'à la Lune, une tenue pour chacune des 64 têtes, un défi chaque jour.
+La plus grosse mise à jour de Bascule ! Ta progression est conservée.
+• DUEL EN DIRECT : défie un ami en un geste, il reçoit l'invitation en quelques secondes.
+• Roue de la chance chaque jour, événement de la semaine et quête du débutant, avec des têtes à gagner.
+• Nouveau classement avec podium, et les places gagnées en fin de partie.
+• Têtes exclusives : Superstar (vidéos), Duo (parrainage), Chanceux (roue)… 67 têtes en tout.
+• Codes promo partenaires (Réglages → Code promo).
+• Décors plus tôt, rafales plus douces, le 128 mieux expliqué.
+• Choisis ton pseudo, et chasse les notifications du jeu d'un geste.
 ```
 
 ## Notes et avis : pourquoi ils n'apparaissent pas tout de suite
@@ -150,6 +151,6 @@ Duels, amis et récompenses : grosse mise à jour !
 - **Avec TestFlight ou une version de test, rien n'est envoyé** : la fenêtre s'affiche mais la note ne part nulle part. Seule la version téléchargée sur l'App Store compte.
 - **Pays par pays** : une note donnée en France n'apparaît que sur la page française. Apple n'affiche la moyenne qu'à partir de quelques notes dans le pays (« Pas assez de notes » avant), avec un délai d'environ 24 à 48 h.
 - **Une note seule (étoiles) n'est jamais affichée en texte** : elle compte dans la moyenne. Les avis écrits passent par une vérification d'Apple avant d'apparaître.
-- **Nouvelle version** : dans App Store Connect, ne pas cocher « Réinitialiser le résumé des notes » en envoyant la 1.3, sinon la moyenne repart de zéro.
+- **Nouvelle version** : dans App Store Connect, ne pas cocher « Réinitialiser le résumé des notes » en envoyant la 1.4, sinon la moyenne repart de zéro.
 - **Où les voir** : App Store Connect → l'app → onglet App Store → **Notes et avis** (menu de gauche), par pays.
 - **Toujours possible** : Réglages → Aide → « Noter Bascule » ouvre la page « Écrire un avis » de l'App Store, même quand la fenêtre d'Apple ne s'affiche plus.

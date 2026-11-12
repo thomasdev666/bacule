@@ -2,7 +2,9 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
-## 1.3 (build 7) – duel, amis, pubs mieux payées, Superstar
+## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)
+- **Rien n'est remis à zéro** : les joueurs de la 1.2 gardent tout (record, têtes, pièces, niveau, planches, missions, série, code ami, amis, achats). La remise à zéro de « saison » prévue pour le lancement est désactivée (`Seasons.ResetOldSaves = false`, `Seasons.OnLoad`) ; une sauvegarde de la 1.2 est seulement marquée de la saison en cours (test `A12SaveIsKeptIntactWhenUpdating`). Aucun champ sauvegardé de la 1.2 n'a été renommé ni changé de type (vérifié), fichiers `profile.json` et `run.json` inchangés. Classements : `bascule_monde` et `bascule_jour`, les mêmes que la 1.2.
+- Version 1.4, build iOS 8, version Android 40 (`Editor/BasculeSetup.cs`).
 - **Rendez-vous qui font revenir** (rapport `docs/RAPPORT_1_3.md`, `Core/LiveOps.cs`) :
   - **Quête du débutant** : 3 étapes récompensées (1re partie : 150 pièces ; 500 points : un coffre ; 5 parties : la planche Bambou), bouton « Quête 1/3 » sur l'accueil et écran dédié ;
   - **Premier coffre dès la 1re partie** (ensuite toutes les 3 parties) ;
@@ -36,7 +38,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Décors plus tôt** (`Difficulty.ThemeScores`) : la plupart des parties s'arrêtent avant 8 000, les 20 000 sont rares. Prairie au fil de la journée jusqu'à 1 800, puis plage 2 500, forêt 3 300, désert 4 200, montagne 5 200, ville 6 300, ville la nuit 7 500, volcan 9 500, banquise 12 000, Lune 15 000 ; au-delà de 18 000, mondes déjà vus recolorés tous les 2 500 points. La difficulté ne change pas (elle ne dépend pas du décor).
 - **Rafales plus douces** (`Core/Wind.cs`) : de 22 % à 52 % du couple de défaite (avant : 42 % à 60 %). Les 3 premières rafales sont « douces » : le vent seul ne dépasse pas 55 % de l'angle max et il s'efface dès que la planche penche (danger de 50 % à 80 %) : elles ne font jamais perdre. La limite d'équité passe désormais avant la force minimale. Duel : de 30 % à 64 % (avant : 45 % à 72 %).
 
-## Prochaine version (après la 1.3) – mondes, tenues, coffre, partage
+## Aussi dans la 1.4 – mondes, tenues, coffre, partage
 - **Retours de test** :
   - **Amis réciproques** : quand tu ajoutes quelqu'un, il te retrouve dans ses amis (vérifié toutes les 20 s à l'accueil). **Retirer des amis** depuis le classement des amis (toucher le joueur) ; un ami retiré ne revient pas tout seul.
   - **Défier un ami** : dans le salon du duel, « Mes amis » liste tes amis avec un bouton « Inviter » ; l'ami reçoit « Défi en duel ! » sur son écran d'accueil et rejoint d'un toucher (invitation valable 5 min).
@@ -44,9 +46,9 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - **Compte à rebours du duel** : contour plus fin.
   - **Missions du jour de duel** : « Joue 1-2 duels avec un ami », « Gagne 1-2 duels » (seulement si le duel est disponible).
   - **Têtes un peu moins faciles au début** : paliers 300, 700, 1 200, 1 800, 2 500, 3 200… Une très grosse partie débloque toujours toutes les têtes qu'elle atteint.
-  - **Pièces** : une pièce pour 40 points (au lieu de 25), niveaux et bonus des missions un peu moins généreux ; remise à zéro du lancement : 0 pièce pour tout le monde.
+  - **Pièces** : une pièce pour 40 points (au lieu de 25), niveaux et bonus des missions un peu moins généreux (les pièces déjà gagnées sont gardées).
   - **Classement du jour** : le meilleur score de la journée, toutes parties confondues (plus seulement le défi du jour).
-- **Lancement : tout le monde repart à zéro** (`Core.Seasons`, saison 2). Au premier lancement de cette version, record, têtes gagnées, **toutes les pièces**, niveau, planches, missions, séries, coffres, duels et statistiques repartent de zéro, et la partie en cours est oubliée. On garde le pseudo, le code ami, les amis, les joueurs bloqués, les réglages et les achats définitifs (sans pubs, têtes premium : Apple impose de ne jamais les faire perdre). Les tutoriels déjà vus ne reviennent pas. Classements en ligne neufs : `bascule_monde_s2` et `bascule_jour_s2` (à créer dans le tableau de bord Unity, voir `docs/INTEGRATIONS.md`).
+- ~~Lancement : tout le monde repart à zéro~~ : **abandonné pour la 1.4**, rien n'est remis à zéro (voir plus haut). Le code de remise à zéro (`Seasons.Reset`) reste disponible pour une vraie nouvelle saison annoncée aux joueurs.
 - **Relecture (robustesse et validation Apple)** :
   - partage iOS : correction d'une erreur d'édition de liens du plugin (`extern "C"`), plus de double feuille de partage ; texte `NSPhotoLibraryAddUsageDescription` ajouté (sans lui, « Enregistrer l'image » fermait l'app et Apple refuse le build) ;
   - pièces **achetées** et pas encore dépensées rendues lors de la remise à zéro (règle Apple 3.1.1 : une monnaie payée ne peut pas expirer) ; les pièces gagnées en jouant repartent bien de zéro ;

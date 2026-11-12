@@ -7,12 +7,12 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 1. Dans Unity : **Edit → Project Settings → Services**, lier le projet à un projet Unity Cloud (créer une organisation si besoin).
 2. **Window → Package Manager → Unity Registry**, installer **Leaderboards** (`com.unity.services.leaderboards`). L'authentification et le cœur UGS s'installent avec.
 3. Sur le tableau de bord Unity Cloud → **Leaderboards**, créer deux classements, avec exactement ces identifiants :
-   - `bascule_monde_s2` : ordre décroissant, stratégie « garder le meilleur score ».
-   - `bascule_jour_s2` : pareil, avec une **remise à zéro quotidienne à 00:00 UTC**.
-   - (Saison 2, `Core.Seasons` : les anciens `bascule_monde` et `bascule_jour` ne servent plus, tout le monde repart de zéro.)
+   - `bascule_monde` : ordre décroissant, stratégie « garder le meilleur score ».
+   - `bascule_jour` : pareil, avec une **remise à zéro quotidienne à 00:00 UTC**.
+   - (Les mêmes depuis la 1.2 : la 1.4 ne remet rien à zéro, les records des joueurs restent.)
 4. C'est tout. Le define `BASCULE_UGS` s'active tout seul quand le paquet est présent (voir `Bascule.Runtime.asmdef`), et `UgsLeaderboardService` remplace le mode hors ligne. Connexion anonyme, pseudo demandé à la première visite du classement.
 
-**Amis** : rien de plus à configurer. Chaque joueur a un code ami (Classement → Amis → « Mon code ami », partagé par message). L'onglet Amis affiche les records de ses amis dans `bascule_monde_s2`.
+**Amis** : rien de plus à configurer. Chaque joueur a un code ami (Classement → Amis → « Mon code ami », partagé par message). L'onglet Amis affiche les records de ses amis dans `bascule_monde`.
 
 **Pseudos** : filtrés dans le jeu (3 à 16 caractères, grossièretés refusées, `Core/Social.cs`). Dans le tableau de bord Unity Cloud, on peut aussi supprimer un joueur signalé.
 

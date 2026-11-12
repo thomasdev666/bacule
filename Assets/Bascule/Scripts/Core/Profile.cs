@@ -196,8 +196,41 @@ namespace Bascule.Core
     {
         public const int Current = 2;
 
-        /// <summary>Vrai si la sauvegarde date d'une saison précédente (elle doit repartir à zéro).</summary>
+        /// <summary>
+        /// Remise à zéro des sauvegardes d'une saison précédente. Désactivée depuis la 1.4 : les joueurs de la 1.2
+        /// (sauvegardes sans saison) gardent TOUT (record, têtes, pièces, niveau, planches, missions…). Ne la remettre
+        /// qu'avec une vraie nouvelle saison annoncée aux joueurs.
+        /// </summary>
+        public static readonly bool ResetOldSaves = false;
+
+        /// <summary>Vrai si la sauvegarde date d'une saison précédente.</summary>
         public static bool IsOld(Profile p) => p != null && p.season < Current;
+
+        /// <summary>
+        /// Au chargement : une nouvelle sauvegarde est marquée de la saison en cours (avec l'écran de bienvenue) ; une
+        /// ancienne est gardée telle quelle et simplement marquée (ResetOldSaves = false). Renvoie la sauvegarde à garder
+        /// et si elle a changé (à enregistrer) ; <paramref name="wiped"/> vaut vrai seulement si elle a été remise à zéro.
+        /// </summary>
+        public static Profile OnLoad(Profile p, bool existed, out bool changed, out bool wiped)
+        {
+            changed = wiped = false;
+            if (!existed)
+            {
+                p.season = Current;
+                p.welcomePending = true; // écran de bienvenue pour un nouveau joueur
+                changed = true;
+                return p;
+            }
+            if (!IsOld(p)) return p;
+            if (ResetOldSaves)
+            {
+                p = Reset(p);
+                wiped = true;
+            }
+            p.season = Current;
+            changed = true;
+            return p;
+        }
 
         /// <summary>
         /// Pièces achetées avec de l'argent et encore en poche : au plus le total acheté, au plus le solde actuel

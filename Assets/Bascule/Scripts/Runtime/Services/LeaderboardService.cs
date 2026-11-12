@@ -37,12 +37,12 @@ namespace Bascule.Services
     public static class Boards
     {
         /// <summary>
-        /// Identifiants à créer à l'identique dans le tableau de bord Unity Gaming Services. Saison 2 (Core.Seasons) :
-        /// nouveaux classements vides, les anciens (bascule_monde, bascule_jour) ne sont plus utilisés.
+        /// Identifiants du tableau de bord Unity Gaming Services : les mêmes que la 1.2, pour que les records des joueurs
+        /// actuels restent dans le classement (décision de la 1.4 : on ne réinitialise rien).
         /// </summary>
-        public const string World = "bascule_monde_s2";
-        /// <summary>Classement du défi du jour : à configurer avec une remise à zéro quotidienne (00:00 UTC).</summary>
-        public const string Daily = "bascule_jour_s2";
+        public const string World = "bascule_monde";
+        /// <summary>Classement du défi du jour : remise à zéro quotidienne (00:00 UTC).</summary>
+        public const string Daily = "bascule_jour";
     }
 
     /// <summary>Classement mondial et du jour. Connexion anonyme, pas de compte obligatoire.</summary>

@@ -1093,6 +1093,50 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class UpdateKeepsSavesTests
+    {
+        [Test]
+        public void A12SaveIsKeptIntactWhenUpdating()
+        {
+            // Sauvegarde de la 1.2 : pas encore de numéro de saison (0), de la progression partout.
+            var old = new Profile
+            {
+                season = 0, bestScore = 4321, gamesPlayed = 87, coins = 1530, coinsEarned = 4200, level = 9, xp = 120,
+                pseudo = "Léa", friendCode = "ABC123", tutorialDone = true,
+            };
+            old.unlockedHeads.AddRange(new[] { 1, 2, 3, 40 });
+            old.ownedPlanks.Add(2);
+            old.selectedHead = 40;
+            old.Sanitize();
+
+            var p = Seasons.OnLoad(old, existed: true, out bool changed, out bool wiped);
+            Assert.False(wiped, "la 1.4 ne remet rien à zéro");
+            Assert.True(changed, "la sauvegarde est marquée de la saison en cours");
+            Assert.AreSame(old, p);
+            Assert.AreEqual(Seasons.Current, p.season);
+            Assert.AreEqual(4321, p.bestScore);
+            Assert.AreEqual(87, p.gamesPlayed);
+            Assert.AreEqual(1530, p.coins);
+            Assert.AreEqual(9, p.level);
+            Assert.AreEqual("Léa", p.pseudo);
+            Assert.AreEqual("ABC123", p.friendCode);
+            Assert.AreEqual(40, p.selectedHead);
+            CollectionAssert.IsSubsetOf(new[] { 0, 1, 2, 3, 40 }, p.unlockedHeads);
+            Assert.Contains(2, p.ownedPlanks);
+            Assert.False(p.welcomePending, "pas d'écran de bienvenue du lancement pour un joueur déjà installé");
+
+            // Deuxième lancement : rien ne bouge plus.
+            Seasons.OnLoad(p, existed: true, out bool again, out _);
+            Assert.False(again);
+
+            // Un nouveau joueur, lui, voit l'écran de bienvenue.
+            var fresh = Seasons.OnLoad(new Profile(), existed: false, out bool c2, out bool w2);
+            Assert.True(c2); Assert.False(w2);
+            Assert.True(fresh.welcomePending);
+            Assert.AreEqual(Seasons.Current, fresh.season);
+        }
+    }
+
     public class PromoTests
     {
         [Test]
