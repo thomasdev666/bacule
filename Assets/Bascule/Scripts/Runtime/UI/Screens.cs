@@ -2300,6 +2300,16 @@ namespace Bascule.UI
         const float PillHeight = 116f, PillMaxWidth = 900f;
         const float BannerWidth = 960f, BannerPad = 36f, TextLeft = 176f;
 
+        // Chasser la notification d'un geste (glisser sur le côté ou vers le haut, ou la toucher), comme sur le téléphone.
+        Image _pillImg, _cardImg;
+        SwipeDismiss _pillSwipe, _cardSwipe, _swipe;
+
+        void OnSwiped()
+        {
+            App.HapticLight();
+            _timer = 0f; // la suivante (s'il y en a une) arrive tout de suite, sinon tout se range
+        }
+
         struct Item { public bool Reward; public string Text, Detail; public Icon Icon; public Color Color; public int Coins; public float Seconds; public float? Y; }
         readonly Queue<Item> _queue = new Queue<Item>();
 
@@ -2308,6 +2318,9 @@ namespace Bascule.UI
             var pill = Ui.Image(Safe, Art.Pill, Palette.Paper, "Message", true);
             _pill = pill.rectTransform;
             pill.gameObject.AddComponent<PopIn>();
+            _pillImg = pill;
+            _pillSwipe = pill.gameObject.AddComponent<SwipeDismiss>();
+            _pillSwipe.Dismissed = OnSwiped;
             _pillDisc = Ui.Image(pill.transform, Art.Circle, Palette.Secondary, "Pastille");
             Ui.Place(_pillDisc.rectTransform, 0, 0.5f, 14, 0, 88, 88, 0, 0.5f);
             _pillIcon = Ui.Icon(_pillDisc.transform, null, "Icone");
@@ -2319,6 +2332,9 @@ namespace Bascule.UI
             var card = Ui.Card(Safe, "Recompense");
             _card = card.rectTransform;
             card.gameObject.AddComponent<PopIn>();
+            _cardImg = card;
+            _cardSwipe = card.gameObject.AddComponent<SwipeDismiss>();
+            _cardSwipe.Dismissed = OnSwiped;
             // Bannière : pastille à gauche, bloc de texte au milieu (titre + détail sur 1 ou 2 lignes),
             // pièces à droite. La hauteur suit le texte : rien ne déborde ni ne touche le bord.
             _disc = Ui.Image(card.transform, Art.Circle, Palette.Success, "Pastille");
@@ -2415,10 +2431,18 @@ namespace Bascule.UI
             _timer = it.Seconds;
             var pop = rt.GetComponent<PopIn>();
             if (pop != null) { pop.enabled = false; pop.enabled = true; }
+            // Pendant une partie, la bannière ne capte jamais le doigt (on vise avec) : on ne la chasse que sur les menus.
+            bool touch = !App.HudVisible;
+            _pillImg.raycastTarget = touch && !it.Reward;
+            _cardImg.raycastTarget = touch && it.Reward;
+            _swipe = it.Reward ? _cardSwipe : _pillSwipe;
+            _swipe.ResetPose();
         }
 
         public override void Tick(float dt)
         {
+            // Tenue sous le doigt (ou en train de partir) : elle ne disparaît pas toute seule.
+            if (_swipe != null && _swipe.Busy) { _timer = Mathf.Max(_timer, 0.8f); return; }
             _timer -= dt;
             if (_timer > 0) return;
             if (_queue.Count > 0) Display(_queue.Dequeue());

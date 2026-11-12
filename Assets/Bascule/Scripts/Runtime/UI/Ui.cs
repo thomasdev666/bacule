@@ -552,6 +552,128 @@ namespace Bascule.UI
         }
     }
 
+    /// <summary>
+    /// Notification qu'on chasse d'un geste, comme sur le téléphone : glissée sur le côté (ou vers le haut), elle suit le
+    /// doigt en pâlissant et s'en va ; relâchée trop tôt, elle revient se poser. Un simple toucher la range vers le haut.
+    /// Tant qu'on la tient, elle ne disparaît pas toute seule (<see cref="Busy"/>).
+    /// </summary>
+    public sealed class SwipeDismiss : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
+    {
+        /// <summary>Appelé quand la notification est partie (fin de l'animation de sortie).</summary>
+        public Action Dismissed;
+        public bool Busy => _dragging || _leaving || _returning;
+
+        const float DistanceX = 160f, DistanceUp = 60f, FlingSpeed = 1000f, LeaveSpeed = 3200f;
+        RectTransform _rt;
+        CanvasGroup _group;
+        Canvas _canvas;
+        Vector2 _home, _offset, _vel, _leaveDir;
+        bool _dragging, _leaving, _returning;
+        float _leaveT;
+
+        void Awake()
+        {
+            _rt = (RectTransform)transform;
+            _group = GetComponent<CanvasGroup>();
+            if (_group == null) _group = gameObject.AddComponent<CanvasGroup>();
+        }
+
+        /// <summary>Nouvelle notification : à sa place, entière, opaque (appelé une fois la bannière placée).</summary>
+        public void ResetPose()
+        {
+            if (_rt == null) Awake();
+            _dragging = _leaving = _returning = false;
+            _offset = _vel = Vector2.zero;
+            _home = _rt.anchoredPosition;
+            Apply();
+        }
+
+        float Scale
+        {
+            get
+            {
+                if (_canvas == null) { var c = GetComponentInParent<Canvas>(); _canvas = c != null ? c.rootCanvas : null; }
+                return _canvas != null && _canvas.scaleFactor > 0f ? _canvas.scaleFactor : 1f;
+            }
+        }
+
+        public void OnBeginDrag(PointerEventData e)
+        {
+            if (_leaving) return;
+            _dragging = true;
+            _returning = false;
+            _vel = Vector2.zero;
+        }
+
+        public void OnDrag(PointerEventData e)
+        {
+            if (!_dragging) return;
+            var d = e.delta / Scale;
+            _offset.x += d.x;
+            // Vers le haut, elle suit le doigt ; vers le bas, elle résiste (on ne la tire pas dans l'écran).
+            _offset.y = Mathf.Max(-50f, _offset.y + (d.y > 0f ? d.y : d.y * 0.3f));
+            float dt = Mathf.Max(Time.unscaledDeltaTime, 1f / 120f);
+            _vel = Vector2.Lerp(_vel, d / dt, 0.5f);
+            Apply();
+        }
+
+        public void OnEndDrag(PointerEventData e)
+        {
+            if (!_dragging) return;
+            _dragging = false;
+            bool flingX = Mathf.Abs(_vel.x) > FlingSpeed && Mathf.Abs(_vel.x) > Mathf.Abs(_vel.y);
+            if (Mathf.Abs(_offset.x) > DistanceX || flingX) Leave(new Vector2(Mathf.Sign(_offset.x + _vel.x * 0.05f), 0f));
+            else if (_offset.y > DistanceUp || _vel.y > FlingSpeed) Leave(Vector2.up);
+            else _returning = true;
+        }
+
+        public void OnPointerClick(PointerEventData e)
+        {
+            // Après un glissement, le relâchement n'est pas un toucher.
+            if (e.dragging || _dragging || _leaving || _returning) return;
+            Leave(Vector2.up);
+        }
+
+        void Leave(Vector2 dir)
+        {
+            _leaving = true;
+            _returning = false;
+            _leaveDir = dir;
+            _leaveT = 0f;
+        }
+
+        void Update()
+        {
+            float dt = Time.unscaledDeltaTime;
+            if (_leaving)
+            {
+                _leaveT += dt / 0.2f;
+                _offset += _leaveDir * LeaveSpeed * dt;
+                Apply();
+                if (_leaveT >= 1f)
+                {
+                    _leaving = false;
+                    Dismissed?.Invoke();
+                }
+            }
+            else if (_returning)
+            {
+                // Retour en place avec un ressort doux.
+                _offset = Vector2.Lerp(_offset, Vector2.zero, 1f - Mathf.Exp(-dt * 16f));
+                if (_offset.sqrMagnitude < 1f) { _offset = Vector2.zero; _returning = false; }
+                Apply();
+            }
+        }
+
+        void Apply()
+        {
+            _rt.anchoredPosition = _home + _offset;
+            _rt.localRotation = Quaternion.Euler(0f, 0f, -_offset.x * 0.02f);
+            float fade = Mathf.Max(Mathf.Abs(_offset.x) / 520f, Mathf.Max(0f, _offset.y) / 200f);
+            _group.alpha = Mathf.Clamp01(1f - fade);
+        }
+    }
+
     /// <summary>Pulsation douce (bouton Jouer, récompense).</summary>
     public sealed class Pulse : MonoBehaviour
     {
