@@ -79,16 +79,11 @@ Le jeu ne peut pas choisir la durée d'une pub : c'est le réseau qui l'envoie. 
 - **Google AdMob** : compte créé (éditeur `pub-3087780473555937`), app iOS « Bascule » associée à l'App Store, identifiant `ca-app-pub-3087780473555937~5965751815` déjà dans `AdNetworkSettings.AdMobIosAppId` (on peut donc installer l'adaptateur AdMob sans plantage sur iPhone). Validation en attente du fichier `app-ads.txt`.
 - **Liftoff** : app créée, validation en attente du fichier `app-ads.txt`.
 - **Mintegral** : compte en cours de validation ; clés à saisir ensuite dans LevelPlay (APP Key dans « APP Setting », Skey et Secret dans Account → API Tools).
-- **app-ads.txt** à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`) :
-
-```
-# app-ads.txt - Orphee X (Bascule)
-OWNERDOMAIN=orpheex.fr
-# Liftoff Monetize (Vungle)
-vungle.com, 6af5e868efb36623c25fe232, DIRECT, c107d686becd2d77
-# Google AdMob
-google.com, pub-3087780473555937, DIRECT, f08c47fec0942fa0
-```
+- **Unity Ads et ironSource Ads** (LevelPlay) : lignes ajoutées (liste d'Unity : Monetization → Settings → Organization → App-ads.txt ; ironSource : éditeur `698899`). Dans Unity, renseigner ensuite l'« App-ads URL » si la page le demande.
+- **AppLovin** : inscription faite, compte en attente de confirmation par AppLovin.
+- **Pangle** : app « Bascule » créée (ID 8932945, en test) ; compléter les informations de l'entreprise pour l'activer, puis créer les placements. Sa ligne app-ads.txt viendra ensuite.
+- **Meta Audience Network** : pas commencé (la page « Monétisation » de Meta Business Suite concerne les Pages Facebook, pas les applis).
+- **app-ads.txt** : version complète dans `docs/site/app-ads.txt`, à publier à la racine de orpheex.fr (le site du développeur indiqué sur la fiche App Store est `https://orpheex.fr/bascule`).
 
 Chaque nouvelle régie donne sa ligne : l'ajouter à la fin du fichier. Les adaptateurs installés dans Unity avant un build peuvent être activés plus tard depuis LevelPlay, sans nouvelle version ; un adaptateur absent du build demande une nouvelle version.
 
