@@ -94,15 +94,29 @@ class Wind:
         due = self.pending or self.since >= self.gap
         if not due or blocked or self.since < WD.get("minGap", 25) or danger > WD.get("maxDangerToStart", 0.5):
             return
-        self.dir = -1 if self.rng.random() < 0.5 else 1
-        base = min(WD.get("strengthMax", 0.6), WD.get("strengthStart", 0.42) + WD.get("strengthStep", 0.04) * self.count)
-        toward = ratio * self.dir
-        self.strength = max(WD.get("strengthMin", 0.3), min(base, WD.get("maxPeakRatio", 0.85) - max(0, toward)))
+        d = -1 if self.rng.random() < 0.5 else 1
+        base = min(WD.get("strengthMax", 0.52), WD.get("strengthStart", 0.22) + WD.get("strengthStep", 0.05) * self.count)
+        toward = ratio * d
+        # Core/Wind.cs : limite d'équité (plus basse pour les rafales douces), qui passe avant la force minimale.
+        peak = WD.get("maxPeakRatio", 0.85)
+        if self.count + 1 <= WD.get("gentleGusts", 3):
+            peak = min(peak, WD.get("gentlePeakRatio", 0.55))
+        cap = peak - max(0, toward)
+        if cap < WD.get("strengthMin", 0.12) * 0.5:
+            return
+        self.dir = d
+        self.strength = min(cap, max(WD.get("strengthMin", 0.12), base))
         self.phase, self.t, self.pending, self.since, self.gap = "warn", 0.0, False, 0.0, self.next_gap()
         self.count += 1
 
-    def torque(self, losing):
-        return self.dir * self.strength * losing * self.envelope()
+    def torque(self, losing, danger=0.0):
+        """Core/Wind.cs Gusts.Torque : une rafale douce s'efface quand la planche penche."""
+        safety = 1.0
+        if 0 < self.count <= WD.get("gentleGusts", 3):
+            a, b = WD.get("gentleFadeFrom", 0.5), max(WD.get("gentleFadeFrom", 0.5) + 0.01, WD.get("gentleFadeTo", 0.8))
+            x = min(1.0, max(0.0, (danger - a) / (b - a)))
+            safety = 1.0 - x * x * (3 - 2 * x)
+        return self.dir * self.strength * losing * self.envelope() * safety
 
 
 DT = 1 / 60
@@ -405,7 +419,7 @@ class Game:
             self.plank.sens = sensitivity(self.score)
             ratio = self.plank.angle / P["maxAngle"] * P["tiltDirection"]
             self.wind.update(DT, self.score, self.plank.danger, ratio, self.time < 3)
-            self.plank.step(DT, tq + self.wind.torque(self.plank.losing), load)
+            self.plank.step(DT, tq + self.wind.torque(self.plank.losing, self.plank.danger), load)
             if int(self.time / DT) % 30 == 0:
                 self.score_trace.append(self.score)
             d = self.plank.danger

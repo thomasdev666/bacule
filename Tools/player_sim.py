@@ -27,17 +27,18 @@ OUT = os.path.join(HERE, "sim_out")
 
 # ---------------------------------------------------------------------------------------------- hypothèses
 HYP = {
-    # Comportement (moyennes du casual mobile : J1 25-40 %, J7 8-15 %, J30 2-6 %).
-    "e0_a": 2.0, "e0_b": 4.5,       # envie de départ (moyenne 0,31)
+    # Comportement (moyennes du casual mobile : J1 25-40 %, J7 8-15 %, J30 2-6 %). Recalé en novembre 2026 : la 1.2
+    # donne J1 36 %, J7 15 %, J30 6,6 % et 1,26 pub par joueur le premier jour (lancement réel : 1,08).
+    "e0_a": 1.3, "e0_b": 5.2,       # envie de départ (moyenne 0,20)
     "reward_scale": 1.0,            # force de toutes les récompenses
     "habituation": 6.0,             # après 6 récompenses du même type, l'effet est divisé par 2
-    "decay_per_day": 0.88,          # l'envie s'use d'elle-même chaque jour
-    "missed_day_decay": 0.84,       # un jour sans ouvrir l'appli : l'habitude se perd
+    "decay_per_day": 0.79,          # l'envie s'use d'elle-même chaque jour
+    "missed_day_decay": 0.72,       # un jour sans ouvrir l'appli : l'habitude se perd
     "notif_optin": 0.5,             # part des joueurs qui acceptent les notifications
     "notif_bonus": 0.03,            # chance de revenir en plus un jour donné grâce au rappel
     "gift_bonus": 0.015,            # cadeau du jour en attente (et série à ne pas perdre)
     "missions_bonus": 0.01,         # missions du jour à faire
-    "core_fun_max": 0.07,           # plaisir du jeu lui-même, qui ne s'use pas (chance de revenir, au plus)
+    "core_fun_max": 0.03,           # plaisir du jeu lui-même, qui ne s'use pas (chance de revenir, au plus)
     "payer_share": 0.05,            # joueurs prêts à payer un jour (casual : 1 à 3 % paient vraiment)
     # Pubs (France, pubs non personnalisées : environ 30 à 50 % moins chères que la moyenne).
     "ecpm_interstitial": 4.0,       # € pour 1000 pubs affichées
@@ -45,6 +46,16 @@ HYP = {
     "fill_rate": 0.92,              # part des demandes de pub réellement servies
     # Achats : prix TTC -> net développeur (TVA 20 %, commission store 15 %).
     "iap_net": 0.85 / 1.2,
+    # 1.3 : duels entre amis, vidéos de la boutique, premier lancement (pseudo, âge, pubs).
+    "duel_share": 0.22,             # part des joueurs qui ont au moins un ami qui joue (code ami, invitation)
+    "duel_bonus": 0.035,            # chance de revenir en plus un jour donné (invitations, revanche à prendre)
+    "duel_day_p": 0.35,             # un jour joué, chance de faire des duels avec son ami
+    "collector_share": 0.45,        # joueurs qui visent la tête et la planche exclusives (vidéos)
+    "onboard_loss": 0.03,           # installations perdues pendant les 3 questions du premier lancement
+    "event_bonus": 0.0,
+    "revive_base": 0.08,
+    "starter_quest": 0,             # levier testé : quête du débutant (3 étapes le 1er jour : 1, 3 et 5 parties)
+    "first_chest_after": 3,         # levier testé : premier coffre après N parties (3 aujourd'hui)            # envie de reprendre la partie avec une vidéo (hors presque-record)             # levier testé : événement de la semaine (objectif commun, récompense cosmétique)
 }
 
 PRICES = {"removeads": 2.99, "starter": 3.99, "coins_s": 0.99, "coins_m": 2.99, "coins_l": 6.99, "legends": 4.99}
@@ -83,6 +94,14 @@ RARE_SCORE = [300, 700, 1200, 1800, 2500, 3200, 4000, 5000, 6500, 8000, 10000, 1
 RARE_LEVEL = [3, 6, 9, 12, 16, 20, 25, 30, 35, 40, 45, 50, 60]
 RARE_SHOP = [600, 800, 1000, 1300, 1600, 2000, 2400, 2900, 3400, 4000, 4600, 5200, 5800, 6500, 7200, 8000]
 DESIGNS["v18"] = dict(DESIGNS["v17"], score_heads=RARE_SCORE, level_heads=RARE_LEVEL, rare=True)
+# Décors (Difficulty.ThemeScores) : chaque nouveau monde atteint est une petite récompense.
+OLD_THEMES = [300, 800, 2000, 4000, 5500, 7000, 9000, 11500, 14000, 17000, 20000, 23500, 27000]
+NEW_THEMES = [300, 700, 1200, 1800, 2500, 3300, 4200, 5200, 6300, 7500, 9500, 12000, 15000]
+DESIGNS["v18"]["themes"] = OLD_THEMES
+# 1.3 (novembre 2026) : seconde chance toujours en vidéo, coffre doublé et coffre gratuit en vidéo (3/jour), tête et
+# planche exclusives (8 vidéos chacune), duels entre amis, places gagnées au classement, décors bien plus tôt,
+# 30 vidéos par jour au plus, et 3 questions au premier lancement.
+DESIGNS["v13"] = dict(DESIGNS["v18"], v13=True, themes=NEW_THEMES, rewarded=DESIGNS["v18"]["rewarded"] | {"chest_double", "video_chest", "exclusive"})
 
 
 def xp_for_level(n):
@@ -156,6 +175,17 @@ class Player:
         self.surprise_price = 1000 if rare else SURPRISE_PRICE
         self.chest_head = 0.08 if rare else 0.16
         self.spent_coins = 0
+        v13 = design.get("v13")
+        self.duel_friend = bool(v13) and rng.random() < HYP["duel_share"]
+        self.collector = bool(v13) and rng.random() < HYP["collector_share"]
+        self.lost_onboarding = bool(v13) and rng.random() < HYP["onboard_loss"]
+        self.excl_head = 0
+        self.excl_plank = 0
+        self.rew_day, self.rew_today = -1, 0
+        self.duels = 0
+        self.themes = 0
+        self.day = 0
+        self.ads_by_day = {}  # jour -> [interstitiels, vidéos]
 
     # --- une partie
     def special_kind(self):
@@ -180,11 +210,12 @@ class Player:
         ev = {"best": False, "head": 0, "level": 0, "seconds": seconds, "score": score, "coins": 0, "goal": False, "chest": False, "special": special}
 
         # Seconde chance : pub récompensée (ou gratuite sans pub) en fin de partie.
-        revive_p = 0.16 + (0.3 if score >= 0.7 * max(1, self.best) else 0.0) - 0.08 * self.aversion
-        if self.ads_removed:
+        revive_p = HYP["revive_base"] + (0.3 if score >= 0.7 * max(1, self.best) else 0.0) - 0.08 * self.aversion
+        always_ad = self.d.get("v13")
+        if self.ads_removed and not always_ad:
             revive_p += 0.25
-        if self.rng.random() < max(0.02, revive_p):
-            if not self.ads_removed:
+        if self.rng.random() < max(0.02, revive_p) and (not always_ad or self.watch_rewarded()):
+            if not self.ads_removed and not always_ad:
                 self.watch_rewarded()
             extra = self.rng.choice(self.pool)
             score += int(extra["score"] * mult * 0.35)
@@ -196,6 +227,9 @@ class Player:
         self.minutes += (seconds + 8) / 60
         if score > self.best:
             ev["best"] = self.best > 0
+            themes = self.d.get("themes") or []
+            ev["themes"] = sum(1 for t in themes if self.best < t <= score)
+            self.themes += ev["themes"]
             self.best = score
         for t in self.d["score_heads"]:
             if score >= t and t not in self.unlocked_score:
@@ -212,11 +246,16 @@ class Player:
                 self.coins += 25
         if self.d.get("chest"):
             self.chest_games += 2 if special == "chest" else 1
-            if self.chest_games >= 3:
+            need = HYP["first_chest_after"] if self.chests == 0 else 3
+            if self.chest_games >= need:
                 self.chest_games = 0
                 self.chests += 1
                 ev["chest"] = True
-                self.coins += 60 + 10 * int(self.rng.random() * 15)
+                loot = 60 + 10 * int(self.rng.random() * 15)
+                self.coins += loot
+                # 1.3 : « Doubler » le coffre avec une vidéo.
+                if "chest_double" in self.d["rewarded"] and self.rng.random() < 0.34 - 0.08 * self.aversion and self.watch_rewarded():
+                    self.coins += loot
                 if ((self.chests == 2 and not self.d.get("rare")) or self.rng.random() < self.chest_head) and self.shop_owned < len(self.shop_prices):
                     self.shop_owned += 1
                     ev["head"] += 1
@@ -312,8 +351,15 @@ class Player:
             self.reward("surprise", 0.02)
 
     def watch_rewarded(self):
+        if self.d.get("v13"):
+            if self.rew_day != self.day:
+                self.rew_day, self.rew_today = self.day, 0
+            if self.rew_today >= 30:
+                return False
         if self.rng.random() > HYP["fill_rate"]:
             return False
+        self.rew_today += 1
+        self.ads_by_day.setdefault(self.day, [0, 0])[1] += 1
         self.rewarded += 1
         self.last_rew_t = self.clock
         return True
@@ -332,6 +378,7 @@ class Player:
         if self.rng.random() > HYP["fill_rate"]:
             return False
         self.inter += 1
+        self.ads_by_day.setdefault(self.day, [0, 0])[0] += 1
         self.inter_seen_total += 1
         self.inter_since = 0
         self.last_inter_t = self.clock
@@ -381,6 +428,8 @@ class Player:
             self.reward("cadeau", 0.01)
         if "free_coins" in self.d["rewarded"] and self.rng.random() < 0.12 and self.watch_rewarded():
             self.coins += 60
+        if self.d.get("v13"):
+            self.video_shop()
         missions = self.d["missions"]
         mission_left = 3 if missions and self.days_active[-1:] != [day] else 0
         if "reroll" in self.d["rewarded"] and mission_left and self.rng.random() < 0.08:
@@ -399,6 +448,11 @@ class Player:
                 self.E = max(0.0, self.E - 0.004)
             if ev["best"]:
                 self.reward("record", 0.025)
+                if self.d.get("v13"):
+                    self.reward("classement", 0.008)  # « +12 places » en fin de partie
+            if ev.get("themes"):
+                self.reward("monde", 0.02 * min(2, ev["themes"]))
+                gained_goal = True
             if ev["head"]:
                 self.reward("tete", 0.035 * min(2, ev["head"]))
                 gained_goal = True
@@ -446,6 +500,13 @@ class Player:
                 momentum -= 0.07 * self.aversion
             if mission_left:
                 momentum += 0.04
+            # Quête du débutant (levier testé) : 3 étapes le premier jour, avec une récompense à chaque étape.
+            if HYP["starter_quest"] and self.games <= 5:
+                if self.games in (1, 3, 5):
+                    self.reward("quete", 0.03)
+                    gained_goal = True
+                if self.games < 5:
+                    momentum += 0.12
             # « Encore une » : le coffre presque plein, ou la prochaine partie est spéciale.
             if self.d.get("chest") and self.chest_games == 2:
                 momentum += 0.05
@@ -462,6 +523,43 @@ class Player:
             if self.no_reachable_goal():
                 self.E = max(0.0, self.E - 0.03)
                 self.blame("objectif_trop_loin", 0.03)
+
+    def video_shop(self):
+        """1.3 : boutique « Gratuit avec une vidéo » (Core/AdRewards.cs)."""
+        # Coffre gratuit (3 par jour).
+        if self.rng.random() < 0.16 - 0.04 * (self.aversion - 1):
+            for _ in range(3):
+                if not self.watch_rewarded():
+                    break
+                self.coins += 60 + 10 * int(self.rng.random() * 15)
+                self.reward("coffre_video", 0.012)
+                if self.rng.random() < 0.5:
+                    break
+        # Tête puis planche exclusives (8 vidéos chacune), quand on veut.
+        if self.collector and (self.excl_head < 8 or self.excl_plank < 8) and self.rng.random() < 0.24:
+            for _ in range(1 + int(self.rng.random() * 3)):
+                if not self.watch_rewarded():
+                    break
+                if self.excl_head < 8:
+                    self.excl_head += 1
+                    if self.excl_head == 8:
+                        self.heads += 1
+                        self.reward("exclusif", 0.06)
+                else:
+                    self.excl_plank += 1
+                    if self.excl_plank == 8:
+                        self.planks += 1
+                        self.reward("exclusif", 0.05)
+            self.reward("progres_video", 0.004)
+
+    def duel_day(self):
+        """1.3 : quelques duels avec son ami (pas de pub imposée pendant un duel)."""
+        n = 1 + int(self.rng.expovariate(0.8))
+        for _ in range(min(5, n)):
+            self.duels += 1
+            self.minutes += 2.2
+            self.clock += 140
+            self.reward("duel", 0.03)
 
     def next_goal_gap(self):
         """Écart relatif entre le record et la prochaine tête de score."""
@@ -508,8 +606,14 @@ class Player:
 
     # --- une journée
     def live_day(self, day):
+        self.day = day
+        if self.lost_onboarding:
+            return  # parti pendant les questions du premier lancement, avant la première partie
         if day > 0:
             p = self.E + self.core_fun
+            if self.duel_friend:
+                p += HYP["duel_bonus"]
+            p += HYP["event_bonus"]
             if self.notif:
                 p += HYP["notif_bonus"]
             if self.d["gift"]:
@@ -522,6 +626,10 @@ class Player:
                 return
         self.days_active.append(day)
         self.day_blame = {}
+        if self.duel_friend and day > 0 and self.rng.random() < HYP["duel_day_p"]:
+            self.duel_day()
+        if HYP["event_bonus"] > 0 and day % 7 == 3:
+            self.reward("evenement", 0.03)
         s = 0
         while True:
             self.session(day)
@@ -590,6 +698,15 @@ def summarize(players, days):
         "payeurs": payers / n,
         "achats": buys,
         "record_median": st.median(p.best for p in players),
+        "duels_par_joueur": sum(p.duels for p in players) / n,
+        "superstar": sum(1 for p in players if p.excl_head >= 8) / n,
+        "planche_exclusive": sum(1 for p in players if p.excl_plank >= 8) / n,
+        "mondes_vus_mediane": st.median(p.themes for p in players),
+        "rew_total": sum(p.rewarded for p in players), "inter_total": sum(p.inter for p in players),
+        "jours_actifs": dau,
+        "pubs_par_jour": [[sum(p.ads_by_day.get(d, [0, 0])[0] for p in players), sum(p.ads_by_day.get(d, [0, 0])[1] for p in players)] for d in range(days)],
+        "actifs_par_jour": [sum(1 for p in players if d in p.days_active) for d in range(days)],
+        "achats_par_jour": None,
     }
 
 
@@ -638,6 +755,83 @@ def pct(x):
     return f"{100 * x:.1f} %"
 
 
+# Prix des pubs (€ pour 1000 pubs vues), calés sur les vrais chiffres du lancement (11 novembre 2026 : 37 joueurs,
+# 40 pubs, 0,16 $ : environ 3,7 € pour 1000 pubs, presque toutes des vidéos de seconde chance, Unity Ads seul,
+# pubs non personnalisées, premier jour d'une app inconnue des régies).
+ECPM = {
+    "S1 aujourd'hui (Unity seul, non personnalisées)": {"ecpm_interstitial": 2.6, "ecpm_rewarded": 3.7},
+    "S2 1.3 avec accord (42 % personnalisées)": {"ecpm_interstitial": 3.3, "ecpm_rewarded": 4.7},
+    "S3 1.3 + 5 réseaux en enchères": {"ecpm_interstitial": 4.6, "ecpm_rewarded": 6.6},
+}
+
+LEVERS = [
+    ("1.3 telle quelle", {}, None),
+    ("Questions âge/pubs après la 1re partie", {"onboard_loss": 0.008}, None),
+    ("Rappels acceptés par 70 % (demande au bon moment)", {"notif_optin": 0.7}, None),
+    ("Parrainage : 2 fois plus de joueurs avec un ami", {"duel_share": 0.44}, None),
+    ("Événement de la semaine (objectif + récompense)", {"event_bonus": 0.015}, None),
+    ("Quête du débutant (1re session plus longue)", {"starter_quest": 1}, None),
+    ("Premier coffre dès la 1re partie", {"first_chest_after": 1}, None),
+    ("Tout ensemble (sans changer les pubs)", {"onboard_loss": 0.008, "notif_optin": 0.7, "duel_share": 0.44, "event_bonus": 0.015, "starter_quest": 1, "first_chest_after": 1}, None),
+    ("Pub imposée toutes les 4 parties / 4 min", {}, {"first_after_games": 6, "every_games": 4, "min_seconds": 240, "after_rewarded": 120, "skip_on_best": True}),
+    ("Pub imposée toutes les 2 parties / 2 min", {}, {"first_after_games": 4, "every_games": 2, "min_seconds": 120, "after_rewarded": 90, "skip_on_best": True}),
+]
+
+
+def rapport13(n, days, by, skills, seeds=4):
+    """1.2 (en ligne) contre 1.3, revenus sur 30 jours selon le prix des pubs, et leviers d'amélioration."""
+    def run(design, hyp=None, d=None):
+        rs = [simulate(design, n, days, 300 + k, by, skills, hyp=hyp, design=d) for k in range(seeds)]
+        out = {}
+        for k, v in rs[0].items():
+            if isinstance(v, (int, float)):
+                out[k] = st.mean(r[k] for r in rs)
+        out["courbe"] = [st.mean(r["courbe"][i] for r in rs) for i in range(days)]
+        out["actifs_par_jour"] = [st.mean(r["actifs_par_jour"][i] for r in rs) for i in range(days)]
+        out["pubs_par_jour"] = [[st.mean(r["pubs_par_jour"][i][j] for r in rs) for j in (0, 1)] for i in range(days)]
+        out["achats"] = {k: sum(r["achats"].get(k, 0) for r in rs) / len(rs) for k in set().union(*[r["achats"] for r in rs])}
+        return out
+
+    def money(r, ecpm):
+        ads = r["inter_total"] * ecpm["ecpm_interstitial"] / 1000 + r["rew_total"] * ecpm["ecpm_rewarded"] / 1000
+        return ads, r["revenu_achats"]
+
+    res = {"v12": run("v18"), "v13": run("v13")}
+    rev = {}
+    for name in res:
+        rev[name] = {}
+        for label, e in ECPM.items():
+            ads, iap = money(res[name], e)
+            rev[name][label] = {"pubs": ads, "achats": iap, "total": ads + iap}
+    levers = {}
+    base = DESIGNS["v13"]
+    for label, h, inter in LEVERS:
+        d = dict(base)
+        if inter:
+            d["interstitial"] = inter
+        r = run("v13", hyp=h, d=d)
+        ads, iap = money(r, ECPM["S3 1.3 + 5 réseaux en enchères"])
+        levers[label] = {"J1": r["J1"], "J7": r["J7"], "J30": r["J30"], "minutes": r["minutes_par_joueur"],
+                         "inter_jour": r["inter_par_jour_actif"], "total_S3": ads + iap, "jours_actifs": r["jours_actifs"]}
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, "rapport13.json"), "w", encoding="utf-8") as f:
+        json.dump({"joueurs": n, "jours": days, "hypotheses": HYP, "ecpm": ECPM, "versions": res, "revenus": rev, "leviers": levers}, f, ensure_ascii=False, indent=1)
+
+    for name, r in res.items():
+        print(f"[{name}] J1 {pct(r['J1'])} J3 {pct(r['J3'])} J7 {pct(r['J7'])} J14 {pct(r['J14'])} J30 {pct(r['J30'])} | {r['minutes_par_joueur']:.0f} min/joueur, "
+              f"{r['minutes_par_jour_actif']:.1f} min/jour actif, {r['sessions_par_jour_actif']:.2f} sessions/j, {r['parties_par_session']:.1f} parties/session | "
+              f"pubs/jour actif : {r['inter_par_jour_actif']:.2f} imposées + {r['recomp_par_jour_actif']:.2f} vidéos | jours actifs {r['jours_actifs']:.0f} | "
+              f"payeurs {pct(r['payeurs'])} achats {r['revenu_achats']:.1f} € | duels/joueur {r['duels_par_joueur']:.1f} superstar {pct(r['superstar'])} mondes {r['mondes_vus_mediane']:.0f} record méd. {r['record_median']:.0f}")
+        print("    achats :", {k: round(v, 1) for k, v in r["achats"].items()})
+        d0 = r["pubs_par_jour"][0]
+        print(f"    jour 0 : {r['actifs_par_jour'][0]:.0f} actifs, {d0[0]:.0f} imposées + {d0[1]:.0f} vidéos = {(d0[0] + d0[1]) / max(1, r['actifs_par_jour'][0]):.2f} pubs par joueur")
+        for label, v in rev[name].items():
+            print(f"    {label:48} pubs {v['pubs']:7.1f} €  achats {v['achats']:6.1f} €  total {v['total']:7.1f} €")
+    print()
+    for label, v in levers.items():
+        print(f"  {label:50} J1 {pct(v['J1'])} J7 {pct(v['J7'])} J30 {pct(v['J30'])} {v['minutes']:.0f} min {v['inter_jour']:.2f} imp/j  {v['total_S3']:.1f} € (S3)")
+
+
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
     days = int(sys.argv[2]) if len(sys.argv) > 2 else 60
@@ -656,6 +850,9 @@ def main():
         os.makedirs(OUT, exist_ok=True)
         with open(os.path.join(OUT, "economie.json"), "w", encoding="utf-8") as f:
             json.dump({"joueurs": n, "jours": days, "versions": res}, f, ensure_ascii=False, indent=1)
+        return
+    if len(sys.argv) > 3 and sys.argv[3] == "rapport13":
+        rapport13(n, days, by, skills)
         return
     if len(sys.argv) > 3 and sys.argv[3] == "departs":
         # Les 1000 joueurs de la version actuelle : pourquoi ceux qui partent sont partis.
