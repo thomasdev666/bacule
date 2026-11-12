@@ -22,20 +22,23 @@ Garde Basile en équilibre : pose les poids, fusionne-les et bats ton record !
 
 ## Description
 
-Basile tient une planche sur ses épaules… et c'est toi qui poses les poids !
+Bascule, le jeu d'équilibre où Basile tient une planche sur ses épaules… et c'est toi qui poses les poids !
 
 Glisse le doigt pour viser, relâche pour lâcher. Deux poids identiques qui se touchent fusionnent : 1 + 1 = 2, 2 + 2 = 4… jusqu'au 128 qui s'envole en montgolfière. Mais attention : la planche penche du côté le plus lourd. Rattrape-la juste à temps, sinon Basile lâche tout !
 
+NOUVEAU : LE DUEL EN DIRECT
+Défie un ami en un geste et jouez en même temps, avec les mêmes poids. 3 minutes maximum : le premier qui lâche a perdu, sinon le meilleur score gagne.
+
 • Facile à prendre en main, difficile à lâcher : une partie dure une à deux minutes.
 • Un score infini : la planche raccourcit et les poids s'alourdissent à mesure que tu progresses.
-• Le défi du jour : la même suite de poids pour tout le monde, chaque jour.
-• Le classement mondial et le classement entre amis, avec ton code ami.
-• Plus de 60 têtes à collectionner pour Basile : records, niveaux, boutique, exploits.
-• Des missions chaque jour, un cadeau quotidien qui grossit, des niveaux à gagner.
+• Le classement mondial, le classement du jour et le classement entre amis.
+• 67 têtes à collectionner pour Basile : records, niveaux, roue de la chance, duels, exploits.
+• La roue de la chance chaque jour, l'événement de la semaine, des missions et des coffres.
+• 14 mondes à traverser selon ton score, du village jusqu'à la Lune.
 • Une musique qui s'emballe quand la chute approche… et le cœur de Basile qui bat de plus en plus vite.
 • Jouable hors ligne, d'une seule main.
 
-Bascule est gratuit. Il contient des publicités non personnalisées entre les parties et des achats facultatifs (sans publicité, pièces, têtes). Aucun achat ne donne d'avantage en partie.
+Bascule est gratuit. Il contient des publicités entre les parties (personnalisées seulement avec ton accord, à partir de 15 ans) et des achats facultatifs : sans publicité, pièces, têtes. Aucun achat ne donne d'avantage en partie.
 
 ## Mots-clés (App Store, 100 caractères)
 
