@@ -1431,6 +1431,35 @@ namespace Bascule
             Session.SetHead(HeadCatalog.Get(id));
         }
 
+        /// <summary>Réglages → Code promo : le code d'un partenaire débloque sa tête, une seule fois par joueur.</summary>
+        public void AskPromoCode() =>
+            _prompt.Ask(Loc.Get("promo_title"), "", InputField.ContentType.Standard, RedeemPromoCode, 24, Loc.Get("promo_note"));
+
+        void RedeemPromoCode(string text)
+        {
+            var result = PromoCodes.Redeem(Profile, text, out var promo);
+            switch (result)
+            {
+                case PromoResult.Empty:
+                    return;
+                case PromoResult.Unknown:
+                    Stats.Event("promo_unknown");
+                    _toast.Say(Loc.Get("promo_unknown"), Icon.Close, Palette.Primary, 3f);
+                    return;
+                case PromoResult.AlreadyUsed:
+                    _toast.Say(Loc.Get("promo_used"), Icon.Check, Palette.Secondary, 3f);
+                    return;
+            }
+            SaveProfile();
+            Stats.Event("promo_ok", ("code", promo.Key));
+            var head = HeadCatalog.Get(promo.HeadId);
+            _audio.Play(Sfx.Chime, 10, 0.9f);
+            _haptics.Medium();
+            _confirm.Ask(Loc.Get("promo_ok_title"), Loc.Format("promo_ok_body", head.Name(Loc.Language), promo.Partner), Art.Portrait(head),
+                Loc.Get("promo_wear"), () => SelectHead(head.Id), Loc.Get("later"), null);
+            if (_collection.Visible) _collection.Refresh();
+        }
+
         public void SelectHead(int id)
         {
             if (!Profile.unlockedHeads.Contains(id)) return;

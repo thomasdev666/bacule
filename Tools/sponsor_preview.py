@@ -1,5 +1,5 @@
 """
-Aperçu d'une tête de partenaire en cours de validation (pas encore dans le jeu), avec les MÊMES images que le jeu.
+Aperçu d'une tête de partenaire (offerte avec un code, Core/Promo.cs), avec les MÊMES images que le jeu.
 
   dotnet run --project Tools/ArtPreview -c Release -- Exports/art
   python3 Tools/sponsor_preview.py Exports/art docs/apercu sambbach
@@ -16,8 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scene_preview as sp  # noqa: E402
 
 KEY = sys.argv[3] if len(sys.argv) > 3 else "sambbach"
-NAME = {"sambbach": "Samb'bach"}.get(KEY, KEY)
-BODY = f"mascot_h/{KEY}"
+# Clé du partenaire -> (nom, numéro de la tête dans HeadCatalog).
+NAME, HEAD = {"sambbach": ("Samb'bach", 66)}[KEY]
+BODY = f"mascot_h/{HEAD}"
 W, H = sp.W, sp.H
 GREEN, YELLOW, ORANGE = (0, 166, 81), (255, 214, 10), (247, 162, 59)
 
@@ -57,7 +58,7 @@ def character_card():
     sp.PPU, sp.GROUND_Y = 158.0, -4.0
     c = sp.Canvas(img)
     glow(img, (W / 2 - 420, 520, W / 2 + 420, 1500), (255, 255, 255, 120), 80)
-    sp.mascot_scene(c, angle=-4.0, expression="Happy", weights=False, head=KEY, body=BODY)
+    sp.mascot_scene(c, angle=-4.0, expression="Happy", weights=False, head=HEAD, body=BODY)
     sp.PPU, sp.GROUND_Y = old_ppu, old_ground
     # Étiquette du code (comme il sera proposé dans Réglages → Code promo).
     tag = (W / 2 - 330, H - 190, W / 2 + 330, H - 80)
@@ -83,7 +84,7 @@ def portrait_card():
     old_ppu, old_ground = sp.PPU, sp.GROUND_Y
     ppu, ground = 205.0, -5.2
     sp.PPU, sp.GROUND_Y = ppu, ground
-    sp.mascot(sp.Canvas(layer), 0, -2.0, 0.0, "Grin", head=KEY, body=BODY)
+    sp.mascot(sp.Canvas(layer), 0, -2.0, 0.0, "Grin", head=HEAD, body=BODY)
     sp.PPU, sp.GROUND_Y = old_ppu, old_ground
     # Des épaules au bas de la jupe, centré dans la carte.
     top_y = H / 2 - (ground + 3.42) * ppu
@@ -96,16 +97,62 @@ def portrait_card():
 
 
 def home():
-    s = sp.home_screen(head=KEY, body=BODY, expression="Happy")
+    s = sp.home_screen(head=HEAD, body=BODY, expression="Happy")
     return s.img
 
 
 def game():
     c = sp.world(1)
-    sp.mascot_scene(c, angle=9.0, expression="Tense", head=KEY, body=BODY)
+    sp.mascot_scene(c, angle=9.0, expression="Tense", head=HEAD, body=BODY)
     sp.weight(c, 8, -1.9, sp.ORTHO - 5.1)
     sp.hud(c, angle=9.0, danger=0.2)
     return c.img
+
+
+def child(parent, ax, ay, x, y, w, h, px=0.5, py=0.5):
+    """Ui.Place dans un parent (boîte écran)."""
+    l, t, r, b = parent
+    axp, ayp = l + ax * (r - l), t + (1 - ay) * (b - t)
+    cx, cy = axp + x - (px - 0.5) * w, ayp - y + (py - 0.5) * h
+    return (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+
+
+def shaded_settings():
+    img = sp.settings_screen().img
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    return img
+
+
+def code_prompt():
+    """Réglages → Code promo : la fenêtre de saisie (PromptScreen), le code tapé."""
+    img = shaded_settings()
+    card = (W / 2 - 470, H * (1 - 0.66) - 470, W / 2 + 470, H * (1 - 0.66) + 470)
+    sp.card(img, card)
+    sp.title(img, "Entre ton code", child(card, 0.5, 1, 0, -110, 860, 140), 56, color=sp.INK, outline=False)
+    sp.title(img, "Le code d'un partenaire (BDE, créateur…)", child(card, 0.5, 1, 0, -230, 860, 60), 40, color=(140, 153, 173), outline=False)
+    sp.title(img, "t'offre une tête introuvable ailleurs.", child(card, 0.5, 1, 0, -285, 860, 60), 40, color=(140, 153, 173), outline=False)
+    field = child(card, 0.5, 0.5, 0, 30, 800, 150)
+    sp.pill(img, field, color=(255, 255, 255, 255))
+    sp.title(img, "Samb'bach", field, 60, color=sp.INK, outline=False)
+    sp.button(img, child(card, 0.5, 0, 205, 120, 390, 150), "Play", "Valider", "Check", 54)
+    sp.button(img, child(card, 0.5, 0, -205, 120, 390, 150), "Muted", "Plus tard", "Close", 50)
+    return img
+
+
+def code_reward():
+    """Code accepté : la tête offerte en grand (ConfirmScreen), « La porter » ou « Plus tard »."""
+    img = shaded_settings()
+    card = (W / 2 - 460, H / 2 - 40 - 570, W / 2 + 460, H / 2 - 40 + 570)
+    sp.card(img, card)
+    sp.title(img, "Code accepté !", child(card, 0.5, 1, 0, -100, 840, 140), 70, color=sp.rgb(sp.COL["Accent"]))
+    ib = child(card, 0.5, 1, 0, -330, 280, 280)
+    glow(img, (ib[0] - 60, ib[1] - 60, ib[2] + 60, ib[3] + 60), (255, 214, 102, 120), 40)
+    img.alpha_composite(sp.load(f"heads/{HEAD:02}.png").resize((280, 280), Image.LANCZOS), (int(ib[0]), int(ib[1])))
+    for k, line in enumerate(["Tu gagnes la tête « Samb'bach »,", "offerte par le BDE Samb'bach."]):
+        sp.title(img, line, (card[0] + 60, card[1] + 520 + k * 62, card[2] - 60, card[1] + 580 + k * 62), 46, color=sp.INK, outline=False)
+    sp.button(img, child(card, 0.5, 0, 0, 260, 760, 160), "Play", "La porter", None, 56)
+    sp.button(img, child(card, 0.5, 0, 0, 100, 560, 120), "Muted", "Plus tard", None, 48)
+    return img
 
 
 if __name__ == "__main__":
@@ -117,4 +164,10 @@ if __name__ == "__main__":
     for i, (_, im) in enumerate(shots):
         strip.paste(im.convert("RGB"), (20 + i * (W + 20), 20))
     strip.resize((strip.width // 2, strip.height // 2), Image.LANCZOS).save(os.path.join(out, f"sponsor_{KEY}.png"))
+    # Saisie du code dans les réglages, puis la récompense.
+    code = [code_prompt(), code_reward()]
+    strip = Image.new("RGB", (W * 2 + 60, H + 40), (24, 22, 40))
+    for i, im in enumerate(code):
+        strip.paste(im.convert("RGB"), (20 + i * (W + 20), 20))
+    strip.resize((strip.width // 2, strip.height // 2), Image.LANCZOS).save(os.path.join(out, f"sponsor_{KEY}_code.png"))
     print("ok")

@@ -357,7 +357,7 @@ namespace Bascule.Core
             ["welcome_sub"] = new[] { "Merci d'avoir téléchargé Bascule !", "Thanks for downloading Bascule!" },
             ["welcome_launch"] = new[] { "C'EST LE LANCEMENT", "IT'S LAUNCH DAY" },
             ["welcome_f1"] = new[] { "14 mondes à traverser, jusqu'à la Lune", "14 worlds to cross, all the way to the Moon" },
-            ["welcome_f2"] = new[] { "66 têtes à gagner, chacune avec sa tenue", "66 heads to win, each with its own outfit" },
+            ["welcome_f2"] = new[] { "67 têtes à gagner, chacune avec sa tenue", "67 heads to win, each with its own outfit" },
             ["welcome_f3"] = new[] { "Un nouveau défi chaque jour", "A new challenge every day" },
             ["welcome_f4"] = new[] { "Défie tes amis en duel, en direct", "Challenge your friends in live duels" },
             ["welcome_f4_solo"] = new[] { "Grimpe dans le classement mondial", "Climb the world leaderboard" },
@@ -513,6 +513,15 @@ namespace Bascule.Core
             ["rate_yes"] = new[] { "Oui, je note !", "Yes, rate it!" },
             ["rate_no"] = new[] { "Pas maintenant", "Not now" },
             ["rate_row"] = new[] { "Noter Bascule", "Rate Bascule" },
+            ["promo_row"] = new[] { "Code promo", "Promo code" },
+            ["promo_title"] = new[] { "Entre ton code", "Enter your code" },
+            ["promo_note"] = new[] { "Le code d'un partenaire (BDE, créateur…) t'offre une tête introuvable ailleurs.", "A partner's code (student club, creator…) gives you a head you can't get anywhere else." },
+            ["promo_ok_title"] = new[] { "Code accepté !", "Code accepted!" },
+            ["promo_ok_body"] = new[] { "Tu gagnes la tête « {0} », offerte par {1}.", "You win the {0} head, a gift from {1}." },
+            ["promo_wear"] = new[] { "La porter", "Wear it" },
+            ["promo_unknown"] = new[] { "Ce code n'existe pas", "This code doesn't exist" },
+            ["promo_used"] = new[] { "Tu as déjà utilisé ce code", "You've already used this code" },
+            ["unlock_code"] = new[] { "Avec un code partenaire", "With a partner code" },
 
             // Tutoriel
             ["tuto_aim"] = new[] { "Glisse le doigt pour viser,\nlâche pour poser le poids", "Slide to aim,\nlet go to drop the weight" },
@@ -799,6 +808,7 @@ namespace Bascule.Core
                 case UnlockKind.Ads: return Format("unlock_ads", h.UnlockValue);
                 case UnlockKind.Wheel: return Get("unlock_wheel");
                 case UnlockKind.Friends: return Get("unlock_friends");
+                case UnlockKind.Code: return Get("unlock_code");
                 default: return "";
             }
         }

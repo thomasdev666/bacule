@@ -241,6 +241,7 @@ namespace Bascule
             catch (System.Exception) { parts = new Dictionary<string, Sprite>(); }
 
             var lines = new List<string>();
+            EnsureSponsorLogos();
             foreach (var kv in MascotArtist.Build(skinHex))
             {
                 var p = kv.Value;
@@ -251,6 +252,35 @@ namespace Bascule
             try { System.IO.File.WriteAllLines(meta, lines); } catch (System.Exception) { }
             _mascot[skinHex] = parts;
             return parts;
+        }
+
+        static bool _sponsorLogos;
+
+        /// <summary>
+        /// Logos des partenaires (Resources/Sponsors/&lt;clé&gt;_logo.bytes, PNG) donnés au dessin des tenues. Seulement si un
+        /// corps doit être dessiné ici : l'ArtPack contient déjà les tenues avec leur logo (rien à faire au lancement).
+        /// </summary>
+        static void EnsureSponsorLogos()
+        {
+            if (_sponsorLogos) return;
+            _sponsorLogos = true;
+            foreach (var promo in PromoCodes.All)
+            {
+                if (string.IsNullOrEmpty(promo.Patch) || MascotArtist.HasPatch(promo.Patch)) continue;
+                var data = Resources.Load<TextAsset>("Sponsors/" + promo.Patch + "_logo");
+                if (data == null) continue;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(data.bytes))
+                {
+                    // Unity et le Raster ont tous deux l'origine en bas à gauche : copie ligne pour ligne.
+                    var px = tex.GetPixels32();
+                    var logo = new Raster(tex.width, tex.height);
+                    for (int i = 0; i < px.Length; i++) logo.Pixels[i] = new Rgba(px[i].r, px[i].g, px[i].b, px[i].a);
+                    MascotArtist.RegisterPatch(promo.Patch, logo);
+                }
+                Object.Destroy(tex);
+                Resources.UnloadAsset(data);
+            }
         }
 
         // ------------------------------------------------------------------ Préparation en arrière-plan
@@ -378,7 +408,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 21;
+        public const int ArtVersion = 22;
 
         static string _cacheDir;
 

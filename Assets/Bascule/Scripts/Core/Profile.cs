@@ -36,6 +36,8 @@ namespace Bascule.Core
         public Settings settings = new Settings();
         public bool adsRemoved;
         public List<string> ownedProducts = new List<string>();
+        /// <summary>Codes de partenaires déjà utilisés (forme normalisée, Core/Promo.cs) : un code ne sert qu'une fois.</summary>
+        public List<string> redeemedCodes = new List<string>();
         /// <summary>Version de l'écran d'information confidentialité accepté (0 = jamais vu).</summary>
         public int consentVersion;
 
@@ -110,6 +112,7 @@ namespace Bascule.Core
         public void Sanitize()
         {
             if (unlockedHeads == null) unlockedHeads = new List<int>();
+            if (redeemedCodes == null) redeemedCodes = new List<string>();
             if (ownedPlanks == null) ownedPlanks = new List<int>();
             if (!ownedPlanks.Contains(0)) ownedPlanks.Add(0);
             if (!ownedPlanks.Contains(selectedPlank)) selectedPlank = 0;
@@ -231,6 +234,9 @@ namespace Bascule.Core
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
             if (old.adsRemoved) fresh.adsRemoved = true;
+            // Codes de partenaires : le code reste utilisé et sa tête reste acquise (comme un achat).
+            fresh.redeemedCodes = new List<string>(old.redeemedCodes ?? new List<string>());
+            PromoCodes.Regrant(fresh);
             // Les pièces repartent toutes de zéro : au lancement officiel, personne n'a encore acheté de pièces (le jeu
             // n'était pas encore distribué). Pour une prochaine saison avec de vrais achats, rendre UnspentBoughtCoins(old).
             fresh.coins = 0;

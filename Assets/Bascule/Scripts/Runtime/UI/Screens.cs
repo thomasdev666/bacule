@@ -2012,10 +2012,12 @@ namespace Bascule.UI
             }
 
             bool removeAds = !App.Profile.adsRemoved;
-            var account = Section(Loc.Get("sec_account"), removeAds ? 4 : 3);
+            var account = Section(Loc.Get("sec_account"), removeAds ? 5 : 4);
             int r = 0;
             LinkRow(account, r++, Icon.Star, Palette.Success, Loc.Get("stats"), App.ShowStats);
             LinkRow(account, r++, Icon.Bag, Palette.Primary, Loc.Get("shop"), () => App.ShowShop("reglages"));
+            // Code d'un partenaire (BDE, créateur) : il offre une tête (Core/Promo.cs).
+            LinkRow(account, r++, Icon.Gift, Palette.Accent, Loc.Get("promo_row"), App.AskPromoCode);
             if (removeAds) LinkRow(account, r++, Icon.Film, Palette.Purple, Loc.Get("remove_ads"), App.BuyRemoveAds);
             LinkRow(account, r++, Icon.Replay, Palette.Dark, Loc.Get("restore"), App.RestorePurchases);
 

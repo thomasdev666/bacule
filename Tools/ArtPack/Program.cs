@@ -14,6 +14,8 @@ string outDir = Path.Combine(root, "Assets/Bascule/Resources/ArtPack");
 Directory.CreateDirectory(outDir);
 foreach (var f in Directory.GetFiles(outDir)) if (!f.EndsWith(".meta")) File.Delete(f);
 
+// Logos des partenaires (écusson ou broche sur la tenue) : à donner au dessin avant de dessiner les tenues.
+SponsorLogos.Register(root);
 var jobs = ArtCatalog.All().ToList();
 var sw = System.Diagnostics.Stopwatch.StartNew();
 Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, j =>

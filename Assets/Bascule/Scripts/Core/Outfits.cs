@@ -121,6 +121,9 @@ namespace Bascule.Core
             [63] = O(Top.Jacket, "#7B2CBF", "#FFD60A", Motif.Stars, Emblem.Star, Bottom.Jeans, "#2B2D42", Shoe.Sneakers, "#FF4FA3"),    // Superstar
             [64] = O(Top.Hoodie, "#3A86FF", "#FFBE0B", Motif.None, Emblem.Heart, Bottom.Jeans, "#22223B", Shoe.Sneakers, "#FF006E"),     // Duo
             [65] = O(Top.Shirt, "#2D6A4F", "#FFD60A", Motif.Plaid, Emblem.None, Bottom.Shorts, "#40916C", Shoe.Sneakers, "#FFD60A"),     // Chanceux
+            // Samb'bach : robe de fête émeraude à volants jaunes, liseré bleu, logo du BDE en broche dorée, ballerines dorées.
+            [66] = new OutfitDef { Top = Top.Dress, Main = "#0E9F5B", Accent = "#FFD31A", Motif = Motif.None, Emblem = Emblem.Patch, Patch = "sambbach",
+                Bottom = Bottom.Shorts, BottomColor = "#2F6FE0", Shoe = Shoe.Flats, ShoeColor = "#E8B23A" },
         };
 
         static readonly Top[] FallbackTops = { Top.TShirt, Top.Hoodie, Top.Jersey, Top.Sweater, Top.Shirt, Top.Jacket };

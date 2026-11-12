@@ -63,6 +63,8 @@ FIRST LAUNCH STEPS: after the welcome screen, the player chooses a nickname (can
 
 ADS: Unity LevelPlay mediation. Interstitials only appear between two games, never during a game. All other ads are optional rewarded videos chosen by the player: second chance after losing, free chest, double the chest, and an exclusive cosmetic head and plank earned after 8 videos (cosmetic only, never a gameplay advantage).
 
+PROMO CODE (Settings > "Code promo"): partner codes (e.g. our partner student association) unlock one FREE cosmetic head that is not sold anywhere in the app. No paid content, no coins and no gameplay advantage can be unlocked with a code. Test code: SAMB'BACH (unlocks the "Samb'bach" head).
+
 NOTIFICATIONS: optional, at most one local reminder per day, asked only after the first games.
 
 DATA DELETION: Settings > "Supprimer mes données en ligne" deletes the online player, nickname, scores and friend code.
