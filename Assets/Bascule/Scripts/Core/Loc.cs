@@ -518,6 +518,7 @@ namespace Bascule.Core
             ["promo_note"] = new[] { "Le code d'un partenaire (BDE, créateur…) t'offre une tête introuvable ailleurs.", "A partner's code (student club, creator…) gives you a head you can't get anywhere else." },
             ["promo_ok_title"] = new[] { "Code accepté !", "Code accepted!" },
             ["promo_ok_body"] = new[] { "Tu gagnes la tête « {0} », offerte par {1}.", "You win the {0} head, a gift from {1}." },
+            ["promo_gift"] = new[] { "Offerte par {0}", "A gift from {0}" },
             ["promo_wear"] = new[] { "La porter", "Wear it" },
             ["promo_unknown"] = new[] { "Ce code n'existe pas", "This code doesn't exist" },
             ["promo_used"] = new[] { "Tu as déjà utilisé ce code", "You've already used this code" },

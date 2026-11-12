@@ -6,6 +6,7 @@ Une tête de partenaire = un personnage complet (tête, coiffure, accessoire, te
 
 - **Tête n° 66** « Samb'bach » (`UnlockKind.Code`, rareté légendaire), tenue n° 66. Le BDE a les droits sur son logo et nous les a transmis.
 - **Code** : « Samb'bach ». Majuscules, espaces, apostrophes, tirets et accents ne comptent pas (SAMB'BACH, samb bach, Sambbach…). Un code ne sert qu'une fois par joueur ; la tête reste acquise après une remise à zéro de saison.
+- **Code accepté** : la tête apparaît en grand (`UI/HeadRevealScreen.cs`, aperçu `docs/apercu/sponsor_sambbach_code.png`) : le personnage complet tombe du ciel avec sa planche, atterrit dans des confettis, puis son nom et « La porter ».
 - **Personnage** : une Brésilienne, grand sourire, cils recourbés (`HeadDef.Lashes`).
 - **Coiffure unique** (`HairStyle.Cascade`, à elle seule) : raie profonde, grande vague brillante balayée sur le front, tout ramené en une grosse tresse qui retombe sur l'épaule droite, du brun aux pointes miel (balayage brésilien), tenue par une bague dorée ; de l'autre côté, cheveux lissés derrière l'oreille et une créole dorée.
 - **Coiffe du carnaval** (`Accessory.Samba`) : plumes vertes, jaunes et bleues, diadème doré avec une étoile sur une pierre verte.

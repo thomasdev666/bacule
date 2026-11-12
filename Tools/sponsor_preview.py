@@ -140,18 +140,32 @@ def code_prompt():
 
 
 def code_reward():
-    """Code accepté : la tête offerte en grand (ConfirmScreen), « La porter » ou « Plus tard »."""
-    img = shaded_settings()
-    card = (W / 2 - 460, H / 2 - 40 - 570, W / 2 + 460, H / 2 - 40 + 570)
-    sp.card(img, card)
-    sp.title(img, "Code accepté !", child(card, 0.5, 1, 0, -100, 840, 140), 70, color=sp.rgb(sp.COL["Accent"]))
-    ib = child(card, 0.5, 1, 0, -330, 280, 280)
-    glow(img, (ib[0] - 60, ib[1] - 60, ib[2] + 60, ib[3] + 60), (255, 214, 102, 120), 40)
-    img.alpha_composite(sp.load(f"heads/{HEAD:02}.png").resize((280, 280), Image.LANCZOS), (int(ib[0]), int(ib[1])))
-    for k, line in enumerate(["Tu gagnes la tête « Samb'bach »,", "offerte par le BDE Samb'bach."]):
-        sp.title(img, line, (card[0] + 60, card[1] + 520 + k * 62, card[2] - 60, card[1] + 580 + k * 62), 46, color=sp.INK, outline=False)
-    sp.button(img, child(card, 0.5, 0, 0, 260, 760, 160), "Play", "La porter", None, 56)
-    sp.button(img, child(card, 0.5, 0, 0, 100, 560, 120), "Muted", "Plus tard", None, 48)
+    """Code accepté (HeadRevealScreen) : le personnage complet tombe du ciel avec sa planche, atterrit dans les
+    confettis ; bandeau, nom, partenaire, puis « La porter » / « Plus tard ». Image figée à la fin de l'animation."""
+    img = Image.new("RGBA", (W, H), (255, 231, 168, 255))
+    glow(img, (W / 2 - 1200, H - 850 + 200 - 850, W / 2 + 1200, H + 200 + 850 - 850 + 850), (255, 153, 46, 150), 120)
+    rays(img, W / 2, H / 2 + 60, 1500, (255, 255, 255, 107), 18)
+    glow(img, (W / 2 - 575, H / 2 + 120 - 575, W / 2 + 575, H / 2 + 120 + 575), (255, 255, 255, 190), 90)
+    old_ppu, old_ground = sp.PPU, sp.GROUND_Y
+    sp.PPU, sp.GROUND_Y = 150.0, -560.0 / 150.0
+    sp.mascot_scene(sp.Canvas(img), angle=0.8, expression="Happy", weights=False, head=HEAD, body=BODY)
+    sp.PPU, sp.GROUND_Y = old_ppu, old_ground
+    # Confettis aux couleurs du Brésil, en l'air.
+    rnd = __import__("random").Random(3)
+    cols = [(0, 166, 81), (255, 214, 10), (47, 111, 224), (255, 255, 255), (255, 143, 184)]
+    for _ in range(46):
+        x, y = rnd.uniform(60, W - 60), rnd.uniform(380, 1500)
+        if abs(x - W / 2) < 260 and 700 < y < 1500:
+            continue
+        piece = Image.new("RGBA", (26, 14), cols[rnd.randrange(len(cols))] + (255,)).rotate(rnd.uniform(0, 180), expand=True)
+        img.alpha_composite(piece, (int(x), int(y)))
+    kick = (W / 2 - 280, 130 - 48, W / 2 + 280, 130 + 48)
+    sp.pill(img, kick, color=GREEN + (255,))
+    sp.title(img, "Code accepté !", (kick[0] + 24, kick[1] + 2, kick[2] - 24, kick[3] - 6), 46)
+    sp.title(img, NAME, (40, 290 - 85, W - 40, 290 + 85), 128, color=GREEN)
+    sp.title(img, "Offerte par le BDE Samb'bach", (50, 405 - 35, W - 50, 405 + 35), 48)
+    sp.button(img, (W / 2 - 380, H - 200 - 83, W / 2 + 380, H - 200 + 83), "Play", "La porter", "Face", 60)
+    sp.button(img, (W / 2 - 260, H - 62 - 58, W / 2 + 260, H - 62 + 58), "Muted", "Plus tard", None, 46)
     return img
 
 

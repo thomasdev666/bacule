@@ -104,6 +104,7 @@ namespace Bascule
         MissionsScreen _missions;
         ShopScreen _shop;
         ConfirmScreen _confirm;
+        HeadRevealScreen _headReveal;
         DailyScreen _daily;
         WelcomeScreen _welcome;
         OnboardScreen _onboard;
@@ -454,6 +455,7 @@ namespace Bascule
             _confirm = Make<ConfirmScreen>(t, Palette.Shade);
             _surprise = Make<SurpriseScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.985f));
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
+            _headReveal = Make<HeadRevealScreen>(t, new Color(0.08f, 0.05f, 0.18f, 1f)); // nouvelle tête en grand (code promo)
             _adOverlay = Make<AdOverlay>(t, new Color(0, 0, 0, 0.92f));
             _toast = Make<Toast>(t, null);
         }
@@ -914,7 +916,7 @@ namespace Bascule
 
         /// <summary>Une invitation peut s'afficher : pas de partie, de pub, de coffre ni d'autre fenêtre en cours.</summary>
         bool CanShowInvite => !Duel.InDuel && !AdBusy && !Session.IsRunning && !_confirm.Visible && !_prompt.Visible
-            && !_chest.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
+            && !_chest.Visible && !_headReveal.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
 
         /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
         bool SocialScreen => _home.Visible || _wheelScreen.Visible || _leaderboard.Visible || _shop.Visible || _collection.Visible || _missions.Visible
@@ -1453,10 +1455,8 @@ namespace Bascule
             SaveProfile();
             Stats.Event("promo_ok", ("code", promo.Key));
             var head = HeadCatalog.Get(promo.HeadId);
-            _audio.Play(Sfx.Chime, 10, 0.9f);
-            _haptics.Medium();
-            _confirm.Ask(Loc.Get("promo_ok_title"), Loc.Format("promo_ok_body", head.Name(Loc.Language), promo.Partner), Art.Portrait(head),
-                Loc.Get("promo_wear"), () => SelectHead(head.Id), Loc.Get("later"), null);
+            // Le personnage complet apparaît en grand (il tombe du ciel avec sa tenue et sa planche), puis « La porter ».
+            _headReveal.Show(head, Loc.Get("promo_ok_title"), Loc.Format("promo_gift", promo.Partner), () => SelectHead(head.Id));
             if (_collection.Visible) _collection.Refresh();
         }
 
@@ -2249,6 +2249,7 @@ namespace Bascule
             if (_leaderboard.Visible) _leaderboard.Tick(dt);
             if (_gameOver.Visible) _gameOver.Tick(dt);
             if (_chest.Visible) _chest.Tick(dt);
+            if (_headReveal.Visible) _headReveal.Tick(dt);
             if (_surprise.Visible) _surprise.Tick(dt);
             UpdateMusic(dt);
             if (_toast.Visible) _toast.Tick(dt);
@@ -2263,6 +2264,7 @@ namespace Bascule
             if (BackPressed())
             {
                 if (_chest.Visible) _chest.Back();
+                else if (_headReveal.Visible) _headReveal.Back();
                 else if (_surprise.Visible) _surprise.Back();
                 else if (_prompt.Visible) _prompt.Hide();
                 else if (_playerMenu.Visible) _playerMenu.Hide();

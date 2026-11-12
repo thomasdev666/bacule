@@ -160,12 +160,15 @@ def mascot(c, x0, angle, squash, expression="Calm", head=0, defeated=False, body
 
 
 def plank(c, pivot, angle, length):
-    pl = load("scene/plank.png")
+    """La planche du jeu AVEC ses rebords (SceneArtist.PlankPreview, exportée en planches/jeu_0.png) : le bois est en bas
+    de l'image (épaisseur 0,3 + 6 px de contour de chaque côté), les rebords au-dessus de ses deux bouts."""
+    pl = load("planches/jeu_0.png")
     th = 0.32
     rad = math.radians(-angle)
     nx, ny = -math.sin(rad), math.cos(rad)
     cx, cy = pivot[0] + nx * th / 2, pivot[1] + ny * th / 2
-    c.sprite(pl, cx, cy, scale=PPU / PART_PPU * (length / 6.6), rot=-angle)
+    body_cy = (0.3 * PART_PPU + 12) / 2  # centre du bois, en pixels depuis le bas de l'image
+    c.sprite(pl, cx, cy, pivot=(pl.width / 2, body_cy), scale=PPU / PART_PPU * (length / 6.6), rot=-angle)
     return (cx, cy), (math.cos(rad), math.sin(rad)), (nx, ny)
 
 
