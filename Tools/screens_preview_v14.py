@@ -269,94 +269,114 @@ def leaderboard():
     return s
 
 
-# ============================================================================ Premier lancement
+# ============================================================================ Premier lancement (OnboardScreen)
 
-def onboard_base(title, sub, step, steps=3):
-    s = backdrop(170)
-    img = s.img
-    cb = at(0.5, 0.5, 0, 20, 960, 1520)
-    sp.card(img, cb)
-    dots = child(cb, 0.5, 1, 0, -64, 300, 30)
-    xs = []
-    total = sum(34 if i == step else 24 for i in range(steps)) + 22 * (steps - 1)
-    x = (dots[0] + dots[2]) / 2 - total / 2
-    for i in range(steps):
-        d = 34 if i == step else 24
-        cy = (dots[1] + dots[3]) / 2
-        disc(img, (x, cy - d / 2, x + d, cy + d / 2), c("Accent") if i == step else (43, 45, 66, 51))
-        x += d + 22
-        xs.append(x)
-    sp.title(img, title, child(cb, 0.5, 1, 0, -150, 880, 120), 80, color=c("Accent"))
-    sb = child(cb, 0.5, 1, 0, -262, 860, 110)
-    words, lines, cur = sub.split(" "), [], ""
+SOFT, SKY = sp.rgb("#D8E9FF"), sp.rgb("#BFE0FF")
+
+
+def wrap(img, text, width, size):
+    words, lines, cur = text.split(" "), [], ""
     for w in words:
-        if ImageDraw.Draw(img).textlength(cur + " " + w, font=sp.font(42)) > 840 and cur:
+        if ImageDraw.Draw(img).textlength(cur + " " + w, font=sp.font(size)) > width and cur:
             lines.append(cur)
             cur = w
         else:
             cur = (cur + " " + w).strip()
     lines.append(cur)
+    return lines
+
+
+def onboard_base(title, sub, step, steps=3):
+    s = backdrop(170)
+    img = s.img
+    cb = at(0.5, 0.5, 0, 20, 980, 1560)
+    sp.card(img, cb, tint=hexc("#2B1B54"))
+    masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, -500, 1400, 1400), (255, 217, 102, 66)))
+    dots = child(cb, 0.5, 1, 0, -62, 300, 34)
+    total = sum(34 if i == step else 24 for i in range(steps)) + 22 * (steps - 1)
+    x = (dots[0] + dots[2]) / 2 - total / 2
+    cy = (dots[1] + dots[3]) / 2
+    for i in range(steps):
+        d = 34 if i == step else 24
+        disc(img, (x, cy - d / 2, x + d, cy + d / 2), c("Accent") if i == step else (255, 255, 255, 64))
+        x += d + 22
+    sp.title(img, title, child(cb, 0.5, 1, 0, -146, 920, 110), 76 if len(title) < 22 else 62, color=c("Accent"))
+    sb = child(cb, 0.5, 1, 0, -250, 880, 100)
+    lines = wrap(img, sub, 860, 40)
+    y0 = (sb[1] + sb[3]) / 2 - len(lines) * 24
     for k, ln in enumerate(lines):
-        sp.title(img, ln, (sb[0], sb[1] + 6 + k * 50, sb[2], sb[1] + 56 + k * 50), 42, color=INK, outline=False)
+        sp.title(img, ln, (sb[0], y0 + k * 48, sb[2], y0 + 48 + k * 48), 40, color=SOFT, outline=False)
     return s, img, cb
 
 
 def onboard_pseudo():
     s, img, cb = onboard_base("Ton pseudo", "Il s'affiche dans les classements et pendant les duels.", 0)
-    rays(img, child(cb, 0.5, 1, 0, -560, 560, 560), (255, 209, 89, 115))
-    pb = child(cb, 0.5, 1, 0, -560, 330, 330)
-    disc(img, pb, c("Purple"))
-    img.alpha_composite(sp.load("heads/00.png").resize((290, 290), Image.LANCZOS), (int(pb[0] + 20), int(pb[1] + 14)))
-    fb = child(cb, 0.5, 1, -70, -850, 700, 150)
+    glow(img, child(cb, 0.5, 1, 0, -500, 460, 460), (255, 199, 89, 128), 60)
+    portrait(img, child(cb, 0.5, 1, 0, -500, 270, 270), c("Secondary"), 0)
+    tb = child(cb, 0.5, 1, 0, -682, 460, 84)
+    sp.pill(img, tb, color=c("Primary") + (255,))
+    sp.title(img, "MegaPanda42", tb, 42)
+    fb = child(cb, 0.5, 1, -84, -862, 720, 146)
     sp.pill(img, fb, color=sp.OUTLINE + (255,))
     sp.pill(img, (fb[0] + 7, fb[1] + 7, fb[2] - 7, fb[3] - 7), color=(255, 255, 255, 255))
-    sp.title(img, "MegaPanda42", fb, 60, color=INK, outline=False)
-    sp.button(img, child(cb, 0.5, 1, 380, -850, 150, 150), "Secondary", None, "Replay", 60)
-    sp.title(img, "Pas ton vrai nom, pas d'insulte. Le dé te donne une idée.", child(cb, 0.5, 1, 0, -1060, 860, 100), 36, color=MUTED, outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 200, 760, 160), "Play", "Valider", "Check", 62)
-    sp.button(img, child(cb, 0.5, 0, 0, 62, 460, 110), "Muted", "Plus tard", None, 44)
+    sp.title(img, "MegaPanda42", fb, 58, color=INK, outline=False)
+    sp.button(img, child(cb, 0.5, 1, 386, -862, 150, 150), "Purple", None, "Replay", 60)
+    rb = child(cb, 0.5, 1, 0, -1062, 860, 96)
+    for k, ln in enumerate(wrap(img, "Pas ton vrai nom, pas d'insulte. Le dé te donne une idée.", 840, 36)):
+        sp.title(img, ln, (rb[0], rb[1] + 4 + k * 44, rb[2], rb[1] + 48 + k * 44), 36, color=SKY, outline=False)
+    sp.button(img, child(cb, 0.5, 0, 0, 210, 780, 166), "Play", "Valider", "Check", 62)
+    sp.button(img, child(cb, 0.5, 0, 0, 66, 460, 112), "Muted", "Plus tard", None, 44)
     return s
 
 
 def onboard_age():
     s, img, cb = onboard_base("Ton année de naissance", "Pour te montrer des pubs adaptées à ton âge.", 1)
-    ab = child(cb, 0.5, 1, 0, -360, 880, 760, 0.5, 1)
-    sp.card(img, ab, tint=(237, 230, 250, 255))
-    y0 = ab[1] + 24
+    ab = child(cb, 0.5, 1, 0, -330, 900, 770, 0.5, 1)
+    sp.pill(img, ab)
+    y0 = ab[1] + 28
     year = 2022
     for r in range(6):
         for k in range(4):
-            x = ab[0] + 22 + k * 210
+            x = ab[0] + 30 + k * 210
             bx = (x, y0 + r * 118, x + 196, y0 + r * 118 + 104)
             picked = year == 2008
             sp.pill(img, bx, color=c("Secondary") + (255,) if picked else (255, 255, 255, 255))
             sp.title(img, str(year), bx, 46, color=(255, 255, 255) if picked else INK, outline=False)
             year -= 1
-    sp.title(img, "Né(e) en 2008", child(cb, 0.5, 0, 0, 380, 860, 70), 48)
-    sp.title(img, "Elle reste sur ton téléphone et n'est jamais affichée.", child(cb, 0.5, 0, 0, 300, 860, 80), 34, color=MUTED, outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 120, 760, 160), "Play", "Valider", "Check", 62)
+    pb = child(cb, 0.5, 0, 0, 392, 520, 84)
+    sp.pill(img, pb, color=c("Purple") + (255,))
+    sp.title(img, "Né(e) en 2008", pb, 44)
+    nb = child(cb, 0.5, 0, 0, 300, 860, 76)
+    sp.title(img, "Elle reste sur ton téléphone et n'est jamais affichée.", nb, 34, color=SKY, outline=False)
+    sp.button(img, child(cb, 0.5, 0, 0, 120, 780, 166), "Play", "Valider", "Check", 62)
     return s
 
 
 def onboard_ads():
     s, img, cb = onboard_base("Des pubs qui te ressemblent ?", "Bascule est gratuit grâce aux pubs. À toi de choisir lesquelles tu vois.", 2)
-    glow(img, child(cb, 0.5, 1, 0, -500, 520, 380), (166, 108, 255, 90))
-    tb = child(cb, 0.5, 1, 0, -500, 220, 220)
+    glow(img, child(cb, 0.5, 1, 0, -460, 480, 400), (191, 128, 255, 140), 60)
+    tb = child(cb, 0.5, 1, 0, -460, 230, 230)
     disc(img, tb, c("Purple"))
-    sp.tinted_icon(img, "Film", child(tb, 0.5, 0.5, 0, 0, 130, 130), "#FFFFFF")
-    rows = [("Heart", "Primary", ["Accepter : nos partenaires utilisent des données de ton", "téléphone (identifiant pub, appareil) : pubs plus adaptées."]),
-            ("Gift", "Play", ["Refuser : autant de pubs, mais au hasard.", "Le jeu reste exactement le même."]),
-            ("Gear", "Secondary", ["Tu peux changer d'avis à tout moment", "dans les réglages."])]
-    for i, (ic, col, lines) in enumerate(rows):
-        rb = child(cb, 0.5, 1, 0, -690 - i * 150, 860, 132, 0.5, 1)
-        sp.pill(img, rb, color=(255, 255, 255, 199))
-        db = child(rb, 0, 0.5, 62, 0, 84, 84)
+    sp.tinted_icon(img, "Film", child(tb, 0.5, 0.5, 0, 0, 132, 132), "#FFFFFF")
+    for ic, col, x, y, size in (("Coin", "Accent", -250, -400, 96), ("Gift", "Play", 250, -410, 96), ("Heart", "Primary", 200, -560, 72)):
+        sp.tinted_icon(img, ic, child(cb, 0.5, 1, x, y, size, size), COL[col])
+    rows = [("Heart", "Primary", "Accepter : nos partenaires utilisent l'identifiant pub de ton téléphone pour des pubs adaptées."),
+            ("Gift", "Play", "Refuser : autant de pubs, mais au hasard. Le jeu reste le même."),
+            ("Gear", "Secondary", "Tu peux changer d'avis quand tu veux, dans les réglages.")]
+    for i, (ic, col, text) in enumerate(rows):
+        rb = child(cb, 0.5, 1, 0, -640 - i * 156, 900, 140, 0.5, 1)
+        sp.pill(img, rb)
+        db = child(rb, 0, 0.5, 66, 0, 88, 88)
         disc(img, db, c(col))
-        sp.tinted_icon(img, ic, (db[0] + 15, db[1] + 15, db[2] - 15, db[3] - 15), "#FFFFFF")
+        sp.tinted_icon(img, ic, (db[0] + 16, db[1] + 16, db[2] - 16, db[3] - 16), "#FFFFFF")
+        lines = wrap(img, text, rb[2] - rb[0] - 160, 30)
+        size = 36 if len(wrap(img, text, rb[2] - rb[0] - 160, 36)) <= 2 else 32
+        lines = wrap(img, text, rb[2] - rb[0] - 160, size)
+        y0 = (rb[1] + rb[3]) / 2 - len(lines) * (size + 6) / 2
         for k, ln in enumerate(lines):
-            sp.title(img, ln, (rb[0] + 124, rb[1] + 22 + k * 44, rb[2] - 26, rb[1] + 66 + k * 44), 32, color=INK, align="lm", outline=False)
-    sp.button(img, child(cb, 0.5, 0, -215, 190, 410, 150), "Secondary", "Refuser", None, 52)
-    sp.button(img, child(cb, 0.5, 0, 215, 190, 410, 150), "Play", "Accepter", None, 52)
+            sp.title(img, ln, (rb[0] + 130, y0 + k * (size + 6), rb[2] - 30, y0 + (k + 1) * (size + 6)), size, color=(255, 255, 255), align="lm", outline=False)
+    sp.button(img, child(cb, 0.5, 0, -222, 196, 424, 156), "Secondary", "Refuser", "Close", 52)
+    sp.button(img, child(cb, 0.5, 0, 222, 196, 424, 156), "Play", "Accepter", "Check", 52)
     sp.button(img, child(cb, 0.5, 0, 0, 62, 460, 100), "Muted", "En savoir plus", None, 40)
     return s
 

@@ -53,7 +53,10 @@ namespace Bascule.Services
         Task<bool> SetPseudoAsync(string pseudo);
         /// <summary>Envoie un score. Renvoie le rang obtenu (1 = premier), 0 si inconnu, -1 en cas d'échec.</summary>
         Task<int> SubmitAsync(string board, int score, int head);
-        Task<LeaderboardPage> GetTopAsync(string board, int limit);
+        /// <summary>Scores à partir de la place <paramref name="offset"/> + 1 (0 = les premiers), au plus <paramref name="limit"/>.</summary>
+        Task<LeaderboardPage> GetTopAsync(string board, int limit, int offset = 0);
+        /// <summary>Les joueurs juste devant et juste derrière soi (<paramref name="range"/> de chaque côté), soi compris.</summary>
+        Task<List<LeaderboardEntry>> GetAroundMeAsync(string board, int range);
         /// <summary>Identifiant de joueur en ligne (sert de code ami). Vide hors ligne.</summary>
         string PlayerId { get; }
         /// <summary>Scores de ces joueurs (et du joueur lui-même), classés entre eux.</summary>
@@ -94,7 +97,8 @@ namespace Bascule.Services
         public Task<bool> InitializeAsync() => Task.FromResult(false);
         public Task<bool> SetPseudoAsync(string pseudo) => Task.FromResult(false);
         public Task<int> SubmitAsync(string board, int score, int head) => Task.FromResult(-1);
-        public Task<LeaderboardPage> GetTopAsync(string board, int limit) => Task.FromResult(new LeaderboardPage { Online = false });
+        public Task<LeaderboardPage> GetTopAsync(string board, int limit, int offset = 0) => Task.FromResult(new LeaderboardPage { Online = false });
+        public Task<List<LeaderboardEntry>> GetAroundMeAsync(string board, int range) => Task.FromResult(new List<LeaderboardEntry>());
         public string PlayerId => "";
         public Task<LeaderboardPage> GetFriendsAsync(string board, IList<string> playerIds) => Task.FromResult(new LeaderboardPage { Online = false });
         public Task<bool> DeleteAccountAsync() => Task.FromResult(false);

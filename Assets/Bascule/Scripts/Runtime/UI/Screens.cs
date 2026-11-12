@@ -1682,7 +1682,7 @@ namespace Bascule.UI
                 if (App.Profile.friends.Count == 0) { _status.text = Loc.Get("friends_empty"); return; }
                 page = await service.GetFriendsAsync(Boards.World, App.Profile.friends);
             }
-            else page = await service.GetTopAsync(_board, 50);
+            else page = await service.GetTopAsync(_board, PageSize);
             if (request != _request || !Visible) return;
             // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas). Pseudos filtrés à l'affichage.
             var shown = new List<LeaderboardEntry>();
@@ -1702,6 +1702,14 @@ namespace Bascule.UI
                 var e = shown[i];
                 Row(e.Rank, e.Name, e.Score, e.Head, e.IsMe, e.PlayerId, friends);
             }
+            _loaded = page.Entries.Count;
+            _lastRank = page.Entries.Count > 0 ? page.Entries[page.Entries.Count - 1].Rank : 0;
+            _around = null;
+            _more = null;
+            // Mondial et du jour : 50 joueurs à la fois, « Voir plus » pour les suivants (jusqu'à 500).
+            if (!friends && page.Entries.Count >= PageSize) AddMoreButton();
+            // Plus loin que les joueurs affichés : les joueurs juste devant et juste derrière soi.
+            if (!friends && page.Me != null && page.Me.Rank > _lastRank && _lastRank > 0) AddAroundMe(request);
             // Ta place (mondial et du jour) : en bas, toujours visible, même hors des 50 premiers.
             if (!friends)
             {
@@ -1717,6 +1725,65 @@ namespace Bascule.UI
                 _meFace.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
             }
         }
+
+        const int PageSize = 50, MaxLoaded = 500;
+        int _loaded, _lastRank;
+        Button _more;
+        RectTransform _around;
+
+        void AddMoreButton()
+        {
+            if (_loaded >= MaxLoaded) return;
+            _more = Ui.Button(_list, Loc.Get("lb_more"), Palette.Secondary, LoadMore, Icon.Plus, 44, "VoirPlus");
+            Ui.Size(_more, 120);
+            // Le bouton reste juste après le dernier joueur chargé, avant « Autour de toi ».
+            if (_around != null) _more.transform.SetSiblingIndex(_around.GetSiblingIndex());
+        }
+
+        async void LoadMore()
+        {
+            if (_more == null) return;
+            int request = _request;
+            _more.interactable = false;
+            int index = _more.transform.GetSiblingIndex();
+            var page = await App.Leaderboard.Service.GetTopAsync(_board, PageSize, _loaded);
+            if (request != _request || !Visible || _more == null) return;
+            Destroy(_more.gameObject);
+            _more = null;
+            foreach (var e in page.Entries)
+            {
+                if (!e.IsMe && Moderation.IsBlocked(App.Profile, e.PlayerId)) continue;
+                string name = e.IsMe ? e.Name : PseudoFilter.Display(e.Name, Loc.Get("lb_player"));
+                var row = Row(e.Rank, name, e.Score, e.Head, e.IsMe, e.PlayerId);
+                row.SetSiblingIndex(index++);
+            }
+            _loaded += page.Entries.Count;
+            if (page.Entries.Count > 0) _lastRank = page.Entries[page.Entries.Count - 1].Rank;
+            // Ta place est maintenant dans la liste : « Autour de toi » ne sert plus.
+            if (_around != null && page.Entries.Exists(e => e.IsMe)) { Destroy(_around.gameObject); _around = null; }
+            if (page.Entries.Count >= PageSize) AddMoreButton();
+        }
+
+        async void AddAroundMe(int request)
+        {
+            var around = await App.Leaderboard.Service.GetAroundMeAsync(_board, 3);
+            if (request != _request || !Visible || around.Count == 0) return;
+            // Une colonne dans la liste : la colonne de la liste lit sa hauteur préférée (pas de ContentSizeFitter ici).
+            _around = Ui.Rect("AutourDeToi", _list);
+            Ui.Column(_around, 14);
+            var title = Ui.Title(_around, Loc.Get("lb_around"), 46, Palette.Accent);
+            title.alignment = TextAnchor.LowerLeft;
+            Ui.Size(title, 90);
+            foreach (var e in around)
+            {
+                if (e.Rank <= _lastRank || (!e.IsMe && Moderation.IsBlocked(App.Profile, e.PlayerId))) continue;
+                string name = e.IsMe ? e.Name : PseudoFilter.Display(e.Name, Loc.Get("lb_player"));
+                var row = Row(e.Rank, name, e.Score, e.Head, e.IsMe, e.PlayerId);
+                row.SetParent(_around, false);
+            }
+        }
+
+        static void Destroy(GameObject go) => UnityEngine.Object.Destroy(go);
 
         /// <summary>
         /// Podium : le 1er au centre (plus haut, couronne), le 2e à gauche, le 3e à droite. Socles or, argent et
@@ -1774,7 +1841,7 @@ namespace Bascule.UI
             }
         }
 
-        void Row(int rank, string name, int score, int head, bool me, string playerId = null, bool friend = false)
+        RectTransform Row(int rank, string name, int score, int head, bool me, string playerId = null, bool friend = false)
         {
             bool report = !me && !string.IsNullOrEmpty(playerId);
             bool challenge = friend && report && App.DuelAvailable;
@@ -1826,6 +1893,7 @@ namespace Bascule.UI
                 flag.color = new Color(1f, 1f, 1f, 0.55f);
                 flag.raycastTarget = false;
             }
+            return row.rectTransform;
         }
     }
 

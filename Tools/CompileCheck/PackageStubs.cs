@@ -153,7 +153,8 @@ namespace Unity.Services.Leaderboards
     using Unity.Services.Leaderboards.Models;
     using System.Threading.Tasks;
     public class AddPlayerScoreOptions { public object Metadata { get; set; } }
-    public class GetScoresOptions { public int? Limit { get; set; } public bool IncludeMetadata { get; set; } }
+    public class GetScoresOptions { public int? Offset { get; set; } public int? Limit { get; set; } public bool IncludeMetadata { get; set; } }
+    public class GetPlayerRangeOptions { public int? RangeLimit { get; set; } public bool IncludeMetadata { get; set; } }
     public class GetPlayerScoreOptions { public bool IncludeMetadata { get; set; } }
     public class GetScoresByPlayerIdsOptions { public bool IncludeMetadata { get; set; } }
     public interface ILeaderboardsService
@@ -161,6 +162,7 @@ namespace Unity.Services.Leaderboards
         Task<LeaderboardEntry> AddPlayerScoreAsync(string leaderboardId, double score, AddPlayerScoreOptions options = null);
         Task<LeaderboardScoresPage> GetScoresAsync(string leaderboardId, GetScoresOptions options = null);
         Task<LeaderboardEntry> GetPlayerScoreAsync(string leaderboardId, GetPlayerScoreOptions options = null);
+        Task<LeaderboardScores> GetPlayerRangeAsync(string leaderboardId, GetPlayerRangeOptions options = null);
         Task<LeaderboardScores> GetScoresByPlayerIdsAsync(string leaderboardId, System.Collections.Generic.List<string> playerIds, GetScoresByPlayerIdsOptions options = null);
     }
     public static class LeaderboardsService { public static ILeaderboardsService Instance => null; }

@@ -60,13 +60,13 @@ namespace Bascule.Services
             catch (Exception e) { Debug.LogWarning("[Bascule] Envoi du score : " + e.Message); return -1; }
         }
 
-        public async Task<LeaderboardPage> GetTopAsync(string board, int limit)
+        public async Task<LeaderboardPage> GetTopAsync(string board, int limit, int offset = 0)
         {
             var page = new LeaderboardPage();
             if (!IsOnline) return page;
             try
             {
-                var scores = await LeaderboardsService.Instance.GetScoresAsync(board, new GetScoresOptions { Limit = limit, IncludeMetadata = true });
+                var scores = await LeaderboardsService.Instance.GetScoresAsync(board, new GetScoresOptions { Offset = offset, Limit = limit, IncludeMetadata = true });
                 string me = AuthenticationService.Instance.PlayerId;
                 foreach (var r in scores.Results)
                 {
@@ -90,6 +90,29 @@ namespace Bascule.Services
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Lecture du classement : " + e.Message); }
             return page;
+        }
+
+        public async Task<List<LeaderboardEntry>> GetAroundMeAsync(string board, int range)
+        {
+            var list = new List<LeaderboardEntry>();
+            if (!IsOnline) return list;
+            try
+            {
+                var scores = await LeaderboardsService.Instance.GetPlayerRangeAsync(board, new GetPlayerRangeOptions { RangeLimit = range, IncludeMetadata = true });
+                string me = AuthenticationService.Instance.PlayerId;
+                foreach (var r in scores.Results)
+                    list.Add(new LeaderboardEntry
+                    {
+                        Rank = r.Rank + 1,
+                        PlayerId = r.PlayerId,
+                        Name = StripSuffix(r.PlayerName),
+                        Score = (int)r.Score,
+                        Head = ParseHead(r.Metadata),
+                        IsMe = r.PlayerId == me,
+                    });
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Joueurs autour de moi : " + e.Message); }
+            return list;
         }
 
         public string PlayerId => _ready ? AuthenticationService.Instance.PlayerId ?? "" : "";
