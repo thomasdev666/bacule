@@ -13,6 +13,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - **L'invité a 25 s** pour se relier (au lieu de 8 s, trop court en 4G) et **réessaie tout seul** jusqu'à 3 fois au lieu d'afficher « Connexion perdue ».
   - **L'hôte n'est plus éjecté** quand l'essai de son ami échoue : il continue d'attendre avec le même code. Une ancienne session quittée ou recréée ne coupe plus le duel.
   - L'ami invité depuis la liste reçoit automatiquement la nouvelle invitation si la partie est recréée.
+  - **Course corrigée (même côte à côte)** : quand la liaison était rapide, le départ envoyé par l'hôte arrivait avant la fin de la connexion de l'invité ; l'invité croyait à une annulation et quittait la partie qui commençait (« ça prend du temps, puis ça s'arrête »). Seule une vraie sortie du joueur arrête maintenant la connexion.
   - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (3).
 - Version 1.4.1, build iOS 9, version Android 41.
 

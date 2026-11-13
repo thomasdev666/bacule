@@ -140,9 +140,9 @@ namespace Bascule.Duel
             Current = Phase.Connecting;
             Changed?.Invoke();
             string error = await _net.HostAsync();
-            if (Current != Phase.Connecting) { if (error == null) _ = _net.LeaveAsync(); return; } // annulé entre-temps
+            if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; } // annulé entre-temps
             if (error != null) { Fail(error); return; }
-            Current = Phase.Hosting;
+            if (Current == Phase.Connecting) Current = Phase.Hosting;
             Hosted?.Invoke(Code);
             Changed?.Invoke();
         }
@@ -171,7 +171,10 @@ namespace Bascule.Duel
             }
             if (Current != Phase.Connecting) return;
             string error = await _net.JoinAsync(session);
-            if (Current != Phase.Connecting) { if (error == null) _ = _net.LeaveAsync(); return; }
+            // Seule une vraie annulation (le joueur est parti) arrête tout. Avant la 1.4.1, le départ de l'hôte, arrivé
+            // pendant que la connexion se terminait (très rapide côte à côte sur le même Wi-Fi), faisait croire à une
+            // annulation : l'invité quittait la partie qui venait de commencer (« lent, puis ça s'arrête »).
+            if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; }
             if (error != null)
             {
                 // L'hôte recrée peut-être sa partie (retour dans l'appli) : on réessaie avant d'abandonner.
@@ -179,11 +182,14 @@ namespace Bascule.Duel
                 Fail(error);
                 return;
             }
-            // Partie rejointe : on attend la liaison avec l'hôte, puis son départ.
-            Current = Phase.Greeting;
-            _lastHeard = Time.unscaledTime;
-            Changed?.Invoke();
-            if (_net.Linked) OnLinked();
+            if (Current == Phase.Connecting)
+            {
+                // Partie rejointe : on attend la liaison avec l'hôte, puis son départ.
+                Current = Phase.Greeting;
+                _lastHeard = Time.unscaledTime;
+                Changed?.Invoke();
+            }
+            if (_net.Linked && Them == null) OnLinked();
         }
 
         /// <summary>Invité : nouvelle tentative (au plus joinRetries), sans rien afficher d'autre que « Connexion… ».</summary>
@@ -204,9 +210,9 @@ namespace Bascule.Duel
             {
                 await _net.LeaveAsync();
                 await System.Threading.Tasks.Task.Delay(1500);
-                if (Current == Phase.Connecting) await JoinNow();
             }
             finally { _rejoining = false; }
+            if (Current == Phase.Connecting) await JoinNow();
         }
 
         /// <summary>
@@ -225,9 +231,9 @@ namespace Bascule.Duel
                 _rehosting = true;
                 try { error = await _net.HostAsync(); }
                 finally { _rehosting = false; }
-                if (Current != Phase.Connecting) { if (error == null) _ = _net.LeaveAsync(); return; }
+                if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; }
                 if (error != null) { Fail(error); return; }
-                Current = Phase.Hosting;
+                if (Current == Phase.Connecting) Current = Phase.Hosting;
                 Hosted?.Invoke(Code);
                 Changed?.Invoke();
             }
