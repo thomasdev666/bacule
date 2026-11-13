@@ -267,9 +267,12 @@ namespace Unity.Networking.Transport
         public override bool Equals(object o) => o is NetworkConnection;
         public override int GetHashCode() => 0;
     }
+    public interface INetworkInterface { }
+    public struct WebSocketNetworkInterface : INetworkInterface { }
     public struct NetworkDriver : IDisposable
     {
         public static NetworkDriver Create(NetworkSettings settings) => default;
+        public static NetworkDriver Create<N>(N networkInterface, NetworkSettings settings) where N : unmanaged, INetworkInterface => default;
         public bool IsCreated => false;
         public NetworkPipeline CreatePipeline(params Type[] stages) => default;
         public int Bind(NetworkEndpoint endpoint) => 0;
@@ -287,7 +290,7 @@ namespace Unity.Networking.Transport
 
 namespace Unity.Networking.Transport.Relay
 {
-    public struct RelayServerData { public NetworkEndpoint Endpoint; }
+    public struct RelayServerData { public NetworkEndpoint Endpoint; public bool IsWebSocket; }
     public static class RelayParameterExtensions
     {
         public static ref NetworkSettings WithRelayParameters(ref this NetworkSettings settings, ref RelayServerData serverData, int relayConnectionTimeMS = 3000) => ref settings;
@@ -297,6 +300,12 @@ namespace Unity.Networking.Transport.Relay
 namespace Unity.Services.Multiplayer
 {
     public enum NetworkRole { Client = 0, Server = 1, Host = 2 }
+    public enum RelayProtocol : byte { Unknown = 0, Default = 1, UDP = 2, DTLS = 3, WSS = 4 }
+    public class RelayNetworkOptions
+    {
+        public RelayNetworkOptions(RelayProtocol protocol) { }
+        public RelayNetworkOptions(RelayProtocol protocol, string region) { }
+    }
     public class NetworkConfiguration
     {
         public Unity.Networking.Transport.Relay.RelayServerData RelayServerData { get; }
@@ -313,6 +322,7 @@ namespace Unity.Services.Multiplayer
     public static class SessionOptionsExtensions
     {
         public static T WithRelayNetwork<T>(this T options, string region = default) where T : SessionOptions => options;
+        public static T WithRelayNetwork<T>(this T options, RelayNetworkOptions networkOptions) where T : SessionOptions => options;
         public static T WithNetworkHandler<T>(this T options, INetworkHandler networkHandler) where T : BaseSessionOptions => options;
     }
     public interface ISession

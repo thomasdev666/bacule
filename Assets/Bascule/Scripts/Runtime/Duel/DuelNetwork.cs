@@ -98,16 +98,29 @@ namespace Bascule.Duel
             try
             {
                 _link = NewLink();
-                Unity.Services.Multiplayer.ISession session;
-                try { session = await Create(RelayRegion); }
-                catch (Exception e)
+                Unity.Services.Multiplayer.ISession session = null;
+                // 1.4.1 : liaison WebSocket sécurisée (WSS, port 443) d'abord : elle passe sur tous les réseaux, y compris
+                // la 4G des opérateurs (souvent en IPv6 seulement, où l'UDP vers une adresse IPv4 échoue) et les Wi-Fi qui
+                // filtrent l'UDP. Un joueur en Wi-Fi et l'autre en 4G : ça ne marchait pas en 1.4. Puis repli.
+                var tries = new (Unity.Services.Multiplayer.RelayProtocol protocol, string region)[]
                 {
-                    // Région refusée ou indisponible : on laisse le relais choisir lui-même (un peu plus lent).
-                    Debug.LogWarning("[Bascule] Duel : région " + RelayRegion + " indisponible, choix automatique : " + e.Message);
-                    _link.Dispose();
-                    _link = NewLink();
-                    session = await Create(null);
+                    (Unity.Services.Multiplayer.RelayProtocol.WSS, RelayRegion),
+                    (Unity.Services.Multiplayer.RelayProtocol.WSS, null),
+                    (Unity.Services.Multiplayer.RelayProtocol.Default, null),
+                };
+                Exception last = null;
+                foreach (var (protocol, region) in tries)
+                {
+                    try { session = await Create(protocol, region); break; }
+                    catch (Exception e)
+                    {
+                        last = e;
+                        Debug.LogWarning("[Bascule] Duel : relais " + protocol + " " + (region ?? "auto") + " indisponible : " + e.Message);
+                        _link.Dispose();
+                        _link = NewLink();
+                    }
                 }
+                if (session == null) throw last ?? new Exception("relais indisponible");
                 Watch(session);
                 IsHost = true;
                 Code = session.Code ?? "";
@@ -127,10 +140,13 @@ namespace Bascule.Duel
         /// </summary>
         const string RelayRegion = "europe-west4";
 
-        async Task<Unity.Services.Multiplayer.ISession> Create(string region)
+        async Task<Unity.Services.Multiplayer.ISession> Create(Unity.Services.Multiplayer.RelayProtocol protocol, string region)
         {
             var options = new Unity.Services.Multiplayer.SessionOptions { MaxPlayers = 2, IsPrivate = true, Name = "Bascule duel" };
-            options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options, region);
+            var relay = region == null
+                ? new Unity.Services.Multiplayer.RelayNetworkOptions(protocol)
+                : new Unity.Services.Multiplayer.RelayNetworkOptions(protocol, region);
+            options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options, relay);
             options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithNetworkHandler(options, _link);
             return await Unity.Services.Multiplayer.MultiplayerService.Instance.CreateSessionAsync(options);
         }
@@ -212,7 +228,10 @@ namespace Bascule.Duel
                 var relay = configuration.RelayServerData;
                 var settings = new Unity.Networking.Transport.NetworkSettings();
                 Unity.Networking.Transport.Relay.RelayParameterExtensions.WithRelayParameters(ref settings, ref relay);
-                _driver = Unity.Networking.Transport.NetworkDriver.Create(settings);
+                // Le relais donne le protocole de CE joueur (WSS ou UDP/DTLS) : le pilote doit utiliser le même.
+                _driver = relay.IsWebSocket
+                    ? Unity.Networking.Transport.NetworkDriver.Create(new Unity.Networking.Transport.WebSocketNetworkInterface(), settings)
+                    : Unity.Networking.Transport.NetworkDriver.Create(settings);
                 _reliable = _driver.CreatePipeline(typeof(Unity.Networking.Transport.ReliableSequencedPipelineStage));
                 _unreliable = _driver.CreatePipeline(typeof(Unity.Networking.Transport.UnreliableSequencedPipelineStage));
                 _host = configuration.Role != Unity.Services.Multiplayer.NetworkRole.Client;
