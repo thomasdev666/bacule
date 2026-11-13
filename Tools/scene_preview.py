@@ -332,8 +332,6 @@ def button(img, box, color, label=None, ic=None, size=60):
             fsize = max(12, int(size * tw / want))
         if fsize < size or (ic and isz < min(max(56, min(120, size * 1.35)), avail_h) - 0.5):
             TIGHT.append(f"bouton « {label} » : {int(r - l)} px de large, texte {size} -> {fsize}, icône {int(isz)}")
-    elif ic and isz > avail_w:
-        isz = avail_w
     total = isz + gap + tw
     x = (cl + cr) / 2 - total / 2
     if ic:
@@ -483,21 +481,21 @@ def home_screen(head=0, body="mascot", expression="Calm"):
     # Barre du bas (dock), sous les pieds de Basile.
     dk = place(0.5, 0, 0, 12, 1040, 182, 0.5, 0)
     pill(img, dk)
-    for i, (ic, lab, col) in enumerate([("Face", "Têtes", "Purple"), ("Target", "Missions", "Success"), ("Bag", "Boutique", "Primary"), ("Trophy", "Classement", "Accent"), ("Swords", "Duel", "Secondary")]):
+    for i, (ic, lab, col) in enumerate([("Heads", "Têtes", "Purple"), ("Target", "Missions", "Success"), ("Bag", "Boutique", "Primary"), ("Trophy", "Classement", "Accent"), ("Swords", "Duel", "Secondary")]):
         x = (i - 2) * 204
         bb = (W / 2 + x - 58, dk[3] - 50 - 122, W / 2 + x + 58, dk[3] - 50)
-        button(img, bb, col, ic=ic, size=44)
+        button(img, bb, col, ic=ic, size=60)  # Ui.IconButton : taille de police 60, icône de 81 px
         lb = (W / 2 + x - 100, dk[3] - 8 - 44, W / 2 + x + 100, dk[3] - 8)
         f = 34
         while ImageDraw.Draw(img).textlength(lab, font=font(f)) > 196 and f > 26:
             f -= 1
         title(img, lab, lb, f)
         if i == 4:
-            tg = (W / 2 + x - 80, bb[1] - 26, W / 2 + x + 80, bb[1] + 28)
+            tg = (W / 2 + x - 75, bb[1] - 42, W / 2 + x + 75, bb[1] + 8)
             pill(img, tg, color=(255, 255, 255, 255))
             tin = (tg[0] + 4, tg[1] + 4, tg[2] - 4, tg[3] - 4)
             pill(img, tin, color=rgb(COL["Primary"]) + (255,))
-            title(img, "Direct", tin, 30)
+            title(img, "Direct", (tin[0] + 8, tin[1], tin[2] - 8, tin[3] - 3), 28)
         if i == 1:
             badge(img, bb, "2")
         if i == 2:

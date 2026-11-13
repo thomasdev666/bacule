@@ -245,9 +245,6 @@ namespace Bascule.UI
             var row = Ui.Card(_list, "Ligne");
             row.color = e.IsMe ? ArtCache.Hex("#FFE9A8") : Color.white;
             Ui.Size(row, d == Division.Legend ? 156 : 136);
-            // Liseré de la couleur de la division, à gauche.
-            var edge = Ui.Image(row.transform, Art.Pill, LeagueUi.Tint(d), "Lisere", true);
-            Ui.Place(edge.rectTransform, 0, 0.5f, 12, 0, 14, d == Division.Legend ? 112 : 92, 0, 0.5f);
             if (e.Rank >= 1 && e.Rank <= 3)
             {
                 var disc = Ui.Image(row.transform, Art.Circle, new[] { Gold, Silver, Bronze }[e.Rank - 1], "Medaille");

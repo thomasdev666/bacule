@@ -162,6 +162,7 @@ icon_Flame
 icon_Gear
 icon_Gift
 icon_Hand
+icon_Heads
 icon_Heart
 icon_Home
 icon_Lock

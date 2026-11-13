@@ -184,7 +184,7 @@ namespace Bascule.UI
             // une fonction annoncée mais absente peut faire refuser l'application).
             var items = new List<(Icon icon, string label, Color color, Action action)>
             {
-                (Icon.Face, Loc.Get("heads"), Palette.Purple, App.ShowCollection),
+                (Icon.Heads, Loc.Get("heads"), Palette.Purple, App.ShowCollection),
                 (Icon.Target, Loc.Get("missions"), Palette.Success, App.ShowMissions),
                 (Icon.Bag, Loc.Get("shop"), Palette.Primary, () => App.ShowShop("accueil")),
                 (Icon.Trophy, Loc.Get("leaderboard"), Palette.Accent, App.ShowLeaderboard),
@@ -203,12 +203,14 @@ namespace Bascule.UI
                 if (i == 4)
                 {
                     // Duel : petite pastille « EN DIRECT » qui attire l'œil.
+                    // Posée au-dessus du bouton : elle ne cache plus le haut des épées.
                     var ring = Ui.Image(b.transform, Art.Pill, Color.white, "Direct", true);
-                    Ui.Place(ring.rectTransform, 0.5f, 1, 0, 26, 160, 54, 0.5f, 1);
+                    Ui.Place(ring.rectTransform, 0.5f, 1, 0, 42, 150, 50, 0.5f, 1);
                     var live = Ui.Image(ring.transform, Art.Pill, Palette.Primary, "Fond", true);
                     Ui.Stretch(live.rectTransform, 4, 4, 4, 4);
                     var lt = Ui.Title(live.transform, Loc.Get("live_tag"), 30, Color.white);
                     Ui.Stretch(lt.rectTransform, 8, 0, 8, 3);
+                    lt.fontSize = 28;
                 }
                 if (i == 0) _headBadge = MetaUi.Badge(b.transform, Art, out _headBadgeGo);
                 if (i == 1) _missionBadge = MetaUi.Badge(b.transform, Art, out _missionBadgeGo);

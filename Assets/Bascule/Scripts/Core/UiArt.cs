@@ -8,6 +8,8 @@ namespace Bascule.Core
         Coin, Gift, Bag, Target, Hand, Bell, Plus, Flag,
         // 1.3 : roue de la chance (toujours ajouter à la fin)
         Wheel,
+        // 1.5 : onglet « Têtes » du menu (une tête couronnée : des têtes à collectionner)
+        Heads,
     }
 
     /// <summary>
@@ -123,6 +125,33 @@ namespace Bascule.Core
             var low = Shape.Intersect(face.Grow(-9f * k), Shape.Ellipse(w * 0.5f, o + d + 10f * k, w * 0.36f, 12f * k));
             img.Fill(low, Rgba.White.WithAlpha(0.22f), 5f * k);
             return img;
+        }
+
+        /// <summary>Icônes du menu du bas de l'accueil (Têtes, Missions, Boutique, Classement, Duel).</summary>
+        public static readonly Icon[] MenuIcons = { Core.Icon.Heads, Core.Icon.Target, Core.Icon.Bag, Core.Icon.Trophy, Core.Icon.Swords };
+        /// <summary>Plus grande dimension du dessin d'une icône du menu (sans le contour), en part de l'image.</summary>
+        public const float MenuGlyph = 0.72f;
+
+        /// <summary>
+        /// Recentre une forme au milieu d'une image n × n et la met à la taille <paramref name="extent"/> (sa plus grande
+        /// dimension). La boîte réelle est mesurée sur une grille (les boîtes des formes combinées sont trop larges).
+        /// </summary>
+        public static Shape Fit(Shape s, int n, float extent)
+        {
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            float step = n / 256f;
+            for (float y = 0; y <= n; y += step)
+                for (float x = 0; x <= n; x += step)
+                    if (s.D(x, y) <= 0f)
+                    {
+                        if (x < x0) x0 = x; if (x > x1) x1 = x;
+                        if (y < y0) y0 = y; if (y > y1) y1 = y;
+                    }
+            if (x1 < x0) return s;
+            float c = n * 0.5f, mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f;
+            float k = extent / Math.Max(x1 - x0, y1 - y0);
+            var d = s.D;
+            return new Shape((x, y) => d(mx + (x - c) / k, my + (y - c) / k) * k, 0, 0, n, n);
         }
 
         /// <summary>Icône blanche cernée de sombre, avec ombre portée (128 px).</summary>
@@ -253,9 +282,27 @@ namespace Bascule.Core
                     s = Shape.Union(s, Shape.Poly(c - 10 * u, c + 38 * u, c + 10 * u, c + 38 * u, c, c + 24 * u).Grow(2 * u));
                     break;
                 }
+                case Core.Icon.Heads:
+                {
+                    // Une tête souriante coiffée d'une couronne à trois pointes perlées : des têtes à collectionner.
+                    float hx = c, hy = c - 10 * u, r = 27 * u;
+                    s = Shape.Union(Shape.Circle(hx, hy, r), Shape.Circle(hx - r, hy - 2 * u, 6.5f * u), Shape.Circle(hx + r, hy - 2 * u, 6.5f * u));
+                    s = Shape.Subtract(s, Shape.Union(Shape.Ellipse(hx - 9.5f * u, hy + 1 * u, 4 * u, 5.5f * u), Shape.Ellipse(hx + 9.5f * u, hy + 1 * u, 4 * u, 5.5f * u),
+                        Shape.Arc(hx, hy - 4 * u, 11 * u, 205f, 335f, 4.5f * u)));
+                    float cb = hy + 19 * u;
+                    var crown = Shape.Union(
+                        Shape.Poly(hx - 21 * u, cb, hx + 21 * u, cb, hx + 25 * u, cb + 21 * u, hx + 11 * u, cb + 10 * u, hx, cb + 25 * u, hx - 11 * u, cb + 10 * u, hx - 25 * u, cb + 21 * u).Grow(1.5f * u),
+                        Shape.Circle(hx - 25 * u, cb + 22 * u, 4 * u), Shape.Circle(hx, cb + 27 * u, 4.5f * u), Shape.Circle(hx + 25 * u, cb + 22 * u, 4 * u));
+                    // La couronne se détache de la tête par un liseré de la couleur du bouton ; une raie marque son bandeau.
+                    s = Shape.Subtract(s, crown.Grow(5.5f * u));
+                    s = Shape.Union(s, Shape.Subtract(crown, Shape.Box(hx, cb + 5 * u, 24 * u, 1.6f * u)));
+                    break;
+                }
                 default:
                     s = Shape.Union(Shape.Capsule(c - 24 * u, c - 24 * u, c + 24 * u, c + 24 * u, 8 * u), Shape.Capsule(c - 24 * u, c + 24 * u, c + 24 * u, c - 24 * u, 8 * u)); break;
             }
+            // Icônes du menu du bas : même taille de dessin et centre exact, pour un rang parfaitement aligné.
+            if (Array.IndexOf(MenuIcons, icon) >= 0) s = Fit(s, n, MenuGlyph * n);
             img.Fill(s.Grow(6 * u), Ink);
             img.Fill(s, Paint.Linear(Rgba.White, 0, n, Rgba.FromHex("#E3E6F0"), 0, 0));
             Toon.DropShadow(img, 0, -(int)(4 * u), (int)(3 * u) + 1, 0.35f);

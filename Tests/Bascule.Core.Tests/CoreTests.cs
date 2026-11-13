@@ -1315,6 +1315,29 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class MenuIconTests
+    {
+        [Test]
+        public void MenuIconsAreCenteredAndTheSameSize()
+        {
+            // Les cinq icônes du menu du bas : dessin centré à un pixel près, et même taille (à 2 px près sur 128).
+            var sizes = new List<int>();
+            foreach (var icon in UiArtist.MenuIcons)
+            {
+                var img = UiArtist.DrawIcon(icon, 128);
+                int x0 = 999, y0 = 999, x1 = -1, y1 = -1;
+                for (int y = 0; y < 128; y++)
+                    for (int x = 0; x < 128; x++)
+                        if (img.Get(x, y).a > 200) { x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, y); y1 = Math.Max(y1, y); }
+                Assert.That((x0 + x1) / 2f, Is.EqualTo(63.5f).Within(1.01f), icon + " : décalé à gauche ou à droite");
+                Assert.That((y0 + y1) / 2f, Is.EqualTo(63.5f).Within(1.01f), icon + " : décalé en haut ou en bas");
+                sizes.Add(Math.Max(x1 - x0, y1 - y0));
+            }
+            Assert.LessOrEqual(sizes.Max() - sizes.Min(), 2, "tailles : " + string.Join(", ", sizes));
+            Assert.AreEqual(Icon.Heads, UiArtist.MenuIcons[0]);
+        }
+    }
+
     public class LeagueTests
     {
         static readonly LeagueTuning T = new LeagueTuning();

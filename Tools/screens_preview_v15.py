@@ -131,8 +131,6 @@ def section(img, box, d, first, last):
 def league_row(img, box, d, rank, name, pts, head, me=False):
     legend = d == 0
     sp.card(img, box, tint=hexc("#FFE9A8") if me else None)
-    eb = child(box, 0, 0.5, 12, 0, 14, 112 if legend else 92, 0, 0.5)
-    ImageDraw.Draw(img).rounded_rectangle(eb, 7, fill=sp.rgb(DIV[d][0]))
     if rank <= 3:
         mb = child(box, 0, 0.5, 44, 0, 92, 92, 0, 0.5)
         disc(img, mb, sp.rgb(MEDALS[rank - 1]))
