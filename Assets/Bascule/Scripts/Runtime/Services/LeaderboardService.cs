@@ -90,6 +90,13 @@ namespace Bascule.Services
         Task<bool> SendDuelInviteAsync(string friendId, string code, string myName, int myHead);
         /// <summary>Retire l'invitation en cours (duel commencé ou annulé).</summary>
         Task<bool> ClearDuelInviteAsync();
+        /// <summary>
+        /// Duel ouvert (code de session Unity) publié sous mon code ami, pour qu'un ami le rejoigne avec mon code ami même si
+        /// la session a été recréée entre-temps (retour dans l'appli). Code vide : plus de duel ouvert.
+        /// </summary>
+        Task<bool> PublishOpenDuelAsync(string sessionCode);
+        /// <summary>Code de session du duel ouvert par le joueur qui a ce code ami ; null s'il n'y en a pas (ou trop ancien).</summary>
+        Task<string> FindOpenDuelAsync(string friendShortCode);
         /// <summary>Invitations au duel adressées à ce joueur.</summary>
         Task<List<DuelInvite>> FindDuelInvitesAsync();
     }
@@ -114,6 +121,8 @@ namespace Bascule.Services
         public Task<List<string>> FindPlayersWhoAddedMeAsync() => Task.FromResult(new List<string>());
         public Task<bool> SendDuelInviteAsync(string friendId, string code, string myName, int myHead) => Task.FromResult(false);
         public Task<bool> ClearDuelInviteAsync() => Task.FromResult(false);
+        public Task<bool> PublishOpenDuelAsync(string sessionCode) => Task.FromResult(false);
+        public Task<string> FindOpenDuelAsync(string friendShortCode) => Task.FromResult<string>(null);
         public Task<List<DuelInvite>> FindDuelInvitesAsync() => Task.FromResult(new List<DuelInvite>());
     }
 

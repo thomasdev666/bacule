@@ -316,6 +316,58 @@ namespace Bascule.Services
 #endif
         }
 
+        public const string OpenDuelKey = "duel_open", OpenDuelAtKey = "duel_open_at";
+        /// <summary>Un duel ouvert depuis plus longtemps est oublié (l'hôte est parti sans le fermer).</summary>
+        const long OpenDuelMaxAge = 1800;
+
+        public async Task<bool> PublishOpenDuelAsync(string sessionCode)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return false;
+            try
+            {
+                await SavePublic(new Dictionary<string, object>
+                {
+                    { OpenDuelKey, string.IsNullOrEmpty(sessionCode) ? "-" : sessionCode },
+                    { OpenDuelAtKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() },
+                });
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Duel ouvert : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        public async Task<string> FindOpenDuelAsync(string friendShortCode)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(friendShortCode)) return null;
+            try
+            {
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                foreach (var e in await QueryPublic(FriendCodeKey, friendShortCode, 3, OpenDuelKey, OpenDuelAtKey))
+                {
+                    if (e.Data == null) continue;
+                    string code = null; long at = 0;
+                    foreach (var item in e.Data)
+                    {
+                        string v = item.Value?.GetAs<string>() ?? "";
+                        if (item.Key == OpenDuelKey) code = v;
+                        else if (item.Key == OpenDuelAtKey) long.TryParse(v, out at);
+                    }
+                    if (!string.IsNullOrEmpty(code) && code != "-" && Math.Abs(now - at) <= OpenDuelMaxAge) return code;
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning("[Bascule] Duel ouvert (recherche) : " + ex.Message); }
+            return null;
+#else
+            await Task.CompletedTask;
+            return null;
+#endif
+        }
+
         public async Task<List<DuelInvite>> FindDuelInvitesAsync()
         {
             var list = new List<DuelInvite>();

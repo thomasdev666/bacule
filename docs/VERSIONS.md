@@ -7,6 +7,13 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Record renvoyé à chaque lancement** : un joueur qui met à jour, réinstalle ou change d'iPhone apparaît tout de suite, sans rejouer. Scores en attente sous les noms `_s2` envoyés aux classements actuels.
 - **Mise à jour conseillée** (`Core/AppUpdate.cs`) : quelques secondes après le lancement, le jeu lit la version en ligne sur l'App Store (recherche publique d'Apple). Si elle est plus récente, l'accueil affiche « Nouvelle version ! » avec « Mettre à jour » (page de l'App Store) et « Plus tard ». Jamais obligatoire, jamais pendant une partie ni au premier lancement, au plus une fois par jour et 3 fois par version. Ne marche qu'à partir des joueurs qui ont la 1.4.1.
 - **Amis** : un ami qui n'a encore aucun score en ligne apparaît quand même dans « Amis » (et dans la liste pour l'inviter en duel), avec son pseudo et « – » à la place du score. Avant, il était invisible et on croyait que l'ajout n'avait pas marché. Le pseudo et la tête sont publiés avec le code ami (Cloud Save, clés publiques `pseudo` et `head`, sans index). Quand quelqu'un t'ajoute : « Léa t'a ajouté en ami ! » pendant 5 s.
+- **Duel réparé** (« Connexion perdue », lent, impossible à rejoindre) :
+  - **Cause principale** : l'hôte envoie le code par Snap ou Messages, donc quitte l'appli ; iOS coupe alors la liaison avec le relais de Unity (au bout d'environ 10 s sans nouvelles). L'ami rejoignait une partie morte. Maintenant, au retour dans l'appli, l'hôte **recrée sa partie tout seul**.
+  - **Le code à donner est le code ami** de l'hôte : il mène toujours à sa partie du moment, même recréée (Cloud Save, clés publiques `duel_open` et `duel_open_at`, retrouvées par l'index `friend_code` ; rien à créer dans le tableau de bord). Un ancien code de session marche toujours.
+  - **L'invité a 25 s** pour se relier (au lieu de 8 s, trop court en 4G) et **réessaie tout seul** jusqu'à 3 fois au lieu d'afficher « Connexion perdue ».
+  - **L'hôte n'est plus éjecté** quand l'essai de son ami échoue : il continue d'attendre avec le même code. Une ancienne session quittée ou recréée ne coupe plus le duel.
+  - L'ami invité depuis la liste reçoit automatiquement la nouvelle invitation si la partie est recréée.
+  - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (3).
 - Version 1.4.1, build iOS 9, version Android 41.
 
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)

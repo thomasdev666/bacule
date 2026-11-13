@@ -149,6 +149,8 @@
     "coinsDraw": 40,
     "challengerWins": 15,
     "snapshotsPerSecond": 20,
-    "timeoutSeconds": 8
+    "timeoutSeconds": 8,
+    "connectSeconds": 25,
+    "joinRetries": 3
   }
 }

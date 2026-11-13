@@ -338,7 +338,7 @@ namespace Bascule.UI
 
             if (hosting)
             {
-                SetCode(d.Code);
+                SetCode(App.DuelShareCode);
                 _invitedTag.SetActive(invited);
                 _invitedText.text = invited ? Loc.Format("duel_invited", App.InvitedName) : "";
                 _waitText.gameObject.SetActive(!invited);

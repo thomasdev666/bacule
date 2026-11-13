@@ -734,6 +734,8 @@ namespace Bascule
             Duel.Score = () => Session.Score;
             Duel.LockInput = on => Session.InputLocked = on;
             Duel.Changed += OnDuelChanged;
+            Duel.ResolveCode = ResolveDuelCode;
+            Duel.Hosted += OnDuelHosted;
             Duel.Notice += key => _toast?.Say(Loc.Get(key));
             Duel.ResultReady += OnDuelResult;
 
@@ -761,6 +763,45 @@ namespace Bascule
             var code = _pendingDuelCode;
             _pendingDuelCode = null;
             JoinDuel(code);
+        }
+
+        /// <summary>
+        /// Code de duel à donner à l'ami : mon code ami (1.4.1), qui mène toujours à ma partie du moment, même recréée
+        /// après un passage dans Snap ou Messages. Tant qu'il n'est pas publié : le code de la session.
+        /// </summary>
+        public string DuelShareCode => _shareCodeReady && !string.IsNullOrEmpty(Profile.friendCode) ? Profile.friendCode : Duel.Code;
+        bool _shareCodeReady, _openDuelPublished;
+        string _invitedFriendId;
+
+        /// <summary>Code ami d'un joueur qui a ouvert un duel → code de sa session ; null si ce n'est pas un code ami.</summary>
+        async System.Threading.Tasks.Task<string> ResolveDuelCode(string code)
+        {
+            var fc = FriendCode.ParseShort(code);
+            if (fc == null || fc == Profile.friendCode || !Leaderboard.Service.IsOnline) return null;
+            return await Leaderboard.Service.FindOpenDuelAsync(fc);
+        }
+
+        /// <summary>Partie créée ou recréée : publiée sous mon code ami, et l'ami déjà invité reçoit le nouveau code.</summary>
+        async void OnDuelHosted(string session)
+        {
+            _shareCodeReady = false;
+            if (!string.IsNullOrEmpty(_invitedFriendId) && _inviteSent)
+                _ = Leaderboard.Service.SendDuelInviteAsync(_invitedFriendId, session, Profile.pseudo, Profile.selectedHead);
+            if (string.IsNullOrEmpty(Profile.friendCode)) return;
+            bool ok = await Leaderboard.Service.PublishOpenDuelAsync(session);
+            if (Duel.Code != session) return; // recréée entre-temps
+            _shareCodeReady = ok;
+            _openDuelPublished |= ok;
+            if (_duelLobby.Visible) _duelLobby.Refresh();
+        }
+
+        /// <summary>Plus de duel ouvert (départ de la partie, sortie) : mon code ami ne mène plus nulle part.</summary>
+        void CloseOpenDuel()
+        {
+            _shareCodeReady = false;
+            if (!_openDuelPublished) return;
+            _openDuelPublished = false;
+            _ = Leaderboard.Service.PublishOpenDuelAsync("");
         }
 
         DuelHello MyHello() => new DuelHello
@@ -821,6 +862,7 @@ namespace Bascule
             if (ok)
             {
                 _inviteSent = true;
+                _invitedFriendId = friendId;
                 InvitedName = name;
                 InvitedHead = FriendHeads.TryGetValue(friendId, out var h) ? h : 0;
                 Stats.Event("duel_invite_friend");
@@ -955,13 +997,13 @@ namespace Bascule
         {
             if (string.IsNullOrEmpty(Duel.Code)) return;
             Stats.Event("duel_invite");
-            _share.ShareText(Loc.Format("duel_invite_text", DuelRules.InviteLink(Duel.Code), Duel.Code));
+            _share.ShareText(Loc.Format("duel_invite_text", DuelRules.InviteLink(DuelShareCode), DuelShareCode));
         }
 
         public void DuelCopyCode()
         {
-            if (string.IsNullOrEmpty(Duel.Code)) return;
-            GUIUtility.systemCopyBuffer = Duel.Code;
+            if (string.IsNullOrEmpty(DuelShareCode)) return;
+            GUIUtility.systemCopyBuffer = DuelShareCode;
             _toast.Say(Loc.Get("duel_copied"), Icon.Check, Palette.Play);
         }
 
@@ -1012,6 +1054,8 @@ namespace Bascule
                 case DuelController.Phase.None:
                     _challengeAfterHost = (null, null);
                     InvitedName = "";
+                    _invitedFriendId = null;
+                    CloseOpenDuel();
                     if (_duelLobby.Visible) _duelLobby.Refresh();
                     break;
                 case DuelController.Phase.Connecting:
@@ -1027,6 +1071,7 @@ namespace Bascule
                     break;
                 case DuelController.Phase.Countdown:
                     // Départ (ou revanche) : la partie est lancée à la prochaine image par le contrôleur.
+                    CloseOpenDuel();
                     _confirm.Hide();
                     _prompt.Hide();
                     break;
@@ -2386,6 +2431,8 @@ namespace Bascule
         {
             if (!paused)
             {
+                // Duel : après un passage par Snap ou Messages, la liaison avec le relais est à refaire.
+                if (_backgroundSince != DateTime.MinValue) Duel.OnAppResumed((float)(DateTime.UtcNow - _backgroundSince).TotalSeconds);
                 if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
                 _backgroundSince = DateTime.MinValue;
                 _music?.OnResume();

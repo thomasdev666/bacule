@@ -53,6 +53,13 @@ namespace Bascule.Core
         public int snapshotsPerSecond = 20;
         /// <summary>Sans nouvelles de l'adversaire pendant ce temps (s), il est considéré comme parti.</summary>
         public float timeoutSeconds = 8f;
+        /// <summary>
+        /// Temps laissé pour établir la liaison avec l'ami avant le premier message (s) : le relais de Unity peut mettre
+        /// plusieurs secondes en 4G. Avant la 1.4.1, ce délai était timeoutSeconds (8 s) : « Connexion perdue » trop tôt.
+        /// </summary>
+        public float connectSeconds = 25f;
+        /// <summary>Nouvelles tentatives automatiques de l'invité quand la liaison n'aboutit pas (l'hôte revient dans l'appli…).</summary>
+        public int joinRetries = 3;
     }
 
     public enum DuelOutcome { Win, Lose, Draw }

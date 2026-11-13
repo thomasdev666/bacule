@@ -138,6 +138,7 @@ namespace Bascule.Duel
         public async Task<string> JoinAsync(string code)
         {
             await LeaveAsync();
+            IsHost = false;
             var err = await SignInAsync();
             if (err != null) return err;
             try
@@ -162,9 +163,10 @@ namespace Bascule.Duel
         void Watch(Unity.Services.Multiplayer.ISession session)
         {
             _session = session;
-            session.PlayerHasLeft += _ => PeerLost?.Invoke();
-            session.Deleted += () => PeerLost?.Invoke();
-            session.RemovedFromSession += () => PeerLost?.Invoke();
+            // Seulement pour la partie en cours : une ancienne session (quittée ou recréée) ne coupe plus le duel.
+            session.PlayerHasLeft += _ => { if (_session == session) PeerLost?.Invoke(); };
+            session.Deleted += () => { if (_session == session) PeerLost?.Invoke(); };
+            session.RemovedFromSession += () => { if (_session == session) PeerLost?.Invoke(); };
         }
 
         public void Send(byte[] data, bool reliable) => _link?.Send(data, reliable);
