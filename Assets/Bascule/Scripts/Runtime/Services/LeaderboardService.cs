@@ -37,12 +37,15 @@ namespace Bascule.Services
     public static class Boards
     {
         /// <summary>
-        /// Identifiants du tableau de bord Unity Gaming Services : les mêmes que la 1.2, pour que les records des joueurs
-        /// actuels restent dans le classement (décision de la 1.4 : on ne réinitialise rien).
+        /// Identifiants du tableau de bord Unity Gaming Services. Ce sont ceux de la version publiée avant la 1.4
+        /// (export iOS « 1.3 », affiché 1.2 sur l'App Store) : c'est là que sont les records des joueurs. La 1.4 lisait
+        /// par erreur les anciens (bascule_monde, scores de test d'avant la sortie) ; corrigé en 1.4.1. Les records
+        /// faits sur la 1.4 reviennent tout seuls ici : le jeu renvoie le record à chaque lancement (GameApp.InitLeaderboard).
+        /// Vérifié dans les binaires publiés (global-metadata.dat de bacule-ios). Ne plus changer sans saison annoncée.
         /// </summary>
-        public const string World = "bascule_monde";
+        public const string World = "bascule_monde_s2";
         /// <summary>Classement du défi du jour : remise à zéro quotidienne (00:00 UTC).</summary>
-        public const string Daily = "bascule_jour";
+        public const string Daily = "bascule_jour_s2";
     }
 
     /// <summary>Classement mondial et du jour. Connexion anonyme, pas de compte obligatoire.</summary>
@@ -160,6 +163,12 @@ namespace Bascule.Services
             try
             {
                 // Un score du défi d'un autre jour n'a plus de sens dans le classement du jour.
+                // Scores mis en attente par la 1.4 sous les anciens noms de classement : envoyés aux bons (1.4.1).
+                foreach (var p in _profile.pendingScores)
+                {
+                    if (p.board == "bascule_monde") p.board = Boards.World;
+                    else if (p.board == "bascule_jour") p.board = Boards.Daily;
+                }
                 _profile.pendingScores.RemoveAll(p => p.board == Boards.Daily && p.date != todayKey);
                 foreach (var p in _profile.pendingScores.ToArray())
                 {

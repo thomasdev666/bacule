@@ -2,6 +2,11 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
+## 1.4.1 (build 9) – correctif du classement
+- **Classements des joueurs retrouvés** : la version publiée avant la 1.4 (export « 1.3 », affichée 1.2) écrivait dans `bascule_monde_s2` / `bascule_jour_s2` ; la 1.4 lisait `bascule_monde` / `bascule_jour` (scores de test d'avant la sortie). La 1.4.1 revient aux classements `_s2` (vérifié dans les binaires publiés).
+- **Record renvoyé à chaque lancement** : un joueur qui met à jour, réinstalle ou change d'iPhone apparaît tout de suite, sans rejouer ; les records faits sur la 1.4 rejoignent ainsi les classements `_s2`. Scores en attente sous les anciens noms redirigés.
+- Version 1.4.1, build iOS 9, version Android 41.
+
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)
 - **Rien n'est remis à zéro** : les joueurs de la 1.2 gardent tout (record, têtes, pièces, niveau, planches, missions, série, code ami, amis, achats). La remise à zéro de « saison » prévue pour le lancement est désactivée (`Seasons.ResetOldSaves = false`, `Seasons.OnLoad`) ; une sauvegarde de la 1.2 est seulement marquée de la saison en cours (test `A12SaveIsKeptIntactWhenUpdating`). Aucun champ sauvegardé de la 1.2 n'a été renommé ni changé de type (vérifié), fichiers `profile.json` et `run.json` inchangés. Classements : `bascule_monde` et `bascule_jour`, les mêmes que la 1.2.
 - Version 1.4, build iOS 8, version Android 40 (`Editor/BasculeSetup.cs`).

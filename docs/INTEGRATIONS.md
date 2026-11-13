@@ -7,8 +7,8 @@ Le jeu fonctionne entièrement hors ligne sans rien de ce qui suit. Chaque servi
 1. Dans Unity : **Edit → Project Settings → Services**, lier le projet à un projet Unity Cloud (créer une organisation si besoin).
 2. **Window → Package Manager → Unity Registry**, installer **Leaderboards** (`com.unity.services.leaderboards`). L'authentification et le cœur UGS s'installent avec.
 3. Sur le tableau de bord Unity Cloud → **Leaderboards**, créer deux classements, avec exactement ces identifiants :
-   - `bascule_monde` : ordre décroissant, stratégie « garder le meilleur score ».
-   - `bascule_jour` : pareil, avec une **remise à zéro quotidienne à 00:00 UTC**.
+   - `bascule_monde_s2` : ordre décroissant, stratégie « garder le meilleur score ».
+   - `bascule_jour_s2` : pareil, avec une **remise à zéro quotidienne à 00:00 UTC**.
    - (Les mêmes depuis la 1.2 : la 1.4 ne remet rien à zéro, les records des joueurs restent.)
 4. C'est tout. Le define `BASCULE_UGS` s'active tout seul quand le paquet est présent (voir `Bascule.Runtime.asmdef`), et `UgsLeaderboardService` remplace le mode hors ligne. Connexion anonyme, pseudo demandé à la première visite du classement.
 
