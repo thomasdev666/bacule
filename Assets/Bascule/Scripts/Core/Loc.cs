@@ -703,6 +703,8 @@ namespace Bascule.Core
             ["league_end_next"] = new[] { "Nouvelle semaine : tout le monde repart de zéro.", "New week: everyone starts from zero." },
             ["league_end_ok"] = new[] { "Super !", "Great!" },
             ["league_rule"] = new[] { "Victoire +{0} · Égalité +{1} · Défaite +{2} · Fantôme : +{3} / +{4} / +{5}", "Win +{0} · Draw +{1} · Loss +{2} · Ghost: +{3} / +{4} / +{5}" },
+            ["profile_place"] = new[] { "Place", "Rank" },
+            ["profile_best"] = new[] { "Record", "Best" },
             ["profile_add"] = new[] { "Ajouter en ami", "Add friend" },
             ["profile_friend"] = new[] { "Ton ami", "Your friend" },
             ["profile_wants"] = new[] { "Veut être ton ami", "Wants to be your friend" },

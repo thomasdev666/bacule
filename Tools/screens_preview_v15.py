@@ -35,17 +35,16 @@ MEDALS = ("#FFC93C", "#C9D3E3", "#E08A4F")
 
 
 def badge(img, box, d, halo=True):
-    """LeagueUi.MakeBadge : halo, disque foncé, anneau de la couleur de la division, symbole blanc."""
-    tint, deep, symbol, _ = DIV[d]
+    """LeagueUi.MakeBadge : le blason de la division (UiArtist.LeagueCrest) sur un halo de sa couleur."""
+    tint = DIV[d][0]
     l, t, r, b = box
     size = r - l
     if halo:
-        g = size * 0.25
-        glow(img, (l - g, t - g, r + g, b + g), sp.rgb(tint) + (115,), blur=int(size * 0.3))
-    disc(img, box, sp.rgb(deep))
-    ImageDraw.Draw(img).ellipse(box, outline=sp.rgb(tint), width=max(6, int(size * 0.075)))
-    k = size * 0.22
-    sp.tinted_icon(img, symbol, (l + k, t + k, r - k, b - k), "#FFFFFF")
+        g = size * 0.175
+        glow(img, (l - g, t - g, r + g, b + g), sp.rgb(tint) + (128,), blur=int(size * 0.3))
+    k = size * 0.08
+    crest = sp.load(f"ui/crest_{d}.png").resize((int(size + 2 * k), int(size + 2 * k)), Image.LANCZOS)
+    img.alpha_composite(crest, (int(l - k), int(t - k)))
 
 
 def league_card(img, box, d, line, reset):
@@ -215,7 +214,7 @@ def league_reward():
     badge(img, child(cb, 0.5, 1, 0, -420, 300, 300), 0)
     sp.title(img, "Division Légende", child(cb, 0.5, 1, 0, -660, 880, 90), 66, color=sp.rgb(DIV[0][0]))
     sp.title(img, "Tu finis 2e", child(cb, 0.5, 1, 0, -750, 880, 110), 46, color=SOFT)
-    pile = sp.load("ui/coins3.png") if os.path.exists(os.path.join(ART, "ui/coins3.png")) else None
+    pile = sp.load("ui/coins_3.png") if os.path.exists(os.path.join(ART, "ui/coins_3.png")) else None
     pb = child(cb, 0.5, 1, -250, -880, 130, 130)
     if pile is not None:
         img.alpha_composite(pile.resize((130, 130), Image.LANCZOS), (int(pb[0]), int(pb[1])))
@@ -245,38 +244,67 @@ def duel_result_ranked():
 
 # ============================================================================ Amis
 
-def player_profile():
+def night_card(img, cb, ray_center, ray_size, ray_color):
+    sp.card(img, cb, tint=hexc(NIGHT))
+    masked(img, cb, lambda layer: rays(layer, child(cb, 0.5, 1, 0, ray_center, ray_size, ray_size), ray_color))
+
+
+def tile(img, cb, x, label, value, icon, color):
+    tb = child(cb, 0.5, 1, x, -640, 420, 150)
+    sp.card(img, tb)
+    db = child(tb, 0, 0.5, 70, 0, 92, 92)
+    disc(img, db, c(color))
+    sp.tinted_icon(img, icon, (db[0] + 18, db[1] + 18, db[2] - 18, db[3] - 18), "#FFFFFF")
+    sp.title(img, label, child(tb, 0, 0.5, 136, 36, 270, 44, 0, 0.5), 32, color=MUTED, align="lm", outline=False)
+    sp.title(img, value, child(tb, 0, 0.5, 136, -20, 270, 70, 0, 0.5), 54, color=INK, align="lm", outline=False)
+
+
+def player_profile(friend=False):
     s = v14.leaderboard()
     img = s.img
-    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 150)))
-    rows = 1
-    cb = at(0.5, 0.52, 0, 0, 940, 560 + 350 + rows * 160)
-    sp.card(img, cb)
-    portrait(img, child(cb, 0.5, 1, 0, -170, 240, 240), c("Primary"), 40)
-    sp.title(img, "Pingouin", child(cb, 0.5, 1, 0, -350, 860, 90), 64, color=INK, outline=False)
-    sp.title(img, "4e · Record : 11 420", child(cb, 0.5, 1, 0, -430, 860, 64), 44, color=MUTED, outline=False)
-    sp.button(img, child(cb, 0.5, 0, 0, 420, 780, 140), "Play", "Ajouter en ami", "Plus", 52)
-    sp.button(img, child(cb, 0.5, 0, -198, 262, 384, 120), "Dark", "Signaler", "Flag", 42)
-    sp.button(img, child(cb, 0.5, 0, 198, 262, 384, 120), "Dark", "Bloquer", "Close", 42)
-    sp.button(img, child(cb, 0.5, 0, 0, 110, 780, 130), "Muted", "Annuler", "Close", 50)
+    img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 170)))
+    rows = 2 if friend else 1
+    cb = at(0.5, 0.52, 0, 0, 940, 760 + 190 + rows * 160)
+    night_card(img, cb, -220, 1100, (255, 217, 102, 66))
+    glow(img, child(cb, 0.5, 1, 0, -220, 420, 420), (255, 204, 77, 128))
+    portrait(img, child(cb, 0.5, 1, 0, -220, 280, 280), c("Secondary" if friend else "Primary"), 14 if friend else 40)
+    sp.title(img, "Léa" if friend else "Pingouin", child(cb, 0.5, 1, 0, -420, 860, 96), 70)
+    if friend:
+        pb = child(cb, 0.5, 1, 0, -502, 440, 62)
+        sp.pill(img, pb, color=c("Secondary") + (255,))
+        sp.title(img, "Ton ami", pb, 34)
+    tile(img, cb, -222, "Place", "2e" if friend else "4e", "Trophy", "Accent")
+    tile(img, cb, 222, "Record", "15 200" if friend else "11 420", "Star", "Secondary")
+    sp.button(img, child(cb, 1, 1, -22, -22, 104, 104, 1, 1), "Dark", None, "Close", 40)
+    if friend:
+        sp.button(img, child(cb, 0.5, 0, 0, 190 + 74, 800, 146), "Muted", "Retirer des amis", None, 46)
+        sp.button(img, child(cb, 0.5, 0, 0, 190 + 74 + 160, 800, 146), "Play", "Défier", "Swords", 56)
+    else:
+        sp.button(img, child(cb, 0.5, 0, 0, 190 + 74, 800, 146), "Play", "Ajouter en ami", "Plus", 56)
+    sp.button(img, child(cb, 0.5, 0, -200, 100, 380, 110), "Dark", "Signaler", "Flag", 38)
+    sp.button(img, child(cb, 0.5, 0, 200, 100, 380, 110), "Dark", "Bloquer", "Close", 38)
     return s
 
 
 def friend_request():
     s = v14.backdrop(215)
     img = s.img
-    cb = at(0.5, 0.52, 0, 0, 940, 1120)
-    sp.card(img, cb)
-    portrait(img, child(cb, 0.5, 1, 0, -190, 260, 260), c("Secondary"), 14)
-    sp.tinted_icon(img, "Heart", child(cb, 0.5, 1, 120, -290, 96, 96), sp.COL["Primary"])
-    sp.title(img, "Léa veut t'ajouter en ami", child(cb, 0.5, 1, 0, -420, 860, 150), 58, color=INK, outline=False)
-    y = cb[1] + 520
-    for ln in v14.wrap(img, "Accepte pour voir ses scores et vous défier en duel.", 800, 42):
-        sp.title(img, ln, (cb[0] + 50, y, cb[2] - 50, y + 54), 42, color=MUTED, outline=False)
-        y += 56
-    sp.button(img, child(cb, 0.5, 0, 0, 380, 780, 160), "Play", "Accepter", "Check", 58)
-    sp.button(img, child(cb, 0.5, 0, 0, 220, 780, 130), "Secondary", "Refuser", None, 50)
-    sp.button(img, child(cb, 0.5, 0, 0, 84, 520, 110), "Muted", "Plus tard", None, 46)
+    cb = at(0.5, 0.52, 0, 0, 960, 1160)
+    night_card(img, cb, -300, 1300, (255, 140, 178, 76))
+    portrait(img, child(cb, 0.5, 1, -205, -300, 270, 270), c("Primary"), 14)
+    portrait(img, child(cb, 0.5, 1, 225, -320, 230, 230), c("Secondary"), 12)
+    glow(img, child(cb, 0.5, 1, 20, -330, 240, 240), (255, 115, 153, 178))
+    db = child(cb, 0.5, 1, 20, -330, 132, 132)
+    disc(img, db, (255, 255, 255))
+    sp.tinted_icon(img, "Heart", (db[0] + 22, db[1] + 24, db[2] - 22, db[3] - 20), sp.COL["Primary"])
+    sp.title(img, "Léa veut t'ajouter en ami", child(cb, 0.5, 1, 0, -545, 880, 150), 62)
+    y = cb[1] + 630
+    for ln in v14.wrap(img, "Accepte pour voir ses scores et vous défier en duel.", 800, 40):
+        sp.title(img, ln, (cb[0] + 50, y, cb[2] - 50, y + 52), 40, color=SOFT, outline=False)
+        y += 54
+    sp.button(img, child(cb, 0.5, 0, 0, 290, 820, 176), "Play", "Accepter", "Check", 62)
+    sp.button(img, child(cb, 0.5, 0, -208, 110, 400, 124), "Muted", "Refuser", "Close", 44)
+    sp.button(img, child(cb, 0.5, 0, 208, 110, 400, 124), "Dark", "Plus tard", None, 44)
     return s
 
 
@@ -285,12 +313,12 @@ if __name__ == "__main__":
     shots = {
         "duel_classe_entree": duel_choice(), "duel_classe_recherche": duel_search(), "duel_classe_fantome": duel_ghost_offer(),
         "duel_classe_resultat": duel_result_ranked(), "ligue_classement": league_screen(), "ligue_fin_semaine": league_reward(),
-        "profil_joueur": player_profile(), "demande_ami": friend_request(),
+        "profil_joueur": player_profile(), "profil_ami": player_profile(True), "demande_ami": friend_request(),
     }
     for name, s in shots.items():
         s.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
     keys = list(shots)
-    for part, names in (("ecrans_duel_classe_1_5", keys[:4]), ("ecrans_ligue_amis_1_5", keys[4:])):
+    for part, names in (("ecrans_duel_classe_1_5", keys[:4]), ("ecrans_ligue_1_5", keys[4:6]), ("ecrans_amis_1_5", keys[6:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))
         for i, k in enumerate(names):
             strip.paste(shots[k].img.convert("RGB"), (20 + i * (W + 20), 20))

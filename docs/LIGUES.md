@@ -9,7 +9,7 @@
 - **Lundi 00:00 UTC** (1 h ou 2 h du matin en France) : tout repart de zéro. Au premier lancement suivant : « Semaine terminée ! », la division, la place, et les pièces (500 / 250 / 100).
 - Pas de revanche en classé : « Nouveau duel classé » cherche un autre adversaire.
 
-Aperçus : `docs/apercu/ecrans_duel_classe_1_5.png`, `docs/apercu/ecrans_ligue_amis_1_5.png` (refaits par `python3 Tools/screens_preview_v15.py Exports/art docs/apercu`).
+Aperçus : `docs/apercu/ecrans_duel_classe_1_5.png`, `docs/apercu/ecrans_ligue_1_5.png`, `docs/apercu/ecrans_amis_1_5.png` (refaits par `python3 Tools/screens_preview_v15.py Exports/art docs/apercu`).
 
 ## À faire UNE FOIS dans le tableau de bord Unity (10 minutes)
 

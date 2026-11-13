@@ -2270,46 +2270,80 @@ namespace Bascule.UI
 
     /// <summary>Signaler un pseudo ou bloquer un joueur du classement (règle 1.2 de l'App Store).</summary>
     /// <summary>
-    /// Profil d'un joueur touché dans le classement : tête, pseudo, place et record ; selon le cas « Ajouter en ami »,
-    /// « Accepter / Refuser » sa demande, ou « Défier » et « Retirer des amis » ; toujours « Signaler » et « Bloquer »
-    /// (App Store, règle 1.2).
+    /// Profil d'un joueur touché dans le classement, dans le style de l'écran Duel : carte sombre, rayons, grand
+    /// portrait, pseudo, deux tuiles (place et record), puis l'action du moment (« Ajouter en ami », « Accepter /
+    /// Refuser », ou « Défier » et « Retirer des amis »). « Signaler » et « Bloquer » restent en bas, discrets
+    /// (App Store, règle 1.2). La croix en haut à droite ferme.
     /// </summary>
     public sealed class PlayerMenuScreen : UiScreen
     {
-        Text _title, _sub, _status;
+        Text _title, _status, _rank, _best;
         string _id, _name;
-        GameObject _unfriend, _duel, _add, _accept, _decline;
-        Image _card, _face;
-        const float Top = 560f, Bottom = 350f, RowStep = 160f;
+        GameObject _unfriend, _duel, _add, _accept, _decline, _statusPill;
+        Image _card, _face, _ring, _statusBack;
+        const float Top = 760f, Bottom = 190f, RowStep = 160f;
 
         protected override void Build()
         {
-            var card = Ui.Card(Safe, "Fenetre");
+            var card = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Fenetre", true);
             _card = card;
-            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 940, 1100);
+            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 940, 1110);
             card.gameObject.AddComponent<PopIn>();
-            _face = DuelUi.Portrait(card.transform, Palette.Primary, 240, "Portrait");
-            Ui.Place((RectTransform)_face.transform.parent, 0.5f, 1, 0, -170, 240, 240);
-            _title = Ui.Title(card.transform, "", 64, Palette.Ink);
-            Ui.Plain(_title);
-            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -350, 860, 90);
-            _sub = Ui.Label(card.transform, "", 44, Palette.Muted);
-            Ui.Place(_sub.rectTransform, 0.5f, 1, 0, -430, 860, 64);
-            _status = Ui.Label(card.transform, "", 40, Palette.Secondary);
-            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -494, 860, 56);
+            // Rayons et halo derrière le portrait, découpés aux coins de la carte.
+            var clip = DuelUi.Rounded(card.transform, Color.white, 52, "Decoupe");
+            Ui.Stretch(clip.rectTransform, 10, 10, 10, 10);
+            clip.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            var rays = Ui.Image(clip.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.26f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 1, 0, -220, 1100, 1100);
+            rays.gameObject.AddComponent<Spin>().Speed = 10f;
+            Ui.Isolate(rays.gameObject);
+            var halo = Ui.Image(card.transform, Art.SoftDisc, new Color(1f, 0.8f, 0.3f, 0.5f), "Halo");
+            Ui.Place(halo.rectTransform, 0.5f, 1, 0, -220, 420, 420);
+            _face = DuelUi.Portrait(card.transform, Palette.Primary, 280, "Portrait");
+            _ring = _face.transform.parent.GetComponent<Image>();
+            Ui.Place((RectTransform)_face.transform.parent, 0.5f, 1, 0, -220, 280, 280);
+            _title = Ui.Title(card.transform, "", 70, Color.white);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -420, 860, 96);
+            // « Ton ami » / « Veut être ton ami », en pastille sous le pseudo.
+            var pill = Ui.Image(card.transform, Art.Pill, Palette.Secondary, "Statut", true);
+            _statusBack = pill;
+            _statusPill = pill.gameObject;
+            Ui.Place(pill.rectTransform, 0.5f, 1, 0, -502, 440, 62);
+            _status = Ui.Title(pill.transform, "", 34, Color.white);
+            Ui.Stretch(_status.rectTransform, 20, 2, 20, 0);
 
-            var cancel = Ui.Button(card.transform, Loc.Get("cancel"), Palette.Muted, Hide, Icon.Close, 50, "Fermer");
-            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 110, 780, 130);
-            var report = Ui.Button(card.transform, Loc.Get("profile_report"), Palette.Dark, () => { Hide(); App.ReportPlayer(_id, _name); }, Icon.Flag, 42, "Signaler");
-            Ui.Place((RectTransform)report.transform, 0.5f, 0, -198, 262, 384, 120);
-            var block = Ui.Button(card.transform, Loc.Get("profile_block"), Palette.Dark, () => { Hide(); App.BlockPlayer(_id); }, Icon.Close, 42, "Bloquer");
-            Ui.Place((RectTransform)block.transform, 0.5f, 0, 198, 262, 384, 120);
+            // Deux tuiles : sa place et son record.
+            _rank = Tile(card.transform, -222, Loc.Get("profile_place"), Icon.Trophy, Palette.Accent);
+            _best = Tile(card.transform, 222, Loc.Get("profile_best"), Icon.Star, Palette.Secondary);
 
-            _unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Secondary, () => { Hide(); App.RemoveFriend(_id); }, null, 50, "RetirerAmi").gameObject;
-            _duel = Ui.Button(card.transform, Loc.Get("duel_friend_challenge"), Palette.Play, () => { Hide(); App.ChallengeFriend(_id, _name); }, Icon.Swords, 52, "Defier").gameObject;
-            _add = Ui.Button(card.transform, Loc.Get("profile_add"), Palette.Play, () => { Hide(); App.AddFriendFromProfile(_id, _name); }, Icon.Plus, 52, "Ajouter").gameObject;
-            _accept = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 52, "Accepter").gameObject;
-            _decline = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Secondary, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 50, "Refuser").gameObject;
+            var close = Ui.Button(card.transform, "", Palette.Dark, Hide, Icon.Close, 40, "Fermer");
+            Ui.Place((RectTransform)close.transform, 1, 1, -22, -22, 104, 104, 1, 1);
+            var report = Ui.Button(card.transform, Loc.Get("profile_report"), Palette.Dark, () => { Hide(); App.ReportPlayer(_id, _name); }, Icon.Flag, 38, "Signaler");
+            Ui.Place((RectTransform)report.transform, 0.5f, 0, -200, 100, 380, 110);
+            var block = Ui.Button(card.transform, Loc.Get("profile_block"), Palette.Dark, () => { Hide(); App.BlockPlayer(_id); }, Icon.Close, 38, "Bloquer");
+            Ui.Place((RectTransform)block.transform, 0.5f, 0, 200, 100, 380, 110);
+
+            _unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Muted, () => { Hide(); App.RemoveFriend(_id); }, null, 46, "RetirerAmi").gameObject;
+            _duel = Ui.Button(card.transform, Loc.Get("duel_friend_challenge"), Palette.Play, () => { Hide(); App.ChallengeFriend(_id, _name); }, Icon.Swords, 56, "Defier").gameObject;
+            _add = Ui.Button(card.transform, Loc.Get("profile_add"), Palette.Play, () => { Hide(); App.AddFriendFromProfile(_id, _name); }, Icon.Plus, 56, "Ajouter").gameObject;
+            _accept = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 56, "Accepter").gameObject;
+            _decline = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Muted, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 46, "Refuser").gameObject;
+        }
+
+        /// <summary>Tuile crème : pastille d'icône, petit libellé, grande valeur.</summary>
+        Text Tile(Transform card, float x, string label, Icon icon, Color tint)
+        {
+            var tile = Ui.Card(card, "Tuile");
+            Ui.Place(tile.rectTransform, 0.5f, 1, x, -640, 420, 150);
+            var dot = Ui.Image(tile.transform, Art.Circle, tint, "Pastille");
+            Ui.Place(dot.rectTransform, 0, 0.5f, 70, 0, 92, 92);
+            var ic = Ui.Icon(dot.transform, Art.IconSprite(icon), "Icone");
+            Ui.Stretch(ic.rectTransform, 18, 18, 18, 18);
+            var l = Ui.Plain(Ui.Label(tile.transform, label, 32, Palette.Muted, TextAnchor.MiddleLeft));
+            Ui.Place(l.rectTransform, 0, 0.5f, 136, 36, 270, 44, 0, 0.5f);
+            var v = Ui.Plain(Ui.Label(tile.transform, "", 54, Palette.Ink, TextAnchor.MiddleLeft));
+            Ui.Place(v.rectTransform, 0, 0.5f, 136, -20, 270, 70, 0, 0.5f);
+            return v;
         }
 
         public void Open(string playerId, string name, int head = 0, int rank = 0, int score = 0)
@@ -2319,11 +2353,14 @@ namespace Bascule.UI
             _name = string.IsNullOrEmpty(name) ? Loc.Get("lb_player") : name;
             _title.text = _name;
             _face.sprite = Art.Portrait(HeadCatalog.Get(head));
-            string record = score > 0 ? Loc.Format("profile_record", Loc.FormatScore(score)) : Loc.Get("profile_no_score");
-            _sub.text = rank > 0 && score > 0 ? Loc.Rank(rank) + " · " + record : record;
+            _rank.text = rank > 0 && score > 0 ? Loc.Rank(rank) : "–";
+            _best.text = score > 0 ? Loc.FormatScore(score) : "–";
             bool friend = App.Profile.friends.Contains(playerId);
             bool asked = !friend && App.PendingFriends.Contains(playerId);
+            _statusPill.SetActive(friend || asked);
             _status.text = friend ? Loc.Get("profile_friend") : asked ? Loc.Get("profile_wants") : "";
+            _statusBack.color = friend ? Palette.Secondary : Palette.Primary;
+            _ring.color = friend ? Palette.Secondary : Palette.Primary;
             // Boutons du cas présent, empilés au-dessus de « Signaler / Bloquer ».
             var rows = new List<GameObject>();
             if (friend) { rows.Add(_unfriend); if (App.DuelAvailable) rows.Add(_duel); }
@@ -2331,41 +2368,59 @@ namespace Bascule.UI
             else rows.Add(_add);
             foreach (var go in new[] { _unfriend, _duel, _add, _accept, _decline }) go.SetActive(rows.Contains(go));
             for (int i = 0; i < rows.Count; i++)
-                Ui.Place((RectTransform)rows[i].transform, 0.5f, 0, 0, Bottom + 70 + i * RowStep, 780, 140);
+                Ui.Place((RectTransform)rows[i].transform, 0.5f, 0, 0, Bottom + 74 + i * RowStep, 800, 146);
             _card.rectTransform.sizeDelta = new Vector2(940, Top + Bottom + rows.Count * RowStep);
         }
     }
 
-    /// <summary>Demande d'ami reçue (fenêtre sur les menus) : Accepter, Refuser, ou Plus tard (elle reste dans Classement → Amis).</summary>
+    /// <summary>
+    /// Demande d'ami reçue (fenêtre sur les menus), dans le style de l'invitation au duel : son portrait et le mien,
+    /// reliés par un cœur qui bat, puis Accepter, Refuser ou Plus tard (elle reste dans Classement → Amis).
+    /// </summary>
     public sealed class FriendRequestScreen : UiScreen
     {
         Text _title;
-        Image _face;
+        Image _theirs, _mine;
         string _id;
 
         protected override void Build()
         {
-            var card = Ui.Card(Safe, "Fenetre");
-            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 940, 1120);
+            var card = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Fenetre", true);
+            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 960, 1160);
             card.gameObject.AddComponent<PopIn>();
-            _face = DuelUi.Portrait(card.transform, Palette.Secondary, 260, "Portrait");
-            Ui.Place((RectTransform)_face.transform.parent, 0.5f, 1, 0, -190, 260, 260);
-            _face.transform.parent.gameObject.AddComponent<Rock>().Angle = 4f;
-            var heart = Ui.Icon(card.transform, Art.IconSprite(Icon.Heart), "Coeur");
+            var clip = DuelUi.Rounded(card.transform, Color.white, 52, "Decoupe");
+            Ui.Stretch(clip.rectTransform, 10, 10, 10, 10);
+            clip.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            var rays = Ui.Image(clip.transform, Art.Rays, new Color(1f, 0.55f, 0.7f, 0.3f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 1, 0, -300, 1300, 1300);
+            rays.gameObject.AddComponent<Spin>().Speed = 12f;
+            Ui.Isolate(rays.gameObject);
+            _theirs = DuelUi.Portrait(card.transform, Palette.Primary, 270, "Ami");
+            Ui.Place((RectTransform)_theirs.transform.parent, 0.5f, 1, -205, -300, 270, 270);
+            _theirs.transform.parent.gameObject.AddComponent<Rock>().Angle = 4f;
+            _mine = DuelUi.Portrait(card.transform, Palette.Secondary, 230, "Moi");
+            Ui.Place((RectTransform)_mine.transform.parent, 0.5f, 1, 225, -320, 230, 230);
+            // Le cœur entre les deux portraits.
+            var glow = Ui.Image(card.transform, Art.SoftDisc, new Color(1f, 0.45f, 0.6f, 0.7f), "Halo");
+            Ui.Place(glow.rectTransform, 0.5f, 1, 20, -330, 240, 240);
+            var disc = Ui.Image(card.transform, Art.Circle, Color.white, "Pastille");
+            Ui.Place(disc.rectTransform, 0.5f, 1, 20, -330, 132, 132);
+            var heart = Ui.Icon(disc.transform, Art.IconSprite(Icon.Heart), "Coeur");
             heart.color = Palette.Primary;
-            Ui.Place(heart.rectTransform, 0.5f, 1, 120, -290, 96, 96);
-            heart.gameObject.AddComponent<Pulse>().Amount = 0.08f;
-            _title = Ui.Title(card.transform, "", 58, Palette.Ink);
-            Ui.Plain(_title);
-            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -420, 860, 150);
-            var sub = Ui.Label(card.transform, Loc.Get("freq_sub"), 42, Palette.Muted);
-            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -560, 840, 120);
-            var yes = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 58, "Accepter");
-            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 380, 780, 160);
-            var no = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Secondary, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 50, "Refuser");
-            Ui.Place((RectTransform)no.transform, 0.5f, 0, 0, 220, 780, 130);
-            var later = Ui.Button(card.transform, Loc.Get("freq_later"), Palette.Muted, Hide, null, 46, "PlusTard");
-            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 84, 520, 110);
+            Ui.Stretch(heart.rectTransform, 22, 24, 22, 20);
+            disc.gameObject.AddComponent<Pulse>().Amount = 0.09f;
+            Ui.Isolate(disc.gameObject);
+            _title = Ui.Title(card.transform, "", 62, Color.white);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -545, 880, 150);
+            var sub = Ui.Label(card.transform, Loc.Get("freq_sub"), 40, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -676, 840, 110);
+            var yes = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 62, "Accepter");
+            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 290, 820, 176);
+            yes.gameObject.AddComponent<Pulse>().Amount = 0.025f;
+            var no = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Muted, () => { Hide(); App.DeclineFriendRequest(_id); }, Icon.Close, 44, "Refuser");
+            Ui.Place((RectTransform)no.transform, 0.5f, 0, -208, 110, 400, 124);
+            var later = Ui.Button(card.transform, Loc.Get("freq_later"), Palette.Dark, Hide, null, 44, "PlusTard");
+            Ui.Place((RectTransform)later.transform, 0.5f, 0, 208, 110, 400, 124);
         }
 
         public void Open(string playerId, string name, int head)
@@ -2374,7 +2429,8 @@ namespace Bascule.UI
             Root.SetAsLastSibling();
             _id = playerId;
             _title.text = Loc.Format("freq_title", name);
-            _face.sprite = Art.Portrait(HeadCatalog.Get(head));
+            _theirs.sprite = Art.Portrait(HeadCatalog.Get(head));
+            _mine.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
         }
     }
 
