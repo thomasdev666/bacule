@@ -287,7 +287,7 @@ def title(img, text, box, size, color=(255, 255, 255), align="mm", outline=True)
     y = (t + b) / 2
     f = font(size)
     # FitText : un texte plus large que sa zone rétrécit (comme dans le jeu), et on le note s'il rétrécit nettement.
-    width = d.textlength(text, font=f)
+    width = 0 if "\n" in text else d.textlength(text, font=f)  # texte sur plusieurs lignes : pas de mesure
     if r - l > 4 and width > (r - l) + 2:
         fit = max(12, int(size * (r - l) / width))
         if fit < size:
