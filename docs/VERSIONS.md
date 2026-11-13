@@ -3,6 +3,12 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## 1.5 (build 9) – en préparation : tous les correctifs ci-dessous (prévus pour une 1.4.1 qui ne sortira pas seule) + matchmaking et ligues
+- **Duel classé, ligues et fantômes** (détail : `docs/LIGUES.md`) :
+  - bouton « Duel classé » dans l'écran Duel : un adversaire trouvé tout seul, sans code ;
+  - points de la semaine (victoire +30, égalité +15, défaite +8 ; contre un fantôme +10 / +5 / +2 ; abandon 0), remis à zéro chaque lundi 00:00 UTC ; les duels entre amis ne comptent pas ;
+  - quatre divisions selon la place (Légende 1-3, Élite 4-10, Challenger 11-30, Espoir), écran « Ligue » avec le classement par division, récompense du lundi (500 / 250 / 100 pièces) ;
+  - personne dans la file au bout de 20 s : fantôme d'un vrai joueur (sa partie classée complète, enregistrée et publiée automatiquement), rejoué avec la même graine : mêmes poids et mêmes rafales, aux mêmes instants ;
+  - **à faire une fois dans le tableau de bord Unity** : créer le classement `bascule_ligue` (hebdomadaire, archive cochée), voir `docs/LIGUES.md`.
 - **Demandes d'ami** (`Core.FriendRequests`) : quand quelqu'un t'ajoute (code ami ou profil), tu reçois une demande « Léa veut t'ajouter en ami » avec Accepter / Refuser / Plus tard (avant : ajouté d'office, sans rien demander ni annoncer clairement). Les demandes en attente restent en haut de Classement → Amis. Refuser ne dit rien à l'autre et la demande ne revient plus. Seuls les amis acceptés peuvent inviter en duel.
 - **Profil d'un joueur** : toucher n'importe quelle ligne (ou le podium) du classement ouvre son profil (tête, pseudo, place, record) avec « Ajouter en ami », ou « Accepter / Refuser », ou « Défier » et « Retirer des amis » ; « Signaler » et « Bloquer » toujours là.
 - **Classements** : la 1.4 lisait `bascule_monde` / `bascule_jour` alors que la version publiée avant écrivait dans `bascule_monde_s2` / `bascule_jour_s2`. Corrigé sans mise à jour le 13/11/2026 : records des 48 joueurs copiés dans les classements de la 1.4 (`Tools/copy_leaderboards.py`). Les noms restent ceux de la 1.4.

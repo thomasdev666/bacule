@@ -1023,7 +1023,7 @@ namespace Bascule.UI
                 _leagueGain.text = d.IForfeited ? Loc.Get("league_gain_none") : Loc.Format("league_gain", App.LastLeaguePoints);
                 _leagueGain.color = d.IForfeited ? ArtCache.Hex("#BFE0FF") : Palette.Accent;
                 _leagueTotal.text = Loc.Format("league_week_total", Loc.FormatScore(ls.points))
-                    + (ls.rank > 0 && ls.points > 0 ? "  ·  " + Loc.Format("league_rank_line", Loc.Rank(ls.rank), LeagueUi.Name(div)) : "");
+                    + (ls.rank > 0 && ls.points > 0 ? "  ·  " + Loc.Rank(ls.rank) : "");
             }
 
             var label = Ui.ButtonLabel(_rematch);

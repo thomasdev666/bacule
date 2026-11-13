@@ -41,8 +41,20 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 - [ ] Pendant la partie, tirer le Centre de contrôle 2 s puis revenir : **pas de défaite**, la partie continue.
 - [ ] Un joueur quitte l'appli pendant le duel (plus de 10 s) : l'autre gagne, celui qui est parti voit « défaite ».
 
+**Duel classé et ligue (1.5 ; deux iPhone, le classement `bascule_ligue` créé : docs/LIGUES.md)**
+- [ ] Les deux touchent « Duel classé » à quelques secondes d'écart : ils se trouvent en moins de 10 s, sans code.
+- [ ] Les deux touchent **en même temps** : ils se trouvent quand même (moins de 20 s).
+- [ ] Fin du duel : « +30 points de ligue » chez le gagnant, « +8 » chez le perdant ; pas de bouton Revanche, mais « Nouveau duel classé ».
+- [ ] Écran Duel → Classement : les deux joueurs y sont, avec leurs points et leur division.
+- [ ] Un seul téléphone cherche : au bout de 20 s, « Personne pour l'instant » et le fantôme de l'autre joueur est proposé (après un premier duel classé perdu par cet autre joueur).
+- [ ] Duel contre le fantôme : étiquette « Fantôme de … », il bouge dans la petite vue, il lâche, le résultat s'affiche avec « +10 points de ligue ».
+- [ ] Annuler pendant la recherche, puis relancer : ça repart normalement.
+- [ ] Un duel entre amis (par code) ne donne **aucun** point de ligue.
+
 **Amis**
-- [ ] A ajoute B avec son code : B voit « A t'a ajouté en ami » et A apparaît dans ses amis, même sans score.
+- [ ] A ajoute B avec son code : B voit la fenêtre « A veut t'ajouter en ami » avec Accepter / Refuser ; après Accepter, chacun voit l'autre dans ses amis, même sans score.
+- [ ] B refuse : A ne reçoit rien, la demande ne revient pas chez B.
+- [ ] Toucher un joueur du classement mondial : son profil s'ouvre (tête, place, record), « Ajouter en ami » lui envoie une demande.
 
 **Pubs et achats**
 - [ ] Test Suite LevelPlay (7 + 7 touches sur la version) : toutes les régies sans point rouge.

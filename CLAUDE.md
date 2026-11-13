@@ -11,7 +11,8 @@ Jeu mobile Unity 6 (portrait, Android/iOS). Le cahier des charges et les choix f
 
 ## Vérifier sans Unity (SDK .NET 8)
 - `dotnet test Tests/Bascule.Core.Tests` : tests des règles.
-- `dotnet test Tests/Bascule.Duel.Tests` : 179 duels simulés (vrai `DuelController`, faux réseau : 4G, Snap, pauses, abandons…). Toute modification du duel doit y passer ; un nouveau bug de duel = un nouveau scénario.
+- `dotnet test Tests/Bascule.Duel.Tests` : duels simulés (vrai `DuelController`, faux réseau : 4G, Snap, pauses, abandons, duel classé, fantômes…). Toute modification du duel doit y passer ; un nouveau bug de duel = un nouveau scénario.
+- Duel classé, ligues et fantômes : `docs/LIGUES.md` (règles dans `Core/League.cs`, réglages `league` du tuning, classement en ligne `bascule_ligue` à créer une fois). Aperçus 1.5 : `python3 Tools/screens_preview_v15.py Exports/art docs/apercu`.
 - `dotnet build Tools/CompileCheck` : compile Core et Runtime contre les DLL de référence Unity (NuGet). Ajouter `-p:ExtraDefines=UNITY_ANDROID` pour vérifier le code Android.
 - `python3 Tools/balance_sim.py 20` : simulation d'équilibrage (pymunk).
 - `python3 Tools/game_library.py 80` puis `python3 Tools/player_sim.py 1000 60` : modèle de 1000 joueurs (rétention, pubs, achats). Garder `player_sim.py` (DESIGNS["apres"], paliers, prix) synchronisé avec `Core/Economy.cs` et `Core/HeadCatalog.cs`.

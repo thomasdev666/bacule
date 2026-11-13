@@ -111,10 +111,10 @@ namespace Bascule.UI
             Reward(2, Division.Challenger, t.legendPlaces + t.elitePlaces + 1, League.LastPlace(Division.Challenger, t));
 
             _status = Ui.Title(Safe, "", 42);
-            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -880, 900, 200);
+            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -900, 900, 200);
 
             var area = Ui.Rect("Liste", Safe);
-            Ui.Stretch(area, 36, 694, 36, 150);
+            Ui.Stretch(area, 36, 720, 36, 150);
             _list = Ui.Scroll(area, out _);
             Ui.Column(_list, 12);
 
@@ -125,19 +125,19 @@ namespace Bascule.UI
         void Reward(int i, Division d, int from, int to)
         {
             var chip = Ui.Image(Safe, Art.Panel, LeagueUi.Deep(d), "Recompense", true);
-            Ui.Place(chip.rectTransform, 0.5f, 1, (i - 1) * 336, -522, 322, 150, 0.5f, 1);
+            Ui.Place(chip.rectTransform, 0.5f, 1, (i - 1) * 336, -522, 322, 176, 0.5f, 1);
             var top = Ui.Image(chip.transform, Art.Pill, LeagueUi.Tint(d), "Nom", true);
             Ui.Place(top.rectTransform, 0.5f, 1, 0, -12, 290, 52, 0.5f, 1);
             var name = Ui.Title(top.transform, LeagueUi.Name(d), 34, Palette.Ink);
             Ui.Plain(name);
             Ui.Stretch(name.rectTransform, 12, 0, 12, 0);
             var places = Ui.Label(chip.transform, Loc.Format("league_places", from, to), 28, new Color(1, 1, 1, 0.85f));
-            Ui.Place(places.rectTransform, 0.5f, 1, 0, -70, 300, 36, 0.5f, 1);
+            Ui.Place(places.rectTransform, 0.5f, 1, 0, -72, 300, 36, 0.5f, 1);
             var coin = Ui.Icon(chip.transform, Art.IconSprite(Icon.Coin), "Piece");
             coin.color = Palette.Accent;
-            Ui.Place(coin.rectTransform, 0.5f, 0, -62, 30, 46, 46);
+            Ui.Place(coin.rectTransform, 0.5f, 0, -66, 36, 46, 46);
             var amount = Ui.Title(chip.transform, Loc.FormatScore(League.Reward(d, App.Tuning.league)), 44, Palette.Accent);
-            Ui.Place(amount.rectTransform, 0.5f, 0, 26, 30, 150, 50);
+            Ui.Place(amount.rectTransform, 0.5f, 0, 44, 36, 150, 52);
             amount.alignment = TextAnchor.MiddleLeft;
         }
 
@@ -326,9 +326,9 @@ namespace Bascule.UI
             _rank = Ui.Title(card.transform, "", 46, ArtCache.Hex("#D8E9FF"), "Place");
             Ui.Place(_rank.rectTransform, 0.5f, 1, 0, -750, 880, 110);
             _coinIcon = Ui.Icon(card.transform, Art.CoinPile(3), "Pieces");
-            Ui.Place(_coinIcon.rectTransform, 0.5f, 1, -170, -880, 130, 130);
-            _coins = Ui.Title(card.transform, "", 84, Palette.Accent, "Gain");
-            Ui.Place(_coins.rectTransform, 0.5f, 1, 70, -880, 420, 110);
+            Ui.Place(_coinIcon.rectTransform, 0.5f, 1, -250, -880, 130, 130);
+            _coins = Ui.Title(card.transform, "", 76, Palette.Accent, "Gain");
+            Ui.Place(_coins.rectTransform, 0.5f, 1, 70, -880, 480, 110);
             var next = Ui.Label(card.transform, Loc.Get("league_end_next"), 36, ArtCache.Hex("#BFE0FF"));
             Ui.Place(next.rectTransform, 0.5f, 0, 0, 250, 860, 60);
             var ok = Ui.Button(card.transform, Loc.Get("league_end_ok"), Palette.Play, Hide, Icon.Check, 58, "Ok");

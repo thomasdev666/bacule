@@ -4,8 +4,9 @@ qui va partir (dépôt bacule-ios) et les serveurs Unity, pour attraper ce qui a
 - 1.4 : classements renommés par rapport à la version en ligne (les records des joueurs avaient disparu) ;
 - 1.4 build 21 : régies en bibliothèque dynamique non embarquées (plantage au lancement) ;
 - 1.4 : numéro de build déjà utilisé (envoi refusé par Apple) ;
-- 1.4 : duel qui ne démarre pas (Wi-Fi + 4G, retour de Snap, connexion lente) : 179 scénarios simulés
-  (Tests/Bascule.Duel.Tests, le vrai DuelController sur un faux réseau).
+- 1.4 : duel qui ne démarre pas (Wi-Fi + 4G, retour de Snap, connexion lente) : scénarios simulés
+  (Tests/Bascule.Duel.Tests, le vrai DuelController sur un faux réseau), duel classé et fantômes compris ;
+- 1.5 : classement de la ligue absent ou sans remise à zéro le lundi (docs/LIGUES.md).
 
   python3 Tools/verif_publication.py ../bacule-ios          # tout, tests et compilation compris (~5 min)
   python3 Tools/verif_publication.py ../bacule-ios --rapide # sans les tests ni la compilation
@@ -120,6 +121,22 @@ if check(st == 200, "Connexion anonyme (comme un joueur)", f"HTTP {st}"):
         for b in code_boards:
             st, d = http(f"https://leaderboards.services.api.unity.com/v1/projects/{PROJECT}/leaderboards/{b}/scores?limit=1", headers=H)
             check(st == 200, f"Classement {b} existe", f"{d.get('total', '?')} joueurs" if st == 200 else f"HTTP {st}")
+        # Ligue (1.5) : classement hebdomadaire, remis à zéro le lundi 00:00 UTC, semaines finies gardées en archive.
+        st, d = http(f"https://leaderboards.services.api.unity.com/v1/projects/{PROJECT}/leaderboards/bascule_ligue/versions", headers=H)
+        if check(st == 200, "Classement bascule_ligue existe", "OK" if st == 200 else f"HTTP {st} : le créer (docs/LIGUES.md)"):
+            nxt = d.get("nextReset", "")
+            try:
+                import datetime
+                when = datetime.datetime.fromisoformat(nxt.replace("Z", "+00:00"))
+                check(when.weekday() == 0 and when.hour == 0 and when.minute == 0, "bascule_ligue : remise à zéro le lundi 00:00 UTC", nxt)
+            except Exception:
+                check(False, "bascule_ligue : remise à zéro le lundi 00:00 UTC", "aucune remise à zéro programmée (docs/LIGUES.md)")
+            print(f"        archives : {d.get('totalArchivedVersions', 0)} semaine(s) (0 est normal la première semaine ; ensuite, 0 = archive non cochée)")
+        # Fantômes : tirés par l'index friend_code avec l'opérateur « supérieur ou égal ».
+        st, d = http(f"https://cloud-save.services.api.unity.com/v1/data/projects/{PROJECT}/players/public/query", "POST",
+                     {"fields": [{"key": "friend_code", "value": "0", "op": "GE", "asc": True}], "returnKeys": ["friend_code", "ghost_at"], "offset": 0, "limit": 100}, H)
+        ghosts = sum(1 for r in d.get("results", []) if any(i.get("key") == "ghost_at" for i in r.get("data", []))) if st == 200 else 0
+        check(st == 200, "Fantômes : recherche par l'index friend_code", f"{ghosts} fantôme(s) publié(s) parmi {len(d.get('results', []))} joueurs" if st == 200 else f"HTTP {st}")
         for k in INDEXES:
             st, _ = http(f"https://cloud-save.services.api.unity.com/v1/data/projects/{PROJECT}/players/public/query", "POST",
                          {"fields": [{"key": k, "value": "zz", "op": "EQ", "asc": True}], "returnKeys": [k], "offset": 0, "limit": 1}, H)
@@ -142,7 +159,7 @@ if not RAPIDE:
     r = subprocess.run(["dotnet", "test", "Tests/Bascule.Duel.Tests"], cwd=ROOT, capture_output=True, text=True)
     m = re.search(r"(Passed!|Failed!).*", r.stdout)
     failed = re.findall(r"^\s+Failed (\S+)", r.stdout, re.M)
-    check(r.returncode == 0, "Duel : scénarios simulés (Wi-Fi, 4G, Snap, pauses, abandons, revanche…)",
+    check(r.returncode == 0, "Duel : scénarios simulés (amis, classé, fantômes, Wi-Fi, 4G, Snap, pauses, abandons…)",
           (m.group(0)[:120] if m else r.stdout[-200:]) + (" ; en échec : " + ", ".join(failed[:6]) if failed else ""))
     for defs in ["", "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_IOS",
                  "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_ANDROID"]:
