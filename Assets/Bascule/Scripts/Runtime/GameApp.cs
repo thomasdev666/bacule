@@ -371,6 +371,10 @@ namespace Bascule
         {
             if (!await Leaderboard.Service.InitializeAsync()) return;
             if (!string.IsNullOrEmpty(Profile.pseudo)) await Leaderboard.Service.SetPseudoAsync(Profile.pseudo);
+            // Le record déjà fait est renvoyé à chaque lancement (bascule_monde garde le meilleur score : sans effet
+            // s'il y est déjà). Sinon un joueur qui change d'appareil, réinstalle le jeu ou passe à une nouvelle
+            // version reste « Pas encore classé » tant qu'il n'a pas battu son record (retour TestFlight 1.4).
+            if (Profile.bestScore > 0) Leaderboard.Enqueue(Boards.World, Profile.bestScore, Profile.selectedHead, "");
             Leaderboard.Flush(TodayKey);
             // Amis réciproques : les derniers amis ajoutés sont republiés à chaque lancement (un ajout fait hors ligne,
             // ou avec une ancienne version, finit ainsi par arriver chez l'ami).
