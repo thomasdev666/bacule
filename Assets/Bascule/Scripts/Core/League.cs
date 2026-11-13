@@ -31,7 +31,7 @@ namespace Bascule.Core
         public int ghostDrawPoints = 5;
         public int ghostLosePoints = 2;
         /// <summary>
-        /// Victoire par abandon de l'adversaire avant ce temps de jeu (s) : seulement les points d'une défaite. Sinon deux
+        /// Victoire par abandon de l'adversaire avant ce temps de jeu (s) : aucun point, victoire non comptée. Sinon deux
         /// complices se retrouveraient dans la file et l'un abandonnerait tout de suite, encore et encore.
         /// </summary>
         public float forfeitFullAfterSeconds = 15f;
@@ -114,15 +114,24 @@ namespace Bascule.Core
         public static int Points(DuelOutcome o, bool vsGhost, bool iForfeited, bool wonByForfeit, float playedSeconds, LeagueTuning t)
         {
             if (iForfeited) return 0;
-            if (o == DuelOutcome.Win && wonByForfeit && playedSeconds < t.forfeitFullAfterSeconds) return vsGhost ? t.ghostLosePoints : t.losePoints;
+            if (HollowWin(o, wonByForfeit, playedSeconds, t)) return 0;
             if (vsGhost) return o == DuelOutcome.Win ? t.ghostWinPoints : o == DuelOutcome.Draw ? t.ghostDrawPoints : t.ghostLosePoints;
             return o == DuelOutcome.Win ? t.winPoints : o == DuelOutcome.Draw ? t.drawPoints : t.losePoints;
         }
+
+        /// <summary>
+        /// Victoire « creuse » : l'adversaire est parti avant forfeitFullAfterSeconds de jeu. Elle ne rapporte ni points ni
+        /// victoire comptée (deux complices ne peuvent pas enchaîner des abandons éclair).
+        /// </summary>
+        public static bool HollowWin(DuelOutcome o, bool wonByForfeit, float playedSeconds, LeagueTuning t) =>
+            o == DuelOutcome.Win && wonByForfeit && playedSeconds < t.forfeitFullAfterSeconds;
 
         /// <summary>Nouvelle semaine : les points du profil repartent de zéro (la semaine finie reste notée pour la récompense).</summary>
         public static void Roll(LeagueState s, string weekKey)
         {
             if (s.week == weekKey) return;
+            // Horloge du téléphone reculée : on ne revient jamais à une semaine antérieure.
+            if (!string.IsNullOrEmpty(s.week) && string.CompareOrdinal(weekKey, s.week) < 0) return;
             if (s.points > 0 && !string.IsNullOrEmpty(s.week)) { s.lastWeek = s.week; s.lastPoints = s.points; }
             s.week = weekKey;
             s.rank = 0;
@@ -216,7 +225,10 @@ namespace Bascule.Core
         public DuelHello Who = new DuelHello();
         /// <summary>Identifiant du joueur d'origine (rempli à la lecture, pas enregistré).</summary>
         public string PlayerId = "";
-        /// <summary>Photos (TimeMs = temps de la partie d'origine, compte à rebours compris), dans l'ordre.</summary>
+        /// <summary>
+        /// Photos, dans l'ordre. TimeMs = TEMPS DE PARTIE d'origine (GameSession.RunTime) : il ne tourne pas pendant l'arrivée
+        /// de Basile ni pendant un passage en arrière-plan, et ralentit pendant un sauvetage. FellMs et EndMs aussi.
+        /// </summary>
         public readonly List<DuelSnapshot> Snapshots = new List<DuelSnapshot>();
         /// <summary>Il a lâché à ce temps de partie (ms), avec ce score ; 0 = pas de chute (temps écoulé).</summary>
         public uint FellMs;
@@ -388,8 +400,9 @@ namespace Bascule.Core
 
     /// <summary>
     /// Rejoue un fantôme comme un adversaire : rend, au fil du temps, les messages qu'il aurait envoyés en direct
-    /// (présentation, départ, photos, chute, fin). L'horloge part à l'envoi du départ : le joueur lance son compte à
-    /// rebours au même instant, donc poids et rafales (tirés de la même graine) tombent aux mêmes moments.
+    /// (présentation, départ, photos, chute, fin). Son horloge est le TEMPS DE PARTIE : DuelLink l'avance du temps de la
+    /// partie du joueur, donc le fantôme est toujours au même instant de partie que lui (mêmes poids, mêmes rafales,
+    /// tirés de la même graine, et sa chute au bon moment).
     /// </summary>
     public sealed class GhostPlayback
     {
@@ -440,8 +453,9 @@ namespace Bascule.Core
             {
                 // Le joueur a lâché le premier : le fantôme s'arrête là, debout, avec son score du moment.
                 _finished = true;
-                float go = _g.Countdown;
-                output.Add(DuelProtocol.Finished(_g.ScoreAt(nowMs), (uint)Math.Max(0f, (_clock - go) * 1000f)));
+                // « Partez ! » dans son temps de partie : la fin de sa partie moins le temps qu'il a tenu.
+                float go = ((_g.Fell ? _g.FellMs : _g.EndMs) - (float)_g.SurvivedMs) / 1000f;
+                output.Add(DuelProtocol.Finished(_g.ScoreAt(nowMs), (uint)Math.Max(0f, (_clock - Math.Max(0f, go)) * 1000f)));
             }
             else if (nowMs >= endMs)
             {

@@ -199,11 +199,16 @@ namespace Bascule.Services
                 // Points de ligue d'une semaine finie : le classement en ligne est reparti de zéro, ils n'y vont plus.
                 string week = League.WeekKey(DateTime.UtcNow);
                 _profile.pendingScores.RemoveAll(p => p.board == League.Board && p.date != week);
+                var failed = new HashSet<string>();
                 foreach (var p in _profile.pendingScores.ToArray())
                 {
-                    int rank = await _service.SubmitAsync(p.board, p.score, p.head);
-                    if (rank < 0) break;
-                    _profile.pendingScores.Remove(p);
+                    // Un classement qui refuse (pas encore créé, panne) ne retient pas les scores des autres.
+                    if (failed.Contains(p.board)) continue;
+                    int sent = p.score;
+                    int rank = await _service.SubmitAsync(p.board, sent, p.head);
+                    if (rank < 0) { failed.Add(p.board); continue; }
+                    // Un meilleur score est arrivé pendant l'envoi : il reste en attente et partira au prochain passage.
+                    if (p.score == sent) _profile.pendingScores.Remove(p);
                     if (rank > 0) RankKnown?.Invoke(p.board, rank);
                 }
                 _save();

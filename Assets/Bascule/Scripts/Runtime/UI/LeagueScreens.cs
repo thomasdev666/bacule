@@ -31,35 +31,29 @@ namespace Bascule.UI
             return s >= 86400 ? Loc.Format("league_days_hours", s / 86400, (s % 86400) / 3600) : Loc.Duration(s);
         }
 
-        /// <summary>Écusson d'une division : disque foncé, anneau de sa couleur, symbole au centre.</summary>
+        /// <summary>Blason d'une division (dessin UiArtist.LeagueCrest) sur un halo de sa couleur.</summary>
         public sealed class Badge
         {
             public RectTransform Root;
-            public Image Back, Ring, Glow, Symbol;
+            public Image Glow, Crest;
 
             public void Set(Division d)
             {
                 var tint = Tint(d);
-                Back.color = Deep(d);
-                Ring.color = tint;
-                Glow.color = new Color(tint.r, tint.g, tint.b, 0.45f);
-                Symbol.sprite = Ui.Art.IconSprite(LeagueUi.Symbol(d));
-                Symbol.color = Color.white;
+                Glow.color = new Color(tint.r, tint.g, tint.b, 0.5f);
+                Crest.sprite = Ui.Art.LeagueCrest((int)d);
             }
         }
 
-        public static Badge MakeBadge(Transform parent, float size, string name = "Ecusson")
+        public static Badge MakeBadge(Transform parent, float size, string name = "Blason")
         {
             var b = new Badge { Root = Ui.Rect(name, parent) };
             b.Root.sizeDelta = new Vector2(size, size);
             b.Glow = Ui.Image(b.Root, Ui.Art.SoftDisc, Color.white, "Halo");
-            Ui.Place(b.Glow.rectTransform, 0.5f, 0.5f, 0, 0, size * 1.5f, size * 1.5f);
-            b.Back = Ui.Image(b.Root, Ui.Art.Circle, Color.white, "Fond");
-            Ui.Stretch(b.Back.rectTransform);
-            b.Ring = Ui.Image(b.Root, Ui.Art.Ring, Color.white, "Anneau");
-            Ui.Stretch(b.Ring.rectTransform);
-            b.Symbol = Ui.Icon(b.Root, null, "Symbole");
-            Ui.Stretch(b.Symbol.rectTransform, size * 0.22f, size * 0.22f, size * 0.22f, size * 0.22f);
+            Ui.Place(b.Glow.rectTransform, 0.5f, 0.5f, 0, 0, size * 1.35f, size * 1.35f);
+            b.Crest = Ui.Icon(b.Root, null, "Dessin");
+            // Le dessin a un peu de marge autour de l'écu : on le pose légèrement plus grand que son cadre.
+            Ui.Place(b.Crest.rectTransform, 0.5f, 0.5f, 0, 0, size * 1.16f, size * 1.16f);
             return b;
         }
     }
@@ -205,7 +199,12 @@ namespace Bascule.UI
                 shown.Add(e);
             }
             var me = shown.Find(e => e.IsMe) ?? page.Me;
-            if (me != null && me.Rank > 0) { App.SetLeagueRank(me.Rank); SetMine(me.Rank, Mathf.Max(s.points, me.Score)); }
+            if (me != null && me.Rank > 0)
+            {
+                App.AdoptLeaguePoints(me.Score);
+                App.SetLeagueRank(me.Rank);
+                SetMine(me.Rank, Mathf.Max(s.points, me.Score));
+            }
             _status.text = shown.Count == 0 ? Loc.Get("league_empty") : "";
 
             // Une section par division. Les places libres des divisions récompensées se voient : elles donnent envie.

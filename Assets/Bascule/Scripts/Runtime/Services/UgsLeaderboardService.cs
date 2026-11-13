@@ -163,6 +163,11 @@ namespace Bascule.Services
             if (!_ready) return false;
             try
             {
+#if BASCULE_CLOUDSAVE
+                // Le fantôme (dernière partie classée) est effacé avant le compte : plus personne ne peut le rejouer.
+                try { await SavePublic(new Dictionary<string, object> { { GhostKey, "" }, { GhostAtKey, "0" } }); }
+                catch (Exception e) { Debug.LogWarning("[Bascule] Suppression du fantôme : " + e.Message); }
+#endif
                 await AuthenticationService.Instance.DeleteAccountAsync();
                 _ready = false;
                 return true;
@@ -418,12 +423,16 @@ namespace Bascule.Services
             {
                 // Les dernières semaines archivées ; celle qui contient le milieu de la semaine demandée.
                 var versions = await LeaderboardsService.Instance.GetVersionsAsync(board, new GetVersionsOptions { Limit = 8 });
-                var middle = weekStartUtc.AddDays(3.5);
+                // L'archive de cette semaine est celle qui s'est fermée à sa fin (le lundi suivant, 00:00 UTC), quel que
+                // soit le jour où le classement a été créé.
+                var end = weekStartUtc.AddDays(7);
                 string versionId = null;
                 if (versions != null && versions.Results != null)
                     foreach (var v in versions.Results)
-                        if (v != null && v.Start.ToUniversalTime() <= middle && v.End.ToUniversalTime() >= middle) { versionId = v.Id; break; }
-                if (versionId == null) return 0; // semaine pas archivée (classement créé après, ou archive trop ancienne)
+                        if (v != null && Math.Abs((v.End.ToUniversalTime() - end).TotalHours) < 12) { versionId = v.Id; break; }
+                // Pas encore là (on ouvre le jeu juste après minuit, ou l'horloge avance un peu) : on redemandera.
+                // Toujours absente deux jours après : la semaine n'a pas été archivée, on la solde sans pièces.
+                if (versionId == null) return (DateTime.UtcNow - end).TotalDays < 2 ? -1 : 0;
                 // Les 100 premiers suffisent : les divisions récompensées s'arrêtent bien avant.
                 var page = await LeaderboardsService.Instance.GetVersionScoresAsync(board, versionId, new GetVersionScoresOptions { Limit = 100 });
                 string me = AuthenticationService.Instance.PlayerId;

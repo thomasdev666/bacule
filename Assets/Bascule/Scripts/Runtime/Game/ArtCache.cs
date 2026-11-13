@@ -48,6 +48,9 @@ namespace Bascule
         public Sprite WheelSmall { get; private set; }
         public Sprite QuestBadge { get; private set; }
         public Sprite WeekBadge { get; private set; }
+        readonly Sprite[] _crests = new Sprite[4];
+        /// <summary>Blason d'une division de la ligue (0 Légende … 3 Espoir).</summary>
+        public Sprite LeagueCrest(int division) => _crests[Mathf.Clamp(division, 0, _crests.Length - 1)];
         readonly Sprite[] _coinPiles = new Sprite[ArtCatalog.CoinPiles.Length];
 
         /// <summary>Tas de pièces pour un nombre de pièces gagnées : 1 pièce pour un petit lot, jusqu'à 6 pour un gros.</summary>
@@ -100,6 +103,7 @@ namespace Bascule
             WheelSmall = Cached("ui_wheel_small", () => UiArtist.WheelBoard(256), 100, Vector4.zero);
             QuestBadge = Cached("ui_quest", () => UiArtist.QuestBadge(256), 100, Vector4.zero);
             WeekBadge = Cached("ui_week", () => UiArtist.WeekBadge(256), 100, Vector4.zero);
+            for (int d = 0; d < _crests.Length; d++) { int division = d; _crests[d] = Cached("ui_crest" + d, () => UiArtist.LeagueCrest(division, 256), 100, Vector4.zero); }
             for (int i = 0; i < _coinPiles.Length; i++)
             {
                 int count = ArtCatalog.CoinPiles[i];
@@ -408,7 +412,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 23;
+        public const int ArtVersion = 24;
 
         static string _cacheDir;
 

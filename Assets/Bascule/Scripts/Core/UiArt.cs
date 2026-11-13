@@ -211,8 +211,8 @@ namespace Bascule.Core
                     s = Shape.Smooth(Shape.Union(Shape.Circle(c - 17 * u, c + 10 * u, 20 * u), Shape.Circle(c + 17 * u, c + 10 * u, 20 * u)),
                         Shape.Poly(c - 34 * u, c + 2 * u, c + 34 * u, c + 2 * u, c, c - 34 * u).Grow(3 * u), 8 * u); break;
                 case Core.Icon.Swords:
-                    s = Shape.Union(Shape.Capsule(c - 26 * u, c - 26 * u, c + 26 * u, c + 26 * u, 6 * u), Shape.Capsule(c + 26 * u, c - 26 * u, c - 26 * u, c + 26 * u, 6 * u),
-                        Shape.Capsule(c - 30 * u, c - 14 * u, c - 14 * u, c - 30 * u, 6 * u), Shape.Capsule(c + 30 * u, c - 14 * u, c + 14 * u, c - 30 * u, 6 * u)); break;
+                    // Deux épées croisées (1.5) : lame qui s'affine en pointe, garde, poignée et pommeau.
+                    s = Shape.Union(Sword(c, c - 1 * u, 42f, 92 * u), Sword(c, c - 1 * u, -42f, 92 * u)); break;
                 case Core.Icon.Coin:
                     s = Shape.Union(Shape.Subtract(Shape.Circle(c, c, 36 * u), Shape.Subtract(Shape.Circle(c, c, 27 * u), Shape.Circle(c, c, 22 * u))),
                         Shape.Box(c, c, 5 * u, 14 * u, 3 * u)); break;
@@ -414,6 +414,142 @@ namespace Bascule.Core
             img.Fill(Shape.Arc(mx, my, n * 0.095f, 0f, 360f, n * 0.012f), CoinEdge);
             img.Fill(StarShape(mx, my, n * 0.075f), Rgba.FromHex("#FFF3B0"), 1.2f);
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            return img;
+        }
+
+        /// <summary>
+        /// Une épée, centrée sur (cx, cy), penchée de <paramref name="tiltDeg"/> depuis la verticale (+ = vers la droite),
+        /// pointe en haut : lame large à la garde et fine à la pointe, garde en travers, poignée, pommeau rond.
+        /// </summary>
+        public static Shape Sword(float cx, float cy, float tiltDeg, float length)
+        {
+            double a = tiltDeg * Math.PI / 180;
+            float dx = (float)Math.Sin(a), dy = (float)Math.Cos(a); // le long de l'épée, vers la pointe
+            float px = dy, py = -dx;                                // en travers
+            float L = length;
+            float P(float along, float across, bool x) => x ? cx + dx * along * L + px * across * L : cy + dy * along * L + py * across * L;
+            var blade = Shape.Poly(
+                P(-0.2f, -0.05f, true), P(-0.2f, -0.05f, false), P(0.36f, -0.042f, true), P(0.36f, -0.042f, false),
+                P(0.52f, 0f, true), P(0.52f, 0f, false), P(0.36f, 0.042f, true), P(0.36f, 0.042f, false),
+                P(-0.2f, 0.05f, true), P(-0.2f, 0.05f, false)).Grow(L * 0.008f);
+            var guard = Shape.Capsule(P(-0.21f, -0.17f, true), P(-0.21f, -0.17f, false), P(-0.21f, 0.17f, true), P(-0.21f, 0.17f, false), L * 0.04f);
+            var grip = Shape.Capsule(P(-0.23f, 0f, true), P(-0.23f, 0f, false), P(-0.4f, 0f, true), P(-0.4f, 0f, false), L * 0.036f);
+            var pommel = Shape.Circle(P(-0.44f, 0f, true), P(-0.44f, 0f, false), L * 0.06f);
+            return Shape.Union(blade, guard, grip, pommel);
+        }
+
+        static readonly Toon.Style CrestStyle = new Toon.Style { Outline = 0.028f, Shade = 0.09f, Soft = 0.05f, ShadeStrength = 0.84f, Rim = 0.045f, RimOpacity = 0.75f, SpecSize = 0.07f };
+
+        /// <summary>
+        /// Blason d'une division de la ligue (Core/League.cs : 0 Légende, 1 Élite, 2 Challenger, 3 Espoir). Un écu au bord
+        /// de métal, de plus en plus orné : Espoir, un écu d'acier à chevrons ; Challenger, bleu, deux épées croisées ;
+        /// Élite, violet, des ailes et une grande étoile ; Légende, or, des ailes, une couronne à pierres posée dessus.
+        /// Image n × n.
+        /// </summary>
+        public static Raster LeagueCrest(int division, int n = 256)
+        {
+            var img = new Raster(n, n);
+            float c = n * 0.5f, size = n * 0.8f;
+            Rgba metal, metalDark, field, fieldLight, emblem;
+            switch (division)
+            {
+                case 0: metal = Rgba.FromHex("#FFC83D"); metalDark = Rgba.FromHex("#D98A0B"); field = Rgba.FromHex("#4A2A8C"); fieldLight = Rgba.FromHex("#6A3FC0"); emblem = Rgba.FromHex("#FFD65C"); break;
+                case 1: metal = Rgba.FromHex("#C9A2FF"); metalDark = Rgba.FromHex("#8A55E0"); field = Rgba.FromHex("#3F1F8A"); fieldLight = Rgba.FromHex("#5B33B8"); emblem = Rgba.FromHex("#FFE38A"); break;
+                case 2: metal = Rgba.FromHex("#6FBBFF"); metalDark = Rgba.FromHex("#2E7FD6"); field = Rgba.FromHex("#154A94"); fieldLight = Rgba.FromHex("#1F66C4"); emblem = Rgba.FromHex("#F1F5FB"); break;
+                default: metal = Rgba.FromHex("#B4C3D8"); metalDark = Rgba.FromHex("#7C8CA6"); field = Rgba.FromHex("#3D4A63"); fieldLight = Rgba.FromHex("#52627F"); emblem = Rgba.FromHex("#E4EAF3"); break;
+            }
+            bool wings = division <= 1, crown = division == 0;
+            float cy = n * (crown ? 0.405f : division == 1 ? 0.46f : 0.5f);
+
+            // Ailes (Élite et Légende) : trois plumes de chaque côté, derrière l'écu.
+            if (wings)
+                for (int sd = -1; sd <= 1; sd += 2)
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float ang = 30f + i * 24f, len = n * (0.25f - i * 0.045f);
+                        double r = ang * Math.PI / 180;
+                        float bx = c + sd * n * 0.22f, by = cy + n * (0.08f - i * 0.1f);
+                        float ex = bx + sd * (float)Math.Sin(r) * len, ey = by + (float)Math.Cos(r) * len;
+                        // Plume : large à la base, arrondie au bout, relevée vers le haut.
+                        var feather = Shape.Smooth(Shape.Tapered(bx, by, n * 0.06f, ex, ey, n * 0.045f), Shape.Circle(ex, ey + n * 0.02f, n * 0.04f), n * 0.02f);
+                        Toon.Part(img, feather, i == 0 ? metal.Light(1.14f) : i == 1 ? metal : metal.Shade(0.94f), size, CrestStyle);
+                    }
+
+            // Écu : bord de métal, champ de couleur (moitié gauche plus claire), liseré intérieur.
+            float w = n * 0.285f, top = cy + n * 0.26f, mid = cy - n * 0.07f, bottom = cy - n * 0.36f;
+            var shield = Shape.Poly(c - w, top, c + w, top, c + w, mid, c, bottom, c - w, mid).Grow(n * 0.035f);
+            Toon.Part(img, shield, metal, size, CrestStyle);
+            var inner = shield.Grow(-n * 0.05f);
+            img.Fill(inner.Grow(n * 0.012f), metalDark);
+            img.Fill(inner, Paint.Linear(fieldLight, 0, top, field, 0, bottom));
+            img.FillClipped(inner, Shape.HalfPlane(1, 0, c), field.Shade(0.86f).WithAlpha(0.55f), 1f);
+            img.FillClipped(inner, Shape.Ellipse(c - n * 0.1f, top - n * 0.05f, n * 0.16f, n * 0.07f, 12f), Rgba.White.WithAlpha(0.22f), n * 0.04f);
+
+            // Emblème.
+            float ey0 = cy + n * 0.01f;
+            switch (division)
+            {
+                case 0:
+                {
+                    // Grande étoile d'or sur le champ.
+                    var star = StarShape(c, ey0, n * 0.17f, 0.5f);
+                    Toon.Part(img, star, emblem, size, CoinStyle);
+                    img.FillClipped(star, Shape.Circle(c - n * 0.04f, ey0 + n * 0.05f, n * 0.035f), Rgba.White.WithAlpha(0.6f), n * 0.02f);
+                    break;
+                }
+                case 1:
+                {
+                    var star = StarShape(c, ey0, n * 0.16f, 0.5f);
+                    Toon.Part(img, star, emblem, size, CoinStyle);
+                    break;
+                }
+                case 2:
+                {
+                    var swords = Shape.Union(Sword(c, ey0 + n * 0.02f, 40f, n * 0.5f), Sword(c, ey0 + n * 0.02f, -40f, n * 0.5f));
+                    Toon.Part(img, swords, emblem, size, CrestStyle);
+                    break;
+                }
+                default:
+                {
+                    // Deux chevrons qui montent : le début du chemin.
+                    for (int i = 0; i < 2; i++)
+                    {
+                        float y = ey0 - n * 0.1f + i * n * 0.12f;
+                        var chevron = Shape.Union(Shape.Capsule(c - n * 0.12f, y, c, y + n * 0.1f, n * 0.03f), Shape.Capsule(c + n * 0.12f, y, c, y + n * 0.1f, n * 0.03f));
+                        Toon.Part(img, chevron, emblem, size, CrestStyle);
+                    }
+                    break;
+                }
+            }
+
+            // Légende : couronne à trois pointes posée sur l'écu, avec ses pierres.
+            if (crown)
+            {
+                float by = top + n * 0.035f;
+                var cr = Shape.Poly(c - n * 0.19f, by, c + n * 0.19f, by, c + n * 0.22f, by + n * 0.19f, c + n * 0.095f, by + n * 0.09f,
+                    c, by + n * 0.23f, c - n * 0.095f, by + n * 0.09f, c - n * 0.22f, by + n * 0.19f).Grow(n * 0.012f);
+                Toon.Part(img, cr, metal, size, CoinStyle);
+                img.FillClipped(cr, Shape.Box(c, by + n * 0.02f, n * 0.2f, n * 0.022f), metalDark, 1f);
+                var gems = new[] { (0f, Rgba.FromHex("#FF5A5F")), (-0.105f, Rgba.FromHex("#4AA8FF")), (0.105f, Rgba.FromHex("#3BD671")) };
+                foreach (var (gx, gc) in gems)
+                {
+                    var gem = Shape.Circle(c + gx * n, by + n * 0.02f, n * 0.024f);
+                    img.Fill(gem.Grow(n * 0.008f), metalDark.Shade(0.8f));
+                    img.Fill(gem, gc);
+                    img.Fill(Shape.Circle(c + gx * n - n * 0.007f, by + n * 0.027f, n * 0.008f), Rgba.White.WithAlpha(0.8f));
+                }
+                foreach (float tx in new[] { -0.22f, 0f, 0.22f })
+                {
+                    float ty = by + (tx == 0f ? 0.23f : 0.19f) * n;
+                    Toon.Part(img, Shape.Circle(c + tx * n, ty + n * 0.012f, n * 0.026f), metal.Light(1.1f), size, CoinStyle);
+                }
+            }
+            else if (division == 1)
+            {
+                // Élite : une petite étoile au-dessus de l'écu.
+                Toon.Part(img, StarShape(c, top + n * 0.1f, n * 0.07f, 0.5f), emblem, size, CoinStyle);
+            }
+            Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.32f);
             return img;
         }
 

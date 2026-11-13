@@ -77,8 +77,16 @@ namespace Bascule.Duel
         readonly IDuelNetwork _real;
         Bascule.Core.GhostPlayback _ghost;
         readonly System.Collections.Generic.List<byte[]> _out = new System.Collections.Generic.List<byte[]>();
-        float _lastTick;
-        bool _ghostLinked;
+        float _lastTick, _lastRun;
+        bool _ghostLinked, _mineOver;
+
+        /// <summary>
+        /// Temps de MA partie (GameSession.RunTime). Le fantôme avance avec lui, pas avec l'horloge du téléphone : le temps
+        /// de partie ne tourne pas pendant l'arrivée de Basile, ralentit pendant un sauvetage et s'arrête si l'appli passe
+        /// en arrière-plan. Calé dessus, le fantôme est toujours au même instant de partie que moi : mêmes poids, mêmes
+        /// rafales, et sa chute tombe au bon moment. Une fois ma partie finie (temps figé), il continue au temps réel.
+        /// </summary>
+        public Func<float> RunTime;
 
         public DuelLink(IDuelNetwork real)
         {
@@ -105,7 +113,9 @@ namespace Bascule.Duel
         {
             _ghost = new Bascule.Core.GhostPlayback(recording, finalWindowSeconds);
             _ghostLinked = false;
+            _mineOver = false;
             _lastTick = Time.unscaledTime;
+            _lastRun = RunTime != null ? RunTime() : 0f;
         }
 
         public Task<string> HostAsync() { _ghost = null; return _real.HostAsync(); }
@@ -117,15 +127,23 @@ namespace Bascule.Duel
         {
             if (_ghost == null) { _real.Send(data, reliable); return; }
             // Le fantôme n'écoute qu'une chose : ma chute (il lève alors les bras après la fenêtre du dernier poids).
-            if (Bascule.Core.DuelProtocol.Kind(data) == Bascule.Core.DuelMsg.Fell) _ghost.PlayerFell();
+            var kind = Bascule.Core.DuelProtocol.Kind(data);
+            if (kind == Bascule.Core.DuelMsg.Fell) _ghost.PlayerFell();
+            // Ma partie est finie : son temps ne tourne plus, le fantôme continue au temps réel.
+            if (kind == Bascule.Core.DuelMsg.Fell || kind == Bascule.Core.DuelMsg.Finished) _mineOver = true;
         }
 
         public void Tick()
         {
             if (_ghost == null) { _real.Tick(); return; }
             float now = Time.unscaledTime;
-            float dt = Mathf.Max(0f, now - _lastTick);
+            float real = Mathf.Max(0f, now - _lastTick);
             _lastTick = now;
+            float run = RunTime != null ? RunTime() : 0f;
+            // Tant que je joue : le fantôme avance du temps de MA partie (0 si elle n'a pas avancé, ou si elle vient de
+            // repartir de zéro). Ensuite : temps réel, sans saut (retour d'arrière-plan).
+            float dt = _mineOver || RunTime == null ? Mathf.Min(0.25f, real) : Mathf.Max(0f, run - _lastRun);
+            _lastRun = run;
             if (!_ghostLinked) { _ghostLinked = true; PeerLinked?.Invoke(); return; }
             _out.Clear();
             var ghost = _ghost;
@@ -326,6 +344,7 @@ namespace Bascule.Duel
         public static readonly string RankedTag = "classe-p" + Bascule.Core.DuelProtocol.Version;
 
         public Task<string> QuickMatchAsync(float joinSeconds) => Serial(() => QuickMatchNow(joinSeconds));
+        bool _quickRegionFailed;
 
         async Task<string> QuickMatchNow(float joinSeconds)
         {
@@ -345,8 +364,11 @@ namespace Bascule.Duel
                         { "mode", new Unity.Services.Multiplayer.SessionProperty(RankedTag, Unity.Services.Multiplayer.VisibilityPropertyOptions.Public, Unity.Services.Multiplayer.PropertyIndex.String1) },
                     },
                 };
-                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options,
-                    new Unity.Services.Multiplayer.RelayNetworkOptions(Unity.Services.Multiplayer.RelayProtocol.WSS, RelayRegion));
+                // Relais de la région habituelle ; si elle est indisponible (second essai), la région choisie par Unity.
+                var relay = _quickRegionFailed
+                    ? new Unity.Services.Multiplayer.RelayNetworkOptions(Unity.Services.Multiplayer.RelayProtocol.WSS)
+                    : new Unity.Services.Multiplayer.RelayNetworkOptions(Unity.Services.Multiplayer.RelayProtocol.WSS, RelayRegion);
+                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options, relay);
                 options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithNetworkHandler(options, _link);
                 var quick = new Unity.Services.Multiplayer.QuickJoinOptions
                 {
@@ -366,6 +388,10 @@ namespace Bascule.Duel
             catch (Exception e)
             {
                 Debug.LogWarning("[Bascule] Duel classé : recherche impossible : " + e.Message);
+                // La liaison est déjà établie (erreur arrivée après coup) : la partie continue.
+                if (_link != null && _link.Linked) { IsHost = false; return null; }
+                // Le contrôleur réessaie : la prochaine fois, sans imposer la région.
+                _quickRegionFailed = !_quickRegionFailed;
                 await LeaveNow();
                 return "duel_search_failed";
             }

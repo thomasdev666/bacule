@@ -204,7 +204,13 @@ namespace Bascule.Duel
             bool yield = false;
             try { yield = await _net.ShouldYieldAsync(); }
             catch (Exception e) { Debug.LogWarning("[Bascule] Duel classé : " + e.Message); }
-            if (op != _op || Current != Phase.Searching || !_isHost || _net.Linked || _net.HasGuest) return;
+            if (op != _op || Current != Phase.Searching || !_isHost) return;
+            if (_net.Linked || _net.HasGuest)
+            {
+                // Quelqu'un arrive : on regardera à nouveau s'il repart sans s'être relié.
+                _requeueAt = Time.unscaledTime + L.requeueMaxSeconds;
+                return;
+            }
             if (yield) { int next = ++_op; await SearchNow(next); }
             else _requeueAt = Time.unscaledTime + L.requeueMinSeconds + (L.requeueMaxSeconds - L.requeueMinSeconds) * Mathf.Max(0f, Rand());
         }
@@ -415,9 +421,10 @@ namespace Bascule.Duel
             if (Current == Phase.Results) return;
             if (Ranked && !VsGhost)
             {
-                // Recherche interrompue par un passage hors de l'appli : on repart sur une recherche neuve.
-                bool waiting = Current == Phase.Searching || (Current == Phase.Greeting && Them == null && !_net.Linked);
-                if (waiting && pausedSeconds >= 3f) { _searchStarted = now; SearchAgain(); }
+                // Avant le départ d'un duel classé, sortir de l'appli annule la mise en relation (OnAppPaused a déjà refermé
+                // ma partie) : on repart sur une recherche neuve, même si la liaison semblait encore là. Sinon un joueur
+                // revenu trop tard jouait seul contre un adversaire qui avait déjà gagné « par abandon ».
+                if (Current == Phase.Searching || Current == Phase.Greeting) { _searchStarted = now; SearchAgain(); }
                 return;
             }
             if (_net.Linked) return;
@@ -649,7 +656,7 @@ namespace Bascule.Duel
             {
                 case DuelMsg.Hello:
                     Them = DuelProtocol.ReadHello(data);
-                    TheirName = DuelRules.CleanName(Them.Name, Loc.Get("duel_friend"));
+                    TheirName = DuelRules.CleanName(Them.Name, Loc.Get(Ranked ? "ranked_opponent" : "duel_friend"));
                     // Hôte : la présentation de l'ami suffit à passer aux présentations, même si l'annonce de la liaison
                     // s'est perdue (ami reconnecté) ; le départ est donné un instant après (Tick).
                     if (_isHost && (Current == Phase.Hosting || Current == Phase.Greeting || Current == Phase.Searching))
@@ -838,6 +845,8 @@ namespace Bascule.Duel
                 if (!guest) _guestSince = -1f;
                 else if (_guestSince < 0f) _guestSince = now;
                 bool arriving = guest && now - _guestSince < L.linkSeconds;
+                // Entré dans ma partie mais jamais relié : il occupe la place pour rien, on repart sur une partie neuve.
+                if (guest && !arriving && !_net.Linked && now - _searchStarted <= L.searchSeconds) { SearchAgain(); return; }
                 if (now - _searchStarted > L.searchSeconds && !arriving)
                 {
                     // Personne : on arrête, GameApp propose un fantôme.
@@ -950,6 +959,14 @@ namespace Bascule.Duel
         public void OnAppPaused()
         {
             _lastHeard = Time.unscaledTime;
+            // Duel classé pas encore parti : ma partie ouverte quitte la file tout de suite (sinon un autre joueur la
+            // rejoindrait et attendrait pour rien). La recherche repart au retour (OnAppResumed).
+            if (Ranked && !VsGhost && (Current == Phase.Searching || Current == Phase.Greeting))
+            {
+                _op++;
+                _requeueAt = 0f;
+                _ = _net.LeaveAsync();
+            }
         }
 
         /// <summary>Temps du duel depuis « Partez ! » (s), arrêté quand je lâche.</summary>

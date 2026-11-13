@@ -1360,7 +1360,10 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(5, League.Points(DuelOutcome.Draw, true, false, false, 60, T));
             Assert.AreEqual(2, League.Points(DuelOutcome.Lose, true, false, false, 60, T));
             Assert.AreEqual(0, League.Points(DuelOutcome.Lose, false, true, false, 60, T), "abandon : rien");
-            Assert.AreEqual(8, League.Points(DuelOutcome.Win, false, false, true, 5, T), "adversaire parti tout de suite : pas une vraie victoire");
+            Assert.AreEqual(0, League.Points(DuelOutcome.Win, false, false, true, 5, T), "adversaire parti tout de suite : pas une vraie victoire");
+            Assert.True(League.HollowWin(DuelOutcome.Win, true, 5, T));
+            Assert.False(League.HollowWin(DuelOutcome.Win, true, 40, T));
+            Assert.False(League.HollowWin(DuelOutcome.Win, false, 5, T));
             Assert.AreEqual(30, League.Points(DuelOutcome.Win, false, false, true, 40, T), "adversaire parti après un vrai duel");
         }
 
@@ -1388,13 +1391,21 @@ namespace Bascule.Core.Tests
             Assert.AreEqual(coins0 + 250, p.coins);
             Assert.AreEqual((int)Division.Elite, p.league.bestDivision);
 
+            // Horloge du téléphone reculée : on ne revient pas à une semaine passée, les points restent.
+            League.Award(p.league, "2026-11-16", DuelOutcome.Win, false, false, false, 50, T);
+            League.Roll(p.league, "2026-11-02");
+            Assert.AreEqual("2026-11-16", p.league.week);
+            Assert.AreEqual(30, p.league.points);
+            Assert.True(League.RewardPending(p.league, "2026-11-23"));
+            Assert.AreEqual(0, League.Claim(p, 40, T, out _));
+
             // Une semaine sans jouer, puis une semaine jouée : pas de récompense pour la semaine vide.
-            Assert.False(League.RewardPending(p.league, "2026-11-23"));
-            League.Award(p.league, "2026-11-23", DuelOutcome.Win, true, false, false, 50, T);
-            Assert.True(League.RewardPending(p.league, "2026-12-07"), "deux semaines plus tard : celle du 23 attend toujours");
-            Assert.AreEqual("2026-11-23", p.league.lastWeek);
+            Assert.False(League.RewardPending(p.league, "2026-11-30"));
+            League.Award(p.league, "2026-11-30", DuelOutcome.Win, true, false, false, 50, T);
+            Assert.True(League.RewardPending(p.league, "2026-12-14"), "deux semaines plus tard : celle du 30 attend toujours");
+            Assert.AreEqual("2026-11-30", p.league.lastWeek);
             Assert.AreEqual(0, League.Claim(p, 0, T, out div), "introuvable dans l'archive : soldée sans pièces");
-            Assert.False(League.RewardPending(p.league, "2026-12-07"));
+            Assert.False(League.RewardPending(p.league, "2026-12-14"));
             Assert.AreEqual((int)Division.Elite, p.league.bestDivision, "une semaine non classée ne change pas la meilleure division");
         }
 

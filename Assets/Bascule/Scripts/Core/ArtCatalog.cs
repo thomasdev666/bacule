@@ -77,6 +77,7 @@ namespace Bascule.Core
             yield return new Job("ui_wheel_small", () => UiArtist.WheelBoard(256));
             yield return new Job("ui_quest", () => UiArtist.QuestBadge(256));
             yield return new Job("ui_week", () => UiArtist.WeekBadge(256));
+            for (int d = 0; d < 4; d++) { int division = d; yield return new Job("ui_crest" + d, () => UiArtist.LeagueCrest(division, 256)); }
             foreach (int count in CoinPiles) yield return new Job("ui_coins" + count, () => UiArtist.CoinPile(count, 256));
             foreach (Icon icon in Enum.GetValues(typeof(Icon)))
             {

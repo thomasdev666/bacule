@@ -472,25 +472,34 @@ namespace Bascule.DuelTests
 
     // ======================================================================= Partie simulée
 
-    /// <summary>Une partie de Bascule vue par le duel : score qui monte, chute à FallAt, bras levés quand on l'arrête.</summary>
+    /// <summary>
+    /// Une partie de Bascule vue par le duel : score qui monte, chute à FallAt, bras levés quand on l'arrête. Comme la
+    /// vraie GameSession, le TEMPS DE PARTIE (RunTime) ne tourne pas pendant l'arrivée de Basile (ArriveSeconds) et se
+    /// fige dès que la partie s'arrête (chute, bras levés). La relecture indépendante de la 1.5 a montré que le banc,
+    /// sans ça, ne voyait pas un fantôme décalé de 1,6 s.
+    /// </summary>
     public sealed class FakeGame
     {
         public DuelController C;
         public float FallAt = float.PositiveInfinity;
         public float ScoreRate = 20f;
         public float FallAnimation = 1.5f, RaiseArms = 0.6f;
+        public float ArriveSeconds = 1.6f;
+        /// <summary>Vitesse du temps de partie (0,35 pendant un ralenti de sauvetage).</summary>
+        public float TimeScale = 1f;
         public bool Running, Locked;
         public float RunTime;
         public int Score;
         public int Starts;
         bool _falling, _stopping;
-        float _endAt, _playTime;
+        float _endIn, _playTime, _arrive;
 
         public void Start(uint seed)
         {
             Running = true;
             RunTime = 0f;
             _playTime = 0f;
+            _arrive = 0f;
             Score = 0;
             _falling = _stopping = false;
             Starts++;
@@ -500,7 +509,7 @@ namespace Bascule.DuelTests
         {
             if (!Running || _falling || _stopping) return false;
             _stopping = true;
-            _endAt = RunTime + RaiseArms;
+            _endIn = RaiseArms;
             return true;
         }
 
@@ -509,22 +518,29 @@ namespace Bascule.DuelTests
         public void Tick(float dt)
         {
             if (!Running) return;
-            RunTime += dt;
-            if (!Locked && !_falling && !_stopping)
+            if (_falling || _stopping)
             {
-                _playTime += dt;
+                // Chute ou bras levés : le temps de partie est figé, l'animation se joue au temps réel.
+                _endIn -= dt;
+                if (_endIn <= 0f)
+                {
+                    Running = false;
+                    C.OnLocalRunEnded(new RunResult { Score = Score, Seconds = RunTime });
+                }
+                return;
+            }
+            if (_arrive < ArriveSeconds) { _arrive += dt; return; } // Basile arrive : le temps de partie attend
+            RunTime += dt * TimeScale;
+            if (!Locked)
+            {
+                _playTime += dt * TimeScale;
                 Score = (int)(_playTime * ScoreRate);
                 if (_playTime >= FallAt)
                 {
                     _falling = true;
-                    _endAt = RunTime + FallAnimation;
+                    _endIn = FallAnimation;
                     C.OnLocalLoseStarted();
                 }
-            }
-            if ((_falling || _stopping) && RunTime >= _endAt)
-            {
-                Running = false;
-                C.OnLocalRunEnded(new RunResult { Score = Score, Seconds = RunTime });
             }
         }
 
@@ -561,7 +577,7 @@ namespace Bascule.DuelTests
             Name = name;
             FriendCode = friendCode;
             Net = new FakeNet(w, name);
-            Link = new DuelLink(Net);
+            Link = new DuelLink(Net) { RunTime = () => Game.RunTime };
             C = new DuelController(Link, () => w.Tuning);
             C.Rand = () => (float)w.Rng.NextDouble();
             C.Recorded += r => Recordings.Add(r);

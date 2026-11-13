@@ -1032,6 +1032,10 @@ ui_coins1
 ui_coins2
 ui_coins3
 ui_coins6
+ui_crest0
+ui_crest1
+ui_crest2
+ui_crest3
 ui_glass
 ui_gloss
 ui_level

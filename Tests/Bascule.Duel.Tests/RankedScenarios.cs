@@ -473,7 +473,7 @@ namespace Bascule.DuelTests
         [Test]
         public void QuickForfeitCannotBeFarmed()
         {
-            // Deux complices : l'un abandonne dès le départ. Le « gagnant » n'a que les points d'une défaite, l'autre rien.
+            // Deux complices : l'un abandonne dès le départ. Ni l'un ni l'autre n'a de points.
             var w = NewWorld();
             var t = w.Tuning.league;
             var a = w.AddDevice("Max", "AAAAAA");
@@ -485,8 +485,107 @@ namespace Bascule.DuelTests
             Assert.True(w.RunUntil(() => a.Done && b.Done, 20f));
             int pa = League.Points(a.C.Outcome, false, a.C.IForfeited, a.C.ByForfeit && a.C.Outcome == DuelOutcome.Win, a.C.MySeconds, t);
             int pb = League.Points(b.C.Outcome, false, b.C.IForfeited, false, b.C.MySeconds, t);
-            Assert.AreEqual(t.losePoints, pa);
+            Assert.AreEqual(0, pa);
             Assert.AreEqual(0, pb);
+            Assert.True(League.HollowWin(a.C.Outcome, a.C.ByForfeit, a.C.MySeconds, t));
+        }
+
+        // ------------------------------------------------------------------ Constats de la relecture indépendante (1.5)
+
+        [Test]
+        public void GhostStaysInSyncThroughSlowMotionAndAShortExit()
+        {
+            // Le temps de partie ralentit pendant un sauvetage et s'arrête hors de l'appli : le fantôme doit suivre MA
+            // partie, pas l'horloge du téléphone, et lâcher au même instant de partie que dans la sienne.
+            var w = NewWorld();
+            var ghost = RecordedDuel(w, 30f);
+            var me = w.AddDevice("Tom", "CCCCCC");
+            me.C.StartGhost(me.Hello, ghost);
+            Assert.True(w.RunUntil(() => me.InMatch, 3f));
+            float? sawFallAt = null;
+            me.C.TheyFellEvent += () => sawFallAt = me.Game.RunTime;
+            w.RunFor(8f);
+            me.Game.TimeScale = 0.35f; w.RunFor(4f); me.Game.TimeScale = 1f;   // ralenti de sauvetage
+            w.RunFor(3f);
+            me.Pause(); w.RunFor(3f); me.Resume();                              // Centre de contrôle
+            Assert.True(w.RunUntil(() => me.Done, 120f), me.ToString());
+            Assert.NotNull(sawFallAt);
+            Assert.That(sawFallAt.Value, Is.EqualTo(ghost.FellMs / 1000f).Within(0.12f), "fantôme décalé par le ralenti ou la pause");
+            Assert.AreEqual(DuelOutcome.Win, me.C.Outcome);
+        }
+
+        [Test]
+        public void GhostFallingJustBeforeThePlayerIsAWinForThePlayer()
+        {
+            // Le fantôme lâche à 30 s de partie ; je lâche 0,6 s après, pendant « Dernier poids ». Avant le correctif, le
+            // fantôme jouait 1,6 s en avance : sa chute s'affichait trop tôt et ce cas donnait une défaite.
+            var w = NewWorld();
+            var ghost = RecordedDuel(w, 30f);
+            var me = w.AddDevice("Tom", "CCCCCC");
+            me.Game.FallAt = ghost.SurvivedMs / 1000f + 0.6f;
+            me.C.StartGhost(me.Hello, ghost);
+            Assert.True(w.RunUntil(() => me.Done, 120f), me.ToString());
+            Assert.AreEqual(DuelOutcome.Win, me.C.Outcome, "le fantôme est tombé avant moi");
+        }
+
+        [Test]
+        public void LeavingTheAppOnOpponentFoundNeverGivesTwoWinners([Values(4f, 9f, 20f)] float away)
+        {
+            var net = NetConditions.Wifi();
+            net.LinkDelay = 2f;
+            var w = NewWorld(net);
+            var a = w.AddDevice("Max", "AAAAAA");
+            var b = w.AddDevice("Lea", "BBBBBB");
+            a.Search();
+            w.RunFor(6f);
+            b.Search();
+            Assert.True(w.RunUntil(() => b.C.Current == Phase.Greeting, 10f), b.ToString());
+            b.Pause();
+            w.RunFor(away);
+            b.Resume();
+            w.RunFor(60f);
+            // Soit ils ont fini par jouer ensemble, soit chacun est reparti chercher : jamais deux gagnants.
+            int wins = (a.Done && a.C.Outcome == DuelOutcome.Win ? 1 : 0) + (b.Done && b.C.Outcome == DuelOutcome.Win ? 1 : 0);
+            Assert.LessOrEqual(wins, 1, $"deux gagnants : {a} / {b}");
+            var t = w.Tuning.league;
+            int pa = a.Done ? League.Points(a.C.Outcome, false, a.C.IForfeited, a.C.ByForfeit && a.C.Outcome == DuelOutcome.Win, a.C.MySeconds, t) : 0;
+            int pb = b.Done ? League.Points(b.C.Outcome, false, b.C.IForfeited, b.C.ByForfeit && b.C.Outcome == DuelOutcome.Win, b.C.MySeconds, t) : 0;
+            Assert.LessOrEqual(pa + pb, t.winPoints + t.losePoints, "trop de points distribués pour un seul duel");
+        }
+
+        [Test]
+        public void LeavingTheAppWhileSearchingTakesMyGameOutOfTheQueue()
+        {
+            var w = NewWorld();
+            var a = w.AddDevice("Max", "AAAAAA");
+            var b = w.AddDevice("Lea", "BBBBBB");
+            a.Search();
+            w.RunFor(8f);
+            Assert.AreEqual(1, w.RankedOpen.Count);
+            a.Pause();
+            w.RunFor(1f);
+            Assert.IsEmpty(w.RankedOpen, "ma partie reste proposée aux autres alors que je suis sorti de l'appli");
+            b.Search();
+            w.RunFor(6f);
+            Assert.AreNotEqual(Phase.Greeting, b.C.Current, "Lea a rejoint la partie d'un joueur absent");
+        }
+
+        [Test]
+        public void GuestWhoEntersButNeverLinksDoesNotBlockMyGame()
+        {
+            var net = NetConditions.Wifi();
+            net.NeverLink = true;
+            var w = NewWorld(net);
+            var a = w.AddDevice("Max", "AAAAAA");
+            var b = w.AddDevice("Lea", "BBBBBB");
+            var c = w.AddDevice("Tom", "CCCCCC", 9f);
+            a.Search();
+            w.RunFor(6f);
+            b.Search();
+            w.RunFor(3f);
+            w.Devices.Remove(b); // Lea entre dans la partie de Max puis disparaît (plus de batterie)
+            net.NeverLink = false;
+            Assert.True(w.RunUntil(() => a.C.Current == Phase.None || a.InMatch, 40f), "Max reste bloqué : " + a);
         }
     }
 }

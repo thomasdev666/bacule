@@ -368,9 +368,16 @@ namespace Bascule
             if (Missions.Refresh(Profile, LocalDay)) SaveProfile();
         }
 
+        bool _leaderboardInit;
+
         async void InitLeaderboard()
         {
-            if (!await Leaderboard.Service.InitializeAsync()) return;
+            if (_leaderboardInit || Leaderboard.Service.IsOnline) return;
+            _leaderboardInit = true;
+            bool ok;
+            try { ok = await Leaderboard.Service.InitializeAsync(); }
+            finally { _leaderboardInit = false; }
+            if (!ok) return;
             if (!string.IsNullOrEmpty(Profile.pseudo)) await Leaderboard.Service.SetPseudoAsync(Profile.pseudo);
             // Le record déjà fait est renvoyé à chaque lancement (le classement mondial garde le meilleur score : sans effet
             // s'il y est déjà). Sinon un joueur qui change d'appareil, réinstalle le jeu ou passe à une nouvelle
@@ -727,7 +734,10 @@ namespace Bascule
             IDuelNetwork real = new OfflineDuelNetwork();
 #endif
             // Le vrai réseau, ou un fantôme rejoué comme un adversaire (duel classé quand personne n'attend).
-            IDuelNetwork net = new DuelLink(real);
+            var link = new DuelLink(real);
+            // Le fantôme avance avec le temps de MA partie : toujours au même instant de partie que moi.
+            link.RunTime = () => Session.RunTime;
+            IDuelNetwork net = link;
             Duel = new DuelController(net, () => Tuning);
             if (net.Available) Duel.AttachView(OpponentView.Create(transform, Art, _font, Tuning));
             Duel.StartRun = seed =>
@@ -856,7 +866,13 @@ namespace Bascule
         {
             if (!DuelAvailable) { _toast.Say(Loc.Get("duel_unavailable")); return; }
             if (Duel.InDuel) return;
-            if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("ranked_offline"), 3f); return; }
+            if (!Leaderboard.Service.IsOnline)
+            {
+                // Jeu ouvert sans réseau : on retente la connexion maintenant (elle n'était essayée qu'au lancement).
+                _toast.Say(Loc.Get("ranked_offline"), 3f);
+                InitLeaderboard();
+                return;
+            }
             FinalizeRun();
             if (Session.IsRunning) { SaveRunSnapshot(); Session.SetPaused(false); Session.GoIdle(); }
             if (_league.Visible) _league.Hide();
@@ -957,8 +973,12 @@ namespace Bascule
         /// Lundi (ou plus tard) : la semaine où j'ai marqué des points est finie. On lit ma place finale dans l'archive du
         /// classement, on donne les pièces de ma division une seule fois, et on l'annonce à l'accueil.
         /// </summary>
+        bool _leagueRewardBusy;
+
         async void CheckLeagueReward()
         {
+            if (_leagueRewardBusy || !Leaderboard.Service.IsOnline) return;
+            _leagueRewardBusy = true;
             try
             {
                 string week = League.WeekKey(DateTime.UtcNow);
@@ -974,6 +994,20 @@ namespace Bascule
                 if (_home.Visible && CanShowInvite) { ShowLeagueReward(); _home.Refresh(); }
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Ligue : fin de semaine : " + e.Message); }
+            finally { _leagueRewardBusy = false; }
+        }
+
+        /// <summary>
+        /// Le classement en ligne connaît plus de points que le téléphone pour CETTE semaine (jeu réinstallé, autre
+        /// appareil) : on les reprend, sinon rien ne monterait avant de les avoir dépassés.
+        /// </summary>
+        public void AdoptLeaguePoints(int serverPoints)
+        {
+            var s = Profile.league;
+            League.Roll(s, League.WeekKey(DateTime.UtcNow));
+            if (serverPoints <= s.points) return;
+            s.points = serverPoints;
+            SaveProfile();
         }
 
         void ShowLeagueReward()
@@ -1360,11 +1394,17 @@ namespace Bascule
         {
             var o = Duel.Outcome;
             int coins;
-            if (Duel.VsGhost)
+            // Victoire « creuse » en classé : l'adversaire est parti dès le début. Ni points, ni victoire comptée.
+            bool hollow = Duel.Ranked && League.HollowWin(o, Duel.ByForfeit && o == DuelOutcome.Win, Duel.MySeconds, Tuning.league);
+            // Ce qui compte comme une vraie victoire (tête « Challenger », mission « gagner un duel ») : contre un joueur,
+            // dans un duel qui a vraiment eu lieu.
+            var counted = (Duel.VsGhost || hollow) && o == DuelOutcome.Win ? DuelOutcome.Draw : o;
+            if (Duel.VsGhost || hollow)
             {
-                // Contre un fantôme : moitié des pièces, et la victoire ne compte pas pour la tête « Challenger ».
-                coins = DuelRules.Coins(o, Tuning.duel) / 2;
+                // Contre un fantôme : moitié des pièces. Victoire creuse : les pièces d'une défaite.
+                coins = hollow ? DuelRules.Coins(DuelOutcome.Lose, Tuning.duel) : DuelRules.Coins(o, Tuning.duel) / 2;
                 Wallet.Add(Profile, coins);
+                if (hollow) Profile.duelsPlayed++;
             }
             else coins = DuelRules.Record(Profile, o, Tuning.duel);
             LastLeaguePoints = 0;
@@ -1377,7 +1417,7 @@ namespace Bascule
                 Stats.Event("ranked_end", ("outcome", o.ToString()), ("ghost", Duel.VsGhost ? 1 : 0), ("points", LastLeaguePoints), ("week_points", Profile.league.points));
             }
             Missions.Refresh(Profile, LocalDay);
-            coins += DuelRules.ApplyMissions(Profile, o, Tuning.economy, out var duelMissions);
+            coins += DuelRules.ApplyMissions(Profile, counted, Tuning.economy, out var duelMissions);
             foreach (var m in duelMissions) _toast.Reward(MetaUi.MissionIcon(m.kind), MetaUi.MissionColor(m.kind), Loc.Get("mission_title"), Loc.MissionText(m), m.reward, 2.6f);
             var heads = DuelRules.UnlockHeads(Profile);
             Duel.SetRewards(coins, heads);
@@ -2736,6 +2776,8 @@ namespace Bascule
         {
             if (!paused)
             {
+                // Réseau revenu, ou lundi passé pendant que l'appli dormait : connexion et récompense de la ligue.
+                if (!Leaderboard.Service.IsOnline) InitLeaderboard(); else CheckLeagueReward();
                 // Duel : après un passage par Snap ou Messages, la liaison avec le relais est à refaire.
                 if (_backgroundSince != DateTime.MinValue) Duel.OnAppResumed((float)(DateTime.UtcNow - _backgroundSince).TotalSeconds);
                 if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
@@ -2748,7 +2790,8 @@ namespace Bascule
                 return;
             }
             _backgroundSince = DateTime.UtcNow;
-            if (Duel.InMatch) Duel.OnAppPaused();
+            if (Duel.InDuel) Duel.OnAppPaused();
+            if (Duel.InMatch) { }
             else if (Session.IsRunning)
             {
                 SaveRunSnapshot();
