@@ -152,5 +152,29 @@
     "timeoutSeconds": 8,
     "connectSeconds": 25,
     "joinRetries": 6
+  },
+  "league": {
+    "_aide": "Duel classé (Core/League.cs, docs/LIGUES.md). Points d'un duel contre un joueur (win/draw/lose) ou un fantôme (ghost*). Divisions par place dans le classement de la semaine : Légende (legendPlaces), Élite (elitePlaces suivantes), Challenger (challengerPlaces suivantes), puis Espoir. Pièces du lundi par division. searchSeconds : recherche d'un adversaire avant de proposer un fantôme.",
+    "winPoints": 30,
+    "drawPoints": 15,
+    "losePoints": 8,
+    "ghostWinPoints": 10,
+    "ghostDrawPoints": 5,
+    "ghostLosePoints": 2,
+    "forfeitFullAfterSeconds": 15,
+    "legendPlaces": 3,
+    "elitePlaces": 7,
+    "challengerPlaces": 20,
+    "legendCoins": 500,
+    "eliteCoins": 250,
+    "challengerCoins": 100,
+    "searchSeconds": 20,
+    "quickJoinSeconds": 3,
+    "requeueMinSeconds": 2,
+    "requeueMaxSeconds": 4,
+    "linkSeconds": 12,
+    "ghostSnapshotsPerSecond": 5,
+    "ghostMinSeconds": 10,
+    "ghostMaxAgeDays": 60
   }
 }

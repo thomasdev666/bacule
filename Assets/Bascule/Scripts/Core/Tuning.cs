@@ -19,6 +19,7 @@ namespace Bascule.Core
         public AdTuning ads = new AdTuning();
         public WindTuning wind = new WindTuning();
         public DuelTuning duel = new DuelTuning();
+        public LeagueTuning league = new LeagueTuning();
 
         /// <summary>Corrige les valeurs absurdes (fichier mal édité) pour que le jeu reste jouable.</summary>
         public void Sanitize()
@@ -32,6 +33,16 @@ namespace Bascule.Core
             if (ads == null) ads = new AdTuning();
             if (wind == null) wind = new WindTuning();
             if (duel == null) duel = new DuelTuning();
+            if (league == null) league = new LeagueTuning();
+            league.legendPlaces = Math.Max(1, league.legendPlaces);
+            league.elitePlaces = Math.Max(0, league.elitePlaces);
+            league.challengerPlaces = Math.Max(0, league.challengerPlaces);
+            league.searchSeconds = Clamp(league.searchSeconds, 5f, 120f);
+            league.quickJoinSeconds = Clamp(league.quickJoinSeconds, 1f, 15f);
+            league.requeueMinSeconds = Clamp(league.requeueMinSeconds, 1.5f, 60f);
+            league.requeueMaxSeconds = Clamp(league.requeueMaxSeconds, league.requeueMinSeconds, 60f);
+            league.linkSeconds = Clamp(league.linkSeconds, 5f, 60f);
+            league.ghostSnapshotsPerSecond = Math.Max(2, Math.Min(20, league.ghostSnapshotsPerSecond));
             duel.countdownSeconds = Clamp(duel.countdownSeconds, 0f, 10f);
             duel.sensitivityMax = Clamp(duel.sensitivityMax, 1f, 3f);
             duel.gustGapMin = Clamp(duel.gustGapMin, 5f, 300f);

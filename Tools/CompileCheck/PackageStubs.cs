@@ -323,7 +323,34 @@ namespace Unity.Services.Multiplayer
         System.Threading.Tasks.Task StopAsync();
     }
     public abstract class BaseSessionOptions { }
-    public class SessionOptions : BaseSessionOptions { public bool IsPrivate { get; set; } public int MaxPlayers { get; set; } public string Name { get; set; } }
+    public class SessionOptions : BaseSessionOptions
+    {
+        public bool IsPrivate { get; set; } public int MaxPlayers { get; set; } public string Name { get; set; }
+        public System.Collections.Generic.Dictionary<string, SessionProperty> SessionProperties { get; set; }
+    }
+    // Signatures recopiées de com.unity.services.multiplayer 2.4.1 (Runtime/Unity.Services.Multiplayer.api).
+    public enum VisibilityPropertyOptions { Public = 1, Member = 2, Private = 3 }
+    public enum PropertyIndex { None = 0, String1 = 1, String2 = 2, String3 = 3, String4 = 4, String5 = 5, Number1 = 6, Number2 = 7, Number3 = 8, Number4 = 9, Number5 = 10 }
+    public class SessionProperty
+    {
+        public SessionProperty(string value, VisibilityPropertyOptions visibility = VisibilityPropertyOptions.Public, PropertyIndex index = PropertyIndex.None) { }
+    }
+    public enum FilterField { MaxPlayers = 0, AvailableSlots = 1, Name = 2, Created = 3, LastUpdated = 4, StringIndex1 = 5, StringIndex2 = 6, StringIndex3 = 7, StringIndex4 = 8, StringIndex5 = 9, NumberIndex1 = 10 }
+    public enum FilterOperation { Contains = 0, Equal = 1, NotEqual = 2, Less = 3, LessOrEqual = 4, Greater = 5, GreaterOrEqual = 6 }
+    public class FilterOption { public FilterOption(FilterField field, string value, FilterOperation operation) { } }
+    public interface ISessionInfo { string Id { get; } int AvailableSlots { get; } }
+    public class QuerySessionsOptions
+    {
+        public int Count { get; set; }
+        public System.Collections.Generic.List<FilterOption> FilterOptions { get; set; }
+    }
+    public class QuerySessionsResults { public System.Collections.Generic.IList<ISessionInfo> Sessions { get; } }
+    public class QuickJoinOptions
+    {
+        public bool CreateSession { get; set; }
+        public System.Collections.Generic.List<FilterOption> Filters { get; set; }
+        public TimeSpan Timeout { get; set; }
+    }
     public class JoinSessionOptions : BaseSessionOptions { }
     public static class SessionOptionsExtensions
     {
@@ -337,7 +364,9 @@ namespace Unity.Services.Multiplayer
         event Action<string> PlayerHasLeft;
         event Action RemovedFromSession;
         string Code { get; }
+        string Id { get; }
         bool IsHost { get; }
+        int PlayerCount { get; }
         IHostSession AsHost();
         System.Threading.Tasks.Task LeaveAsync();
     }
@@ -346,6 +375,8 @@ namespace Unity.Services.Multiplayer
     {
         System.Threading.Tasks.Task<IHostSession> CreateSessionAsync(SessionOptions sessionOptions);
         System.Threading.Tasks.Task<ISession> JoinSessionByCodeAsync(string sessionCode, JoinSessionOptions sessionOptions = default);
+        System.Threading.Tasks.Task<ISession> MatchmakeSessionAsync(QuickJoinOptions quickJoinOptions, SessionOptions sessionOptions);
+        System.Threading.Tasks.Task<QuerySessionsResults> QuerySessionsAsync(QuerySessionsOptions queryOptions);
     }
     public static class MultiplayerService { public static IMultiplayerService Instance { get; set; } }
 }

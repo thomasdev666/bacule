@@ -103,6 +103,8 @@ namespace Bascule.DuelTests
         public float PeerNoticesDeadRelay = 15f;
         /// <summary>Premières créations de partie qui échouent (serveur surchargé).</summary>
         public int CreateFailures;
+        /// <summary>Premières recherches de duel classé qui échouent.</summary>
+        public int SearchFailures;
         /// <summary>Code ami : publication et recherche (Cloud Save) (s).</summary>
         public float PublishDelay = 0.6f, QueryDelay = 0.4f;
         /// <summary>Lancement par le lien : les services sont connectés à partir de (s).</summary>
@@ -134,6 +136,8 @@ namespace Bascule.DuelTests
         public readonly Tuning Tuning = LoadTuning();
         public readonly Dictionary<string, FakeNet> Sessions = new Dictionary<string, FakeNet>();
         public readonly Dictionary<string, string> OpenDuels = new Dictionary<string, string>();
+        /// <summary>Parties classées ouvertes qui attendent un adversaire (file du duel classé).</summary>
+        public readonly List<FakeNet> RankedOpen = new List<FakeNet>();
         public readonly List<Device> Devices = new List<Device>();
         int _codes;
 
@@ -236,6 +240,7 @@ namespace Bascule.DuelTests
         public string Code { get; private set; } = "";
         public bool Linked { get; private set; }
         public bool RelayAlive => _relay;
+        public bool HasGuest => Linked || Guest != null;
         public event Action PeerLinked;
         public event Action PeerLost;
         public event Action<byte[]> Received;
@@ -310,6 +315,57 @@ namespace Bascule.DuelTests
             return null;
         }
 
+        public Task<string> QuickMatchAsync(float joinSeconds) => Serial(() => QuickMatchNow(joinSeconds));
+
+        public int YieldChecks;
+
+        public async Task<bool> ShouldYieldAsync()
+        {
+            string mine = Code;
+            YieldChecks++;
+            await W.Sim.Delay(W.Net.QueryDelay);
+            if (Code != mine || string.IsNullOrEmpty(mine) || Guest != null) return false;
+            return W.RankedOpen.Exists(h => h != this && h.RelayAlive && h.Guest == null && string.CompareOrdinal(h.Code, mine) < 0);
+        }
+
+        /// <summary>Comme le SDK : cherche une partie classée ouverte (une tentative par seconde), sinon ouvre la sienne.</summary>
+        async Task<string> QuickMatchNow(float joinSeconds)
+        {
+            await LeaveNow();
+            IsHost = false;
+            int gen = Gen;
+            await W.Sim.Delay(W.Net.SignIn);
+            if (W.Net.SearchFailures > 0) { W.Net.SearchFailures--; return "duel_search_failed"; }
+            float until = W.Sim.Now + joinSeconds;
+            while (true)
+            {
+                await W.Sim.Delay(W.Net.JoinCheck);
+                var host = W.RankedOpen.Find(h => h != this && h.RelayAlive && h.Guest == null);
+                if (host != null)
+                {
+                    Joins++;
+                    _relay = true;
+                    _host = host;
+                    Code = host.Code;
+                    host.Guest = this;
+                    W.RankedOpen.Remove(host);
+                    if (!W.Net.NeverLink) W.Sim.At(W.Sim.Now + W.Net.LinkDelay, () => W.TryLink(host, this, gen));
+                    await W.Sim.Delay(Math.Max(0f, W.Net.JoinReturn - W.Net.JoinCheck));
+                    return null;
+                }
+                if (W.Sim.Now >= until) break;
+                await W.Sim.Delay(1f);
+            }
+            await W.Sim.Delay(W.Net.Create);
+            IsHost = true;
+            _relay = true;
+            Code = W.NewCode();
+            W.Sessions[Code] = this;
+            W.RankedOpen.Add(this);
+            Created++;
+            return null;
+        }
+
         public Task LeaveAsync() => Serial(async () => { await LeaveNow(); return true; });
 
         async Task LeaveNow()
@@ -324,6 +380,7 @@ namespace Bascule.DuelTests
             _peer = _offer = _host = null;
             Guest = null;
             Code = "";
+            W.RankedOpen.Remove(this);
             _relay = false;
             _inbox.Clear();
             float lag = W.Lag();
@@ -492,6 +549,9 @@ namespace Bascule.DuelTests
         public readonly List<string> Notices = new List<string>();
         public readonly List<DuelController.Phase> Phases = new List<DuelController.Phase>();
         public int Results;
+        public readonly DuelLink Link;
+        public readonly List<GhostRecording> Recordings = new List<GhostRecording>();
+        public int NoOpponent;
         public bool Paused { get; private set; }
         float _pausedAt;
 
@@ -501,7 +561,11 @@ namespace Bascule.DuelTests
             Name = name;
             FriendCode = friendCode;
             Net = new FakeNet(w, name);
-            C = new DuelController(Net, () => w.Tuning);
+            Link = new DuelLink(Net);
+            C = new DuelController(Link, () => w.Tuning);
+            C.Rand = () => (float)w.Rng.NextDouble();
+            C.Recorded += r => Recordings.Add(r);
+            C.NoOpponent += () => NoOpponent++;
             Game.C = C;
             C.AttachView(View);
             C.StartRun = seed => Game.Start(seed);
@@ -529,6 +593,7 @@ namespace Bascule.DuelTests
         public DuelHello Hello => new DuelHello { Name = Name, Head = 3, Plank = 1 };
 
         public void Host() => C.Host(Hello);
+        public void Search() => C.FindMatch(Hello);
         public void Join(string code) => C.Join(Hello, code);
 
         /// <summary>L'appli passe en arrière-plan (Snap, Messages, Centre de contrôle) : plus d'image ici.</summary>

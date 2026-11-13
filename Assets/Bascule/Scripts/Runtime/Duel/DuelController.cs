@@ -26,7 +26,8 @@ namespace Bascule.Duel
     /// </summary>
     public sealed class DuelController
     {
-        public enum Phase { None, Connecting, Hosting, Greeting, Countdown, Playing, LastWeight, Waiting, Results }
+        /// <summary>Searching (1.5) : duel classé, on cherche un adversaire (partie ouverte rejointe, ou la sienne qui attend).</summary>
+        public enum Phase { None, Connecting, Hosting, Greeting, Countdown, Playing, LastWeight, Waiting, Results, Searching }
 
         readonly IDuelNetwork _net;
         readonly Func<Tuning> _tuning;
@@ -118,6 +119,137 @@ namespace Bascule.Duel
         public event Action TimeUpEvent;
 
         DuelTuning T => _tuning().duel;
+        LeagueTuning L => _tuning().league;
+
+        // ------------------------------------------------------------------ Duel classé (1.5)
+
+        /// <summary>Duel classé : adversaire trouvé par le jeu (ou fantôme), qui rapporte des points de ligue. Pas de revanche.</summary>
+        public bool Ranked { get; private set; }
+        /// <summary>L'adversaire est un fantôme (la partie enregistrée d'un joueur).</summary>
+        public bool VsGhost { get; private set; }
+        /// <summary>J'ai abandonné ou quitté (aucun point).</summary>
+        public bool IForfeited => _iForfeit;
+        /// <summary>Recherche terminée sans personne (GameApp propose alors un fantôme).</summary>
+        public event Action NoOpponent;
+        /// <summary>Ma partie classée vient de finir : son enregistrement (à publier comme fantôme s'il est complet).</summary>
+        public event Action<GhostRecording> Recorded;
+        /// <summary>Tirage entre 0 et 1 (remplacé par une suite fixe dans les simulations).</summary>
+        public Func<float> Rand = () => (float)_random.NextDouble();
+        static readonly System.Random _random = new System.Random();
+        readonly GhostRecorder _recorder = new GhostRecorder();
+        float _searchStarted, _requeueAt, _guestSince = -1f;
+        /// <summary>Temps de recherche écoulé (s) et temps maximal, pour l'écran d'attente.</summary>
+        public float SearchElapsed => Current == Phase.Searching ? Time.unscaledTime - _searchStarted : 0f;
+        public float SearchLimit => L.searchSeconds;
+
+        /// <summary>« Duel classé » : cherche un adversaire, sans code. Au bout de searchSeconds sans personne : NoOpponent.</summary>
+        public void FindMatch(DuelHello me)
+        {
+            if (Current != Phase.None) return;
+            Reset(me);
+            Ranked = true;
+            _searchStarted = Time.unscaledTime;
+            int op = ++_op;
+            Current = Phase.Searching;
+            Changed?.Invoke();
+            _ = SearchNow(op);
+        }
+
+        /// <summary>
+        /// Rejoint une partie classée qui attend, sinon ouvre la mienne. Dans la mienne, si personne ne vient avant un
+        /// temps tiré au hasard, je la referme et je cherche à nouveau (Tick) : deux joueurs arrivés en même temps, chacun
+        /// dans sa partie, finissent ainsi par se trouver.
+        /// </summary>
+        async System.Threading.Tasks.Task SearchNow(int op)
+        {
+            _isHost = false;
+            _requeueAt = 0f;
+            _guestSince = -1f;
+            // Temps de recherche tiré au hasard : de deux joueurs arrivés ensemble, l'un ouvre sa partie avant l'autre,
+            // qui la trouve en cherchant encore.
+            string error = await _net.QuickMatchAsync(L.quickJoinSeconds * (0.6f + 1.4f * Mathf.Max(0f, Rand())));
+            if (op != _op) return;
+            if (error != null)
+            {
+                if (error == "duel_unavailable") { Fail(error); return; }
+                // Serveur injoignable un instant : on réessaie tant que la recherche dure (Tick l'arrête à searchSeconds).
+                await Delay(2000);
+                if (op != _op || Current != Phase.Searching) return;
+                await SearchNow(op);
+                return;
+            }
+            if (Current != Phase.Searching) return;
+            _isHost = _net.IsHost;
+            if (_isHost)
+            {
+                _requeueAt = Time.unscaledTime + L.requeueMinSeconds + (L.requeueMaxSeconds - L.requeueMinSeconds) * Mathf.Max(0f, Rand());
+                if (_net.Linked) OnLinked();
+            }
+            else
+            {
+                // Partie trouvée : on attend la liaison avec ce joueur, puis son départ.
+                Current = Phase.Greeting;
+                _lastHeard = Time.unscaledTime;
+                Changed?.Invoke();
+                if (_net.Linked && Them == null) OnLinked();
+            }
+        }
+
+        /// <summary>
+        /// J'attends dans ma partie ouverte. Si un autre joueur attend dans la sienne et qu'elle passe avant la mienne (même
+        /// règle pour tous), je referme la mienne et je le rejoins ; sinon je reste, et lui viendra.
+        /// </summary>
+        async System.Threading.Tasks.Task CheckYield(int op)
+        {
+            bool yield = false;
+            try { yield = await _net.ShouldYieldAsync(); }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Duel classé : " + e.Message); }
+            if (op != _op || Current != Phase.Searching || !_isHost || _net.Linked || _net.HasGuest) return;
+            if (yield) { int next = ++_op; await SearchNow(next); }
+            else _requeueAt = Time.unscaledTime + L.requeueMinSeconds + (L.requeueMaxSeconds - L.requeueMinSeconds) * Mathf.Max(0f, Rand());
+        }
+
+        /// <summary>L'adversaire trouvé n'est finalement pas là (liaison jamais faite, ou perdue avant le départ) : on en cherche un autre.</summary>
+        void SearchAgain()
+        {
+            Them = null;
+            TheirName = "";
+            _helloAt = -1f;
+            int op = ++_op;
+            Current = Phase.Searching;
+            Changed?.Invoke();
+            _ = SearchNow(op);
+        }
+
+        /// <summary>
+        /// Duel classé contre un fantôme : la partie enregistrée d'un joueur, rejouée avec sa graine (mêmes poids et mêmes
+        /// rafales pour moi, aux mêmes instants). Le fantôme tient le rôle de l'hôte : il se présente et donne le départ.
+        /// </summary>
+        public bool StartGhost(DuelHello me, GhostRecording ghost)
+        {
+            var link = _net as DuelLink;
+            if (Current != Phase.None || ghost == null || link == null) return false;
+            Reset(me);
+            Ranked = true;
+            VsGhost = true;
+            ++_op;
+            link.UseGhost(ghost, T.finalWindowSeconds);
+            Current = Phase.Greeting;
+            _lastHeard = Time.unscaledTime;
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Ma partie classée est finie : l'enregistrement part (GameApp le publie s'il est complet).</summary>
+        void EndRecording()
+        {
+            if (!_recorder.Active) return;
+            float end = RunTime != null ? RunTime() : 0f;
+            DuelSnapshot last = null;
+            if (Capture != null) { Capture(_out); last = _out; }
+            var rec = _recorder.End((uint)Mathf.Max(0f, end * 1000f), _myScore, _mySurvivedMs, last);
+            if (rec != null) Recorded?.Invoke(rec);
+        }
 
         public DuelController(IDuelNetwork net, Func<Tuning> tuning)
         {
@@ -280,7 +412,15 @@ namespace Bascule.Duel
                 return;
             }
             _lastHeard = now;
-            if (_net.Linked || Current == Phase.Results) return;
+            if (Current == Phase.Results) return;
+            if (Ranked && !VsGhost)
+            {
+                // Recherche interrompue par un passage hors de l'appli : on repart sur une recherche neuve.
+                bool waiting = Current == Phase.Searching || (Current == Phase.Greeting && Them == null && !_net.Linked);
+                if (waiting && pausedSeconds >= 3f) { _searchStarted = now; SearchAgain(); }
+                return;
+            }
+            if (_net.Linked) return;
             if (_isHost && Current == Phase.Hosting)
             {
                 if (pausedSeconds < 3f) return;
@@ -336,6 +476,11 @@ namespace Bascule.Duel
             _wantRematch = _theyWantRematch = false;
             _rejoining = _rehosting = false;
             _helloAt = -1f;
+            _joinInput = ""; // jamais de nouvel essai vers le code d'un duel précédent
+            Ranked = false;
+            VsGhost = false;
+            _isHost = false;
+            _requeueAt = 0f;
             ResetMatch();
         }
 
@@ -346,6 +491,7 @@ namespace Bascule.Duel
             _mySurvivedMs = _theirSurvivedMs = 0;
             _myFinished = _theirFinished = _forfeit = _iForfeit = _finishAsked = false;
             TimeUp = false;
+            _recorder.Cancel();
             _runStarted = false;
             _goRunTime = 0f;
             _buffer.Clear();
@@ -400,6 +546,7 @@ namespace Bascule.Duel
             else
             {
                 _iForfeit = true;
+                _recorder.Cancel();
                 _myFall = _myFall ?? (RunTime != null ? RunTime() : 0f);
                 _myScore = Score != null ? Score() : _myScore;
                 _theirFall = null;
@@ -414,7 +561,7 @@ namespace Bascule.Duel
         void OnLinked()
         {
             _lastHeard = Time.unscaledTime;
-            if (Current == Phase.Hosting) { Current = Phase.Greeting; Changed?.Invoke(); }
+            if (Current == Phase.Hosting || (Current == Phase.Searching && _isHost)) { Current = Phase.Greeting; Changed?.Invoke(); }
             _net.Send(DuelProtocol.Hello(Me), true);
         }
 
@@ -434,6 +581,9 @@ namespace Bascule.Duel
         {
             switch (Current)
             {
+                case Phase.Searching:
+                    // Recherche en cours : une ancienne partie qui se referme ne change rien.
+                    break;
                 case Phase.Hosting:
                     // L'hôte attend son ami : un essai raté de l'ami ne ferme pas la partie, il peut revenir.
                     if (_isHost) break;
@@ -441,6 +591,8 @@ namespace Bascule.Duel
                     break;
                 case Phase.Connecting:
                 case Phase.Greeting:
+                    // Duel classé : l'adversaire trouvé a disparu avant le départ, on en cherche un autre.
+                    if (Ranked && !VsGhost && Current == Phase.Greeting) { SearchAgain(); break; }
                     if (_isHost)
                     {
                         // Création en cours : le garde-fou de « Connexion… » s'en occupe.
@@ -500,7 +652,7 @@ namespace Bascule.Duel
                     TheirName = DuelRules.CleanName(Them.Name, Loc.Get("duel_friend"));
                     // Hôte : la présentation de l'ami suffit à passer aux présentations, même si l'annonce de la liaison
                     // s'est perdue (ami reconnecté) ; le départ est donné un instant après (Tick).
-                    if (_isHost && (Current == Phase.Hosting || Current == Phase.Greeting))
+                    if (_isHost && (Current == Phase.Hosting || Current == Phase.Greeting || Current == Phase.Searching))
                     {
                         Current = Phase.Greeting;
                         if (_helloAt < 0f) _helloAt = Time.unscaledTime;
@@ -545,6 +697,7 @@ namespace Bascule.Duel
                     if (_myFinished) Decide();
                     break;
                 case DuelMsg.Rematch:
+                    if (Ranked) break; // pas de revanche en classé : un autre adversaire à chaque duel
                     _theyWantRematch = true;
                     if (Current == Phase.Results && _wantRematch && _isHost) StartMatch(GameRng.RandomSeed());
                     else Changed?.Invoke();
@@ -574,6 +727,8 @@ namespace Bascule.Duel
             Countdown = countdown;
             Current = Phase.Countdown;
             _lastHeard = Time.unscaledTime;
+            // Duel classé : ma partie est enregistrée (elle deviendra peut-être mon fantôme).
+            if (Ranked) _recorder.Begin(seed, countdown, Me, L.ghostSnapshotsPerSecond);
             _view?.Begin(Them != null ? Them.Head : 0, Them != null ? Them.Plank : 0);
             Changed?.Invoke();
         }
@@ -588,6 +743,12 @@ namespace Bascule.Duel
             _myFall = RunTime != null ? RunTime() : 0f;
             _myScore = Score != null ? Score() : 0;
             _net.Send(DuelProtocol.Fell((uint)Mathf.Max(0f, _myFall.Value * 1000f), _myScore), true);
+            if (_recorder.Active)
+            {
+                DuelSnapshot at = null;
+                if (Capture != null) { Capture(_out); at = _out; }
+                _recorder.Fell((uint)Mathf.Max(0f, _myFall.Value * 1000f), _myScore, at);
+            }
         }
 
         /// <summary>Ma partie est terminée (chute finie, ou bras levés après le dernier poids).</summary>
@@ -598,6 +759,7 @@ namespace Bascule.Duel
             _myScore = r.Score;
             _mySurvivedMs = (uint)Mathf.Max(0f, ((_myFall ?? r.Seconds) - _goRunTime) * 1000f);
             _net.Send(DuelProtocol.Finished(_myScore, _mySurvivedMs), true);
+            EndRecording();
             if (_theirFinished) { Decide(); return; }
             Current = Phase.Waiting;
             _waitTimer = 0f;
@@ -618,6 +780,7 @@ namespace Bascule.Duel
             _myScore = Score != null ? Score() : _myScore;
             _mySurvivedMs = (uint)Mathf.Max(0f, Elapsed * 1000f);
             _net.Send(DuelProtocol.Finished(_myScore, _mySurvivedMs), true);
+            EndRecording();
             if (_theirFinished) { Decide(); return; }
             Current = Phase.Waiting;
             _waitTimer = 0f;
@@ -627,6 +790,7 @@ namespace Bascule.Duel
         void Decide()
         {
             if (Current == Phase.Results) return;
+            _recorder.Cancel(); // partie conclue autrement (abandon, adversaire parti) : pas de fantôme
             if (_iForfeit) Outcome = DuelOutcome.Lose;
             else if (_forfeit) Outcome = DuelOutcome.Win;
             else Outcome = DuelRules.Decide(_myFall, _theirFall, _myScore, _theirScore, T);
@@ -643,7 +807,7 @@ namespace Bascule.Duel
 
         public void AskRematch()
         {
-            if (Current != Phase.Results || _wantRematch) return;
+            if (Current != Phase.Results || _wantRematch || Ranked) return;
             if (!_net.Linked) { Notice?.Invoke("duel_they_left"); return; }
             _wantRematch = true;
             _net.Send(DuelProtocol.Simple(DuelMsg.Rematch), true);
@@ -665,14 +829,44 @@ namespace Bascule.Duel
                 Fail(_isHost ? "duel_create_failed" : "duel_join_failed");
                 return;
             }
+            // Duel classé : recherche d'un adversaire.
+            if (Current == Phase.Searching)
+            {
+                // Quelqu'un vient d'entrer dans ma partie : on lui laisse le temps de se relier (pas de fermeture ni
+                // d'abandon de la recherche pendant ce temps).
+                bool guest = _isHost && _net.HasGuest;
+                if (!guest) _guestSince = -1f;
+                else if (_guestSince < 0f) _guestSince = now;
+                bool arriving = guest && now - _guestSince < L.linkSeconds;
+                if (now - _searchStarted > L.searchSeconds && !arriving)
+                {
+                    // Personne : on arrête, GameApp propose un fantôme.
+                    _op++;
+                    Current = Phase.None;
+                    _ = _net.LeaveAsync();
+                    Changed?.Invoke();
+                    NoOpponent?.Invoke();
+                    return;
+                }
+                if (_isHost && _requeueAt > 0f && now >= _requeueAt && !_net.Linked && !guest)
+                {
+                    // Personne n'est venu dans ma partie : un autre joueur attend-il dans la sienne ?
+                    _requeueAt = 0f;
+                    _ = CheckYield(_op);
+                }
+                return;
+            }
             // Hôte : l'ami s'est présenté, départ un instant après.
-            if (_isHost && Current == Phase.Greeting && Them != null && _helloAt >= 0f && now - _helloAt >= StartDelaySeconds)
-                StartMatch(GameRng.RandomSeed());
+            if (_isHost && Current == Phase.Greeting && Them != null)
+            {
+                if (_helloAt < 0f) _helloAt = now;
+                else if (now - _helloAt >= StartDelaySeconds) StartMatch(GameRng.RandomSeed());
+            }
 
             // Plus de nouvelles : l'adversaire est parti.
             bool linkedPhase = Current != Phase.Connecting && Current != Phase.Hosting && !(Current == Phase.Results);
             // Tant que l'ami ne s'est pas présenté, la liaison par le relais peut prendre plusieurs secondes (4G).
-            float limit = Current == Phase.Greeting && Them == null ? Mathf.Max(T.timeoutSeconds, T.connectSeconds) : T.timeoutSeconds;
+            float limit = Current == Phase.Greeting && Them == null ? (Ranked ? L.linkSeconds : Mathf.Max(T.timeoutSeconds, T.connectSeconds)) : T.timeoutSeconds;
             if (linkedPhase && now - _lastHeard > limit) { _lastHeard = now; Gone(); }
 
             switch (Current)
@@ -730,6 +924,7 @@ namespace Bascule.Duel
                     if (_sendTimer < 0f) _sendTimer = 0f;
                     Capture(_out);
                     _net.Send(DuelProtocol.Snapshot(_out), false);
+                    if (_recorder.Active && !_myFinished) _recorder.Add(_out);
                 }
             }
 

@@ -64,6 +64,8 @@ namespace Bascule.Core
         /// <summary>Duels en temps réel joués et gagnés (tête « Challenger » à 15 victoires).</summary>
         public int duelsPlayed;
         public int duelWins;
+        /// <summary>1.5 : duel classé (points de la semaine, division, récompense du lundi). Core/League.cs.</summary>
+        public LeagueState league = new LeagueState();
         /// <summary>La demande d'autorisation des notifications a déjà été faite.</summary>
         public bool notificationsAsked;
         /// <summary>La demande de note sur le store a déjà été faite ; nombre de demandes et jour de la dernière (iPhone : 3 au plus).</summary>
@@ -119,6 +121,8 @@ namespace Bascule.Core
             if (updateAskDay == null) updateAskDay = "";
             if (unlockedHeads == null) unlockedHeads = new List<int>();
             if (redeemedCodes == null) redeemedCodes = new List<string>();
+            if (league == null) league = new LeagueState();
+            league.Sanitize();
             if (ownedPlanks == null) ownedPlanks = new List<int>();
             if (!ownedPlanks.Contains(0)) ownedPlanks.Add(0);
             if (!ownedPlanks.Contains(selectedPlank)) selectedPlank = 0;

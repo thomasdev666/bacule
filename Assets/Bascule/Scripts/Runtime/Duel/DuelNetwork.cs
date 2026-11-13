@@ -20,6 +20,8 @@ namespace Bascule.Duel
         bool Linked { get; }
         /// <summary>La liaison avec le relais est encore valable (après un passage en arrière-plan, elle peut avoir expiré).</summary>
         bool RelayAlive { get; }
+        /// <summary>Un autre joueur est entré dans ma partie (la liaison directe peut encore être en train de se faire).</summary>
+        bool HasGuest { get; }
         event Action PeerLinked;
         event Action PeerLost;
         event Action<byte[]> Received;
@@ -27,6 +29,17 @@ namespace Bascule.Duel
         Task<string> HostAsync();
         /// <summary>Rejoint la partie d'un ami ; renvoie null si c'est réussi, sinon la clé du message d'erreur.</summary>
         Task<string> JoinAsync(string code);
+        /// <summary>
+        /// Duel classé : rejoint une partie ouverte qui attend un adversaire (cherchée pendant <paramref name="joinSeconds"/>),
+        /// sinon ouvre la sienne. IsHost dit ensuite lequel des deux. Null si c'est réussi, sinon la clé du message d'erreur.
+        /// </summary>
+        Task<string> QuickMatchAsync(float joinSeconds);
+        /// <summary>
+        /// J'attends dans ma partie classée ouverte : une AUTRE partie ouverte passe-t-elle avant la mienne ? Si oui, je
+        /// referme la mienne et je la rejoins. La règle est la même pour tous (ordre des identifiants) : de deux joueurs
+        /// qui attendent chacun dans sa partie, un seul cède, et ils se trouvent.
+        /// </summary>
+        Task<bool> ShouldYieldAsync();
         void Send(byte[] data, bool reliable);
         /// <summary>À appeler à chaque image (réception, connexions).</summary>
         void Tick();
@@ -41,14 +54,94 @@ namespace Bascule.Duel
         public string Code => "";
         public bool Linked => false;
         public bool RelayAlive => false;
+        public bool HasGuest => false;
         public event Action PeerLinked { add { } remove { } }
         public event Action PeerLost { add { } remove { } }
         public event Action<byte[]> Received { add { } remove { } }
         public Task<string> HostAsync() => Task.FromResult("duel_unavailable");
         public Task<string> JoinAsync(string code) => Task.FromResult("duel_unavailable");
+        public Task<string> QuickMatchAsync(float joinSeconds) => Task.FromResult("duel_unavailable");
+        public Task<bool> ShouldYieldAsync() => Task.FromResult(false);
         public void Send(byte[] data, bool reliable) { }
         public void Tick() { }
         public Task LeaveAsync() => Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Réseau du duel vu par le contrôleur : le vrai (relais de Unity) ou, pour un duel contre un fantôme, la partie
+    /// enregistrée d'un joueur rejouée comme s'il était là (Core.GhostPlayback). Le contrôleur ne voit pas la différence :
+    /// mêmes messages, mêmes règles.
+    /// </summary>
+    public sealed class DuelLink : IDuelNetwork
+    {
+        readonly IDuelNetwork _real;
+        Bascule.Core.GhostPlayback _ghost;
+        readonly System.Collections.Generic.List<byte[]> _out = new System.Collections.Generic.List<byte[]>();
+        float _lastTick;
+        bool _ghostLinked;
+
+        public DuelLink(IDuelNetwork real)
+        {
+            _real = real;
+            _real.PeerLinked += () => { if (_ghost == null) PeerLinked?.Invoke(); };
+            _real.PeerLost += () => { if (_ghost == null) PeerLost?.Invoke(); };
+            _real.Received += d => { if (_ghost == null) Received?.Invoke(d); };
+        }
+
+        /// <summary>Un duel contre un fantôme est en cours.</summary>
+        public bool Ghost => _ghost != null;
+        public bool Available => _real.Available;
+        public bool IsHost => _ghost == null && _real.IsHost;
+        public string Code => _ghost == null ? _real.Code : "";
+        public bool Linked => _ghost != null ? _ghostLinked : _real.Linked;
+        public bool RelayAlive => _ghost != null || _real.RelayAlive;
+        public bool HasGuest => _ghost == null && _real.HasGuest;
+        public event Action PeerLinked;
+        public event Action PeerLost;
+        public event Action<byte[]> Received;
+
+        /// <summary>Commence un duel contre ce fantôme (la liaison « arrive » à la prochaine image).</summary>
+        public void UseGhost(Bascule.Core.GhostRecording recording, float finalWindowSeconds)
+        {
+            _ghost = new Bascule.Core.GhostPlayback(recording, finalWindowSeconds);
+            _ghostLinked = false;
+            _lastTick = Time.unscaledTime;
+        }
+
+        public Task<string> HostAsync() { _ghost = null; return _real.HostAsync(); }
+        public Task<string> JoinAsync(string code) { _ghost = null; return _real.JoinAsync(code); }
+        public Task<string> QuickMatchAsync(float joinSeconds) { _ghost = null; return _real.QuickMatchAsync(joinSeconds); }
+        public Task<bool> ShouldYieldAsync() => _ghost != null ? Task.FromResult(false) : _real.ShouldYieldAsync();
+
+        public void Send(byte[] data, bool reliable)
+        {
+            if (_ghost == null) { _real.Send(data, reliable); return; }
+            // Le fantôme n'écoute qu'une chose : ma chute (il lève alors les bras après la fenêtre du dernier poids).
+            if (Bascule.Core.DuelProtocol.Kind(data) == Bascule.Core.DuelMsg.Fell) _ghost.PlayerFell();
+        }
+
+        public void Tick()
+        {
+            if (_ghost == null) { _real.Tick(); return; }
+            float now = Time.unscaledTime;
+            float dt = Mathf.Max(0f, now - _lastTick);
+            _lastTick = now;
+            if (!_ghostLinked) { _ghostLinked = true; PeerLinked?.Invoke(); return; }
+            _out.Clear();
+            var ghost = _ghost;
+            ghost.Advance(dt, _out);
+            foreach (var packet in _out)
+            {
+                if (_ghost != ghost) break; // duel quitté pendant la remise des messages
+                Received?.Invoke(packet);
+            }
+        }
+
+        public Task LeaveAsync()
+        {
+            if (_ghost != null) { _ghost = null; _ghostLinked = false; return Task.CompletedTask; }
+            return _real.LeaveAsync();
+        }
     }
 
 #if BASCULE_MULTIPLAYER
@@ -68,6 +161,7 @@ namespace Bascule.Duel
         public string Code { get; private set; } = "";
         public bool Linked => _link != null && _link.Linked;
         public bool RelayAlive => _link != null && _link.RelayAlive;
+        public bool HasGuest => Linked || (_session != null && _session.PlayerCount > 1);
         public event Action PeerLinked;
 
         /// <summary>
@@ -223,6 +317,82 @@ namespace Bascule.Duel
                 // Code faux, partie pleine ou terminée : on le dit simplement.
                 return "duel_join_failed";
             }
+        }
+
+        /// <summary>
+        /// Étiquette des parties classées ouvertes (propriété indexée de la session). Elle porte la version du protocole :
+        /// deux versions du jeu qui ne se comprendraient pas ne sont jamais mises ensemble.
+        /// </summary>
+        public static readonly string RankedTag = "classe-p" + Bascule.Core.DuelProtocol.Version;
+
+        public Task<string> QuickMatchAsync(float joinSeconds) => Serial(() => QuickMatchNow(joinSeconds));
+
+        async Task<string> QuickMatchNow(float joinSeconds)
+        {
+            await LeaveNow();
+            IsHost = false;
+            var err = await SignInAsync();
+            if (err != null) return err;
+            try
+            {
+                _link = NewLink();
+                // Partie publique pour deux : trouvée par les autres joueurs qui cherchent (sans code), sinon créée.
+                var options = new Unity.Services.Multiplayer.SessionOptions
+                {
+                    MaxPlayers = 2, IsPrivate = false, Name = "Bascule classe",
+                    SessionProperties = new System.Collections.Generic.Dictionary<string, Unity.Services.Multiplayer.SessionProperty>
+                    {
+                        { "mode", new Unity.Services.Multiplayer.SessionProperty(RankedTag, Unity.Services.Multiplayer.VisibilityPropertyOptions.Public, Unity.Services.Multiplayer.PropertyIndex.String1) },
+                    },
+                };
+                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithRelayNetwork(options,
+                    new Unity.Services.Multiplayer.RelayNetworkOptions(Unity.Services.Multiplayer.RelayProtocol.WSS, RelayRegion));
+                options = Unity.Services.Multiplayer.SessionOptionsExtensions.WithNetworkHandler(options, _link);
+                var quick = new Unity.Services.Multiplayer.QuickJoinOptions
+                {
+                    CreateSession = true,
+                    Timeout = TimeSpan.FromSeconds(Math.Max(1f, joinSeconds)),
+                    Filters = new System.Collections.Generic.List<Unity.Services.Multiplayer.FilterOption>
+                    {
+                        new Unity.Services.Multiplayer.FilterOption(Unity.Services.Multiplayer.FilterField.StringIndex1, RankedTag, Unity.Services.Multiplayer.FilterOperation.Equal),
+                    },
+                };
+                var session = await Unity.Services.Multiplayer.MultiplayerService.Instance.MatchmakeSessionAsync(quick, options);
+                Watch(session);
+                IsHost = session.IsHost;
+                Code = session.Code ?? "";
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Bascule] Duel classé : recherche impossible : " + e.Message);
+                await LeaveNow();
+                return "duel_search_failed";
+            }
+        }
+
+        public async Task<bool> ShouldYieldAsync()
+        {
+            var mine = _session;
+            if (mine == null || !mine.IsHost || mine.PlayerCount > 1) return false;
+            try
+            {
+                var query = new Unity.Services.Multiplayer.QuerySessionsOptions
+                {
+                    Count = 20,
+                    FilterOptions = new System.Collections.Generic.List<Unity.Services.Multiplayer.FilterOption>
+                    {
+                        new Unity.Services.Multiplayer.FilterOption(Unity.Services.Multiplayer.FilterField.StringIndex1, RankedTag, Unity.Services.Multiplayer.FilterOperation.Equal),
+                        new Unity.Services.Multiplayer.FilterOption(Unity.Services.Multiplayer.FilterField.AvailableSlots, "0", Unity.Services.Multiplayer.FilterOperation.Greater),
+                    },
+                };
+                var found = await Unity.Services.Multiplayer.MultiplayerService.Instance.QuerySessionsAsync(query);
+                if (_session != mine || found == null || found.Sessions == null) return false;
+                foreach (var other in found.Sessions)
+                    if (other != null && !string.IsNullOrEmpty(other.Id) && other.Id != mine.Id && string.CompareOrdinal(other.Id, mine.Id) < 0) return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Duel classé : liste des parties : " + e.Message); }
+            return false;
         }
 
         void Watch(Unity.Services.Multiplayer.ISession session)
