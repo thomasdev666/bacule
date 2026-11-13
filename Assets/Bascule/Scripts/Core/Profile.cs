@@ -108,9 +108,15 @@ namespace Bascule.Core
         public WheelState wheel = new WheelState();
         /// <summary>Parties restantes avec les pièces doublées (lot de la roue). Ne change jamais le score.</summary>
         public int coinBoostGames;
+        /// <summary>Mise à jour conseillée (Core/AppUpdate.cs) : version proposée, nombre de fois, dernier jour.</summary>
+        public string updateAskVersion = "";
+        public int updateAsks;
+        public string updateAskDay = "";
 
         public void Sanitize()
         {
+            if (updateAskVersion == null) updateAskVersion = "";
+            if (updateAskDay == null) updateAskDay = "";
             if (unlockedHeads == null) unlockedHeads = new List<int>();
             if (redeemedCodes == null) redeemedCodes = new List<string>();
             if (ownedPlanks == null) ownedPlanks = new List<int>();

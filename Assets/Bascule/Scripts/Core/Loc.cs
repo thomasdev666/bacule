@@ -513,6 +513,9 @@ namespace Bascule.Core
             ["notifications"] = new[] { "Rappels", "Reminders" },
 
             // Note sur le store
+            ["update_title"] = new[] { "Nouvelle version !", "New version!" },
+            ["update_body"] = new[] { "Bascule {0} est disponible : mets à jour pour avoir toutes les nouveautés !", "Bascule {0} is out: update to get everything new!" },
+            ["update_yes"] = new[] { "Mettre à jour", "Update" },
             ["rate_title"] = new[] { "Tu aimes Bascule ?", "Enjoying Bascule?" },
             ["rate_body"] = new[] { "Une petite note sur le store aide énormément le jeu à se faire connaître. Merci !", "A quick rating on the store helps the game a lot. Thank you!" },
             ["rate_yes"] = new[] { "Oui, je note !", "Yes, rate it!" },

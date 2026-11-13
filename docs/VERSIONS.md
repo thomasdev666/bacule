@@ -5,6 +5,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 ## 1.4.1 (build 9) – à sortir quand on veut, rien d'urgent
 - **Classements** : la 1.4 lisait `bascule_monde` / `bascule_jour` alors que la version publiée avant écrivait dans `bascule_monde_s2` / `bascule_jour_s2`. Corrigé sans mise à jour le 13/11/2026 : records des 48 joueurs copiés dans les classements de la 1.4 (`Tools/copy_leaderboards.py`). Les noms restent ceux de la 1.4.
 - **Record renvoyé à chaque lancement** : un joueur qui met à jour, réinstalle ou change d'iPhone apparaît tout de suite, sans rejouer. Scores en attente sous les noms `_s2` envoyés aux classements actuels.
+- **Mise à jour conseillée** (`Core/AppUpdate.cs`) : quelques secondes après le lancement, le jeu lit la version en ligne sur l'App Store (recherche publique d'Apple). Si elle est plus récente, l'accueil affiche « Nouvelle version ! » avec « Mettre à jour » (page de l'App Store) et « Plus tard ». Jamais obligatoire, jamais pendant une partie ni au premier lancement, au plus une fois par jour et 3 fois par version. Ne marche qu'à partir des joueurs qui ont la 1.4.1.
 - Version 1.4.1, build iOS 9, version Android 41.
 
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)

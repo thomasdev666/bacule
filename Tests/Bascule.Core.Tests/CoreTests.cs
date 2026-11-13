@@ -1130,6 +1130,44 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class AppUpdateTests
+    {
+        [Test]
+        public void VersionsAreComparedNumberByNumber()
+        {
+            Assert.AreEqual(1, AppUpdate.Compare("1.4.1", "1.4"));
+            Assert.AreEqual(0, AppUpdate.Compare("1.4", "1.4.0"));
+            Assert.AreEqual(1, AppUpdate.Compare("1.10", "1.9"));
+            Assert.AreEqual(-1, AppUpdate.Compare("1.2", "1.4"));
+            Assert.AreEqual(0, AppUpdate.Compare("abc", "1.4")); // illisible : jamais de fenêtre
+        }
+
+        [Test]
+        public void UpdateIsSuggestedOncePerDayAtMostThreeTimesPerVersion()
+        {
+            var p = new Profile { gamesPlayed = 5 };
+            Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "1.4.1", "2026-11-13"), "même version");
+            Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "1.4", "2026-11-13"), "le store est derrière (vérification Apple)");
+            Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "", "2026-11-13"), "version du store inconnue");
+            string[] days = { "2026-11-13", "2026-11-14", "2026-11-15" };
+            foreach (var d in days)
+            {
+                Assert.IsTrue(AppUpdate.ShouldSuggest(p, "1.4.1", "1.5", d), d);
+                AppUpdate.MarkSuggested(p, "1.5", d);
+                Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "1.5", d), "une fois par jour");
+            }
+            Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "1.5", "2026-11-20"), "trois fois maximum");
+            Assert.IsTrue(AppUpdate.ShouldSuggest(p, "1.4.1", "1.6", "2026-11-20"), "nouvelle version : on repart à zéro");
+        }
+
+        [Test]
+        public void NewPlayerIsNeverAskedToUpdate()
+        {
+            var p = new Profile();
+            Assert.IsFalse(AppUpdate.ShouldSuggest(p, "1.4.1", "1.5", "2026-11-13"));
+        }
+    }
+
     public class UpdateKeepsSavesTests
     {
         [Test]

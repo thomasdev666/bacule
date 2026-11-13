@@ -255,6 +255,7 @@ namespace Bascule
 
             NewDayCheck();
             StartCoroutine(WarmUp());
+            StartCoroutine(CheckStoreVersion());
             Stats.Event("app_open", ("day", Profile.daysPlayed), ("games", Profile.gamesPlayed), ("level", Profile.level), ("coins", Profile.coins));
             // Pas d'écran d'explication au lancement : on arrive directement sur le jeu.
             if (Profile.consentVersion < ConsentVersion) { Profile.consentVersion = ConsentVersion; SaveProfile(); }
@@ -596,6 +597,16 @@ namespace Bascule
                 SaveProfile();
                 Stats.Event("offer_shown", ("offer", "starter"));
                 ShowShop("offre_depart");
+                return;
+            }
+            // Mise à jour conseillée : une version plus récente est sur l'App Store (jamais obligatoire).
+            if (AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay))
+            {
+                AppUpdate.MarkSuggested(Profile, _storeVersion, LocalDay);
+                SaveProfile();
+                Stats.Event("update_prompt", ("from", Application.version), ("to", _storeVersion));
+                _confirm.Ask(Loc.Get("update_title"), Loc.Format("update_body", _storeVersion), Art.IconSprite(Icon.Gift),
+                    Loc.Get("update_yes"), OpenStorePage, Loc.Get("later"), null);
                 return;
             }
             if (AdPolicy.ShouldHintRemoveAds(Tuning.ads, Profile.ads, Profile))
@@ -2206,6 +2217,54 @@ namespace Bascule
 
         /// <summary>Identifiant numérique du jeu sur l'App Store (App Store Connect → Informations sur l'app → Apple ID).</summary>
         const string AppStoreId = "6831568074";
+
+        /// <summary>Version du jeu en ligne sur l'App Store (vide tant qu'elle n'est pas connue, ou hors iPhone).</summary>
+        string _storeVersion = "";
+
+        [System.Serializable] class StoreLookup { public StoreResult[] results; }
+        [System.Serializable] class StoreResult { public string version; }
+
+        /// <summary>
+        /// Lit la version publiée sur l'App Store (recherche publique d'Apple, sans compte) quelques secondes après le
+        /// lancement. Hors ligne ou en cas d'erreur : rien, le jeu continue normalement.
+        /// </summary>
+        System.Collections.IEnumerator CheckStoreVersion()
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            yield return new WaitForSecondsRealtime(4f);
+            if (Application.internetReachability == NetworkReachability.NotReachable) yield break;
+            string url = "https://itunes.apple.com/lookup?bundleId=" + Application.identifier + "&country=fr&t=" + DateTime.UtcNow.Ticks;
+            using (var req = UnityEngine.Networking.UnityWebRequest.Get(url))
+            {
+                req.timeout = 10;
+                yield return req.SendWebRequest();
+                if (req.result != UnityEngine.Networking.UnityWebRequest.Result.Success) yield break;
+                try
+                {
+                    var r = JsonUtility.FromJson<StoreLookup>(req.downloadHandler.text);
+                    if (r?.results != null && r.results.Length > 0) _storeVersion = r.results[0].version ?? "";
+                }
+                catch (Exception) { _storeVersion = ""; }
+            }
+            // Le joueur est déjà sur l'accueil : on propose tout de suite (sinon au prochain passage par l'accueil).
+            if (_current == _home && !Session.IsRunning && !_confirm.Visible && AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay))
+                HomePopups();
+#else
+            yield break;
+#endif
+        }
+
+        /// <summary>Page du jeu sur l'App Store (bouton « Mettre à jour »).</summary>
+        void OpenStorePage()
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            Application.OpenURL("itms-apps://apps.apple.com/app/id" + AppStoreId);
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            Application.OpenURL("market://details?id=" + Application.identifier);
+#else
+            Application.OpenURL("https://apps.apple.com/app/id" + AppStoreId);
+#endif
+        }
 
         public void Toast(string message, float seconds = 2.5f) => _toast.Say(message, seconds);
         public void Reward(Icon icon, Color color, string title, string detail, int coins) => _toast.Reward(icon, color, title, detail, coins);
