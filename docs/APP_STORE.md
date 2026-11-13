@@ -36,7 +36,7 @@ Ce qui est déjà réglé dans le projet, puis ce qu'il reste à faire à la mai
 ## Lancement (avant l'envoi)
 
 - **Rien n'est remis à zéro** : les joueurs de la 1.2 gardent record, têtes, pièces, niveau, planches, missions, série, code ami et amis (`Seasons.ResetOldSaves = false`, test `A12SaveIsKeptIntactWhenUpdating`).
-- **Classements** : `bascule_monde_s2` et `bascule_jour_s2`, ceux de la version publiée avant la 1.4 (export « 1.3 », affiché 1.2 sur l'App Store). La 1.4 lisait par erreur `bascule_monde` (scores de test) : corrigé en 1.4.1, qui renvoie aussi le record de chaque joueur à chaque lancement.
+- **Classements** : `bascule_monde` et `bascule_jour` (ceux de la 1.4). La version publiée avant (export « 1.3 », affichée 1.2) écrivait dans `bascule_monde_s2` / `bascule_jour_s2` : les records des 48 joueurs ont été copiés le 13/11/2026 avec `Tools/copy_leaderboards.py`, à relancer tant que des joueurs ont l'ancienne version.
 
 ## App Store Connect
 
