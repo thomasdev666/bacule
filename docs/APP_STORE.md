@@ -108,7 +108,8 @@ Ne pas choisir la catégorie « Enfants ». Elle interdit la plupart des régies
 ### Divers
 
 - **Capture d'écran du duel** : facultative, mais elle montre la nouveauté.
-- **Numéro de build** : Codemagic le règle tout seul (dernier build TestFlight + 1, étape « Numéro de build automatique » de `codemagic.yaml` dans bacule-ios).
+- **Numéro de build** : Codemagic le règle tout seul : 100 + numéro du build Codemagic (étape « Numéro de build automatique » de `codemagic.yaml` dans bacule-ios). L'ancien calcul (dernier build TestFlight + 1) redonnait toujours 21 et Apple refusait le deuxième envoi d'une même version.
+- **Toujours ouvrir le build TestFlight sur un iPhone avant de le soumettre** : le 1.4 (21) se fermait au lancement (régies dynamiques non embarquées, voir `docs/PUBS.md`).
 - **Vidéo du duel** : la joindre dans App Review Information → **Pièce jointe** (fichier .mov ou .mp4), c'est le plus sûr. Sinon, mettre un lien non répertorié dans les notes.
 
 
