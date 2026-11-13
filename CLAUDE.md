@@ -35,3 +35,4 @@ Jeu mobile Unity 6 (portrait, Android/iOS). Le cahier des charges et les choix f
 - Commentaires et documentation en français. Le jeu est publié en français uniquement (`Loc.FrenchOnly`).
 - Identité : éditeur Orphex, identifiant `fr.orpheex.bascule`, pages légales dans `docs/site/bascule` (à mettre sur orpheex.fr).
 - Fiche App Store (docs/STORE.md) : images des achats mis en avant, des événements et captures avec titre dans `docs/store`, refaites par `python3 Tools/store_listing_assets.py Exports/art docs/apercu docs/store`.
+- **Avant chaque envoi à Apple** : lancer `python3 Tools/verif_publication.py ../bacule-ios` (tout doit être OK) et faire passer à Thomas les tests sur iPhone de `docs/AVANT_PUBLICATION.md`. Ne jamais renommer un classement ni une clé Cloud Save sans copier les données (`Tools/copy_leaderboards.py`).
