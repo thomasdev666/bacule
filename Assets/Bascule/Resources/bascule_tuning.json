@@ -151,6 +151,6 @@
     "snapshotsPerSecond": 20,
     "timeoutSeconds": 8,
     "connectSeconds": 25,
-    "joinRetries": 3
+    "joinRetries": 6
   }
 }

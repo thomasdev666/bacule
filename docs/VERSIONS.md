@@ -10,12 +10,24 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
 - **Duel réparé** (« Connexion perdue », lent, impossible à rejoindre) :
   - **Cause principale** : l'hôte envoie le code par Snap ou Messages, donc quitte l'appli ; iOS coupe alors la liaison avec le relais de Unity (au bout d'environ 10 s sans nouvelles). L'ami rejoignait une partie morte. Maintenant, au retour dans l'appli, l'hôte **recrée sa partie tout seul**.
   - **Le code à donner est le code ami** de l'hôte : il mène toujours à sa partie du moment, même recréée (Cloud Save, clés publiques `duel_open` et `duel_open_at`, retrouvées par l'index `friend_code` ; rien à créer dans le tableau de bord). Un ancien code de session marche toujours.
-  - **L'invité a 25 s** pour se relier (au lieu de 8 s, trop court en 4G) et **réessaie tout seul** jusqu'à 3 fois au lieu d'afficher « Connexion perdue ».
+  - **L'invité a 25 s** pour se relier (au lieu de 8 s, trop court en 4G) et **réessaie tout seul** (jusqu'à 6 fois en 45 s, après 2,5 s, 4 s puis 6 s) au lieu d'afficher « Connexion perdue ». « Connexion… » ne dure jamais plus de 40 s.
   - **L'hôte n'est plus éjecté** quand l'essai de son ami échoue : il continue d'attendre avec le même code. Une ancienne session quittée ou recréée ne coupe plus le duel.
   - L'ami invité depuis la liste reçoit automatiquement la nouvelle invitation si la partie est recréée.
   - **Wi-Fi d'un côté, 4G de l'autre** : la liaison passe maintenant par le relais en **WebSocket sécurisé (WSS, port 443)**, qui traverse tous les réseaux (4G des opérateurs souvent en IPv6 seulement, Wi-Fi qui filtrent l'UDP). Repli automatique sur l'ancienne liaison (UDP/DTLS) si le WSS est refusé. Le pilote réseau suit le protocole donné par le relais pour chaque joueur.
   - **Course corrigée (même côte à côte)** : quand la liaison était rapide, le départ envoyé par l'hôte arrivait avant la fin de la connexion de l'invité ; l'invité croyait à une annulation et quittait la partie qui commençait (« ça prend du temps, puis ça s'arrête »). Seule une vraie sortie du joueur arrête maintenant la connexion.
-  - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (3).
+  - **Relecture complète et 179 duels simulés** (`Tests/Bascule.Duel.Tests`, lancés par `Tools/verif_publication.py`). Corrigé en plus :
+    - les étapes réseau (créer, rejoindre, quitter) passent une par une : une sortie encore en cours ne détruit plus la partie suivante (lien d'invitation touché depuis la salle d'attente) ;
+    - chaque essai porte un numéro : une vieille réponse (mauvais code tapé puis corrigé) ne relance ni n'arrête plus l'essai suivant ;
+    - lancement du jeu par le lien : on attend la connexion aux services (10 s au plus) au lieu de prendre le code ami pour un code de partie ;
+    - **Centre de contrôle ou notification pendant la partie : plus de défaite**. On perd seulement en restant dehors plus de 7 s (l'adversaire gagne au bout de 8 s, et celui qui est parti voit bien « défaite », plus deux gagnants). Sur iPhone, un glissement depuis le bord demande un second geste pendant le duel ;
+    - l'hôte ne recrée sa partie que si le relais l'a vraiment oubliée (plus de 10 s dehors, ou relais mort) ; une nouvelle tentative si la recréation échoue ;
+    - lien d'invitation `…/duel.html?c=PARTIE&f=CODEAMI` : la 1.4 lit le code de partie, la 1.4.1 le code ami (qui suit la partie recréée). Les invitations de la liste d'amis passent aussi par le code ami ;
+    - l'hôte qui reçoit la présentation de l'ami part même si l'annonce de la liaison s'est perdue (ami reconnecté) ; départ 0,8 s après, le temps de voir son nom ;
+    - **quitter en attendant le score de l'autre** ne fait plus perdre les deux : le résultat reste le vrai ;
+    - après le dernier poids, la fin n'est demandée qu'une fois (avant : conclusion sans attendre la fin de ma partie) ;
+    - score de l'adversaire en direct = le dernier reçu, figé dès qu'il a fini ; erreur de jointure arrivée après le départ ignorée.
+  - Page `docs/site/bascule/duel.html` mise à jour (transmet les deux codes) : **à remettre sur orpheex.fr** (sans elle, les liens marchent quand même avec le code de partie).
+  - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (6).
 - Version 1.4.1, build iOS 9, version Android 41.
 
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)

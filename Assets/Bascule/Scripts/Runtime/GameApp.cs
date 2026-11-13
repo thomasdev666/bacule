@@ -741,13 +741,30 @@ namespace Bascule
 
             // Invitation : bascule://duel/CODE ouvre le jeu et rejoint le duel (au lancement ou application déjà ouverte).
             Application.deepLinkActivated += OnDeepLink;
-            if (!string.IsNullOrEmpty(Application.absoluteURL)) _pendingDuelCode = DuelRules.CodeFromLink(Application.absoluteURL);
+            if (!string.IsNullOrEmpty(Application.absoluteURL))
+            {
+                _pendingDuelCode = DuelRules.CodeFromLink(Application.absoluteURL);
+                SetDuelFallback(_pendingDuelCode, DuelRules.SessionFromLink(Application.absoluteURL));
+            }
+        }
+
+        /// <summary>
+        /// Code de la partie à essayer si le code ami ne mène à aucun duel ouvert (hôte sans code ami publié, ancienne
+        /// version) : lien ?c=SESSION&amp;f=AMI, ou invitation reçue d'un ami.
+        /// </summary>
+        string _duelFallbackFor, _duelFallback;
+
+        void SetDuelFallback(string code, string session)
+        {
+            _duelFallbackFor = DuelRules.NormalizeCode(code);
+            _duelFallback = session != null && session != _duelFallbackFor ? session : null;
         }
 
         void OnDeepLink(string url)
         {
             var code = DuelRules.CodeFromLink(url);
             if (code == null) return;
+            SetDuelFallback(code, DuelRules.SessionFromLink(url));
             Stats.Event("duel_link");
             if (Duel.InMatch) return; // déjà en duel : on ne coupe pas la partie en cours
             // Coffre, machine à surprises ou pub à l'écran : l'invitation attend le retour à l'accueil.
@@ -773,12 +790,21 @@ namespace Bascule
         bool _shareCodeReady, _openDuelPublished;
         string _invitedFriendId;
 
-        /// <summary>Code ami d'un joueur qui a ouvert un duel → code de sa session ; null si ce n'est pas un code ami.</summary>
+        /// <summary>
+        /// Code ami d'un joueur qui a ouvert un duel → code de sa session ; sinon le code de partie du lien ou de
+        /// l'invitation ; null : le code tapé est déjà un code de session.
+        /// </summary>
         async System.Threading.Tasks.Task<string> ResolveDuelCode(string code)
         {
+            string fallback = code == _duelFallbackFor ? _duelFallback : null;
             var fc = FriendCode.ParseShort(code);
-            if (fc == null || fc == Profile.friendCode || !Leaderboard.Service.IsOnline) return null;
-            return await Leaderboard.Service.FindOpenDuelAsync(fc);
+            if (fc == null || fc == Profile.friendCode) return fallback;
+            // Jeu ouvert par le lien d'invitation : le classement se connecte encore. On l'attend (10 s au plus) au lieu
+            // de prendre le code ami pour un code de partie (« code invalide » en 1.4).
+            for (int i = 0; i < 40 && !Leaderboard.Service.IsOnline; i++) await System.Threading.Tasks.Task.Delay(250);
+            if (!Leaderboard.Service.IsOnline) return fallback;
+            var session = await Leaderboard.Service.FindOpenDuelAsync(fc);
+            return string.IsNullOrEmpty(session) ? fallback : session;
         }
 
         /// <summary>Partie créée ou recréée : publiée sous mon code ami, et l'ami déjà invité reçoit le nouveau code.</summary>
@@ -971,8 +997,16 @@ namespace Bascule
                 Stats.Event("duel_invite_received");
                 _haptics.Medium();
                 PlaySfx(Sfx.Chime, 8, 0.9f);
-                string code = best.Code;
-                _duelInvite.Open(name, best.Head, () => { Stats.Event("duel_invite_accept"); JoinDuel(code); });
+                // On rejoint par le code ami de l'hôte (sa partie du moment, même recréée après un passage dans Snap),
+                // avec le code de l'invitation en repli.
+                string session = best.Code;
+                string friendCode = FriendCode.Short(best.FromId);
+                _duelInvite.Open(name, best.Head, () =>
+                {
+                    Stats.Event("duel_invite_accept");
+                    SetDuelFallback(friendCode, session);
+                    JoinDuel(string.IsNullOrEmpty(friendCode) ? session : friendCode);
+                });
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Invitations au duel : " + e.Message); }
             finally { _inviteBusy = false; }
@@ -997,7 +1031,9 @@ namespace Bascule
         {
             if (string.IsNullOrEmpty(Duel.Code)) return;
             Stats.Event("duel_invite");
-            _share.ShareText(Loc.Format("duel_invite_text", DuelRules.InviteLink(DuelShareCode), DuelShareCode));
+            // Le lien porte les deux codes : celui de la partie (lu par toutes les versions) et mon code ami (1.4.1).
+            string friend = DuelShareCode != Duel.Code ? DuelShareCode : null;
+            _share.ShareText(Loc.Format("duel_invite_text", DuelRules.InviteLink(Duel.Code, friend), DuelShareCode));
         }
 
         public void DuelCopyCode()
@@ -1010,6 +1046,8 @@ namespace Bascule
         public void DuelAskQuit()
         {
             if (!Duel.InMatch) { DuelHome(); return; }
+            // Ma partie est finie (j'attends son score) : partir ne change plus le résultat, pas besoin de confirmer.
+            if (Duel.Current == DuelController.Phase.Waiting) { Duel.Forfeit(); return; }
             _confirm.Ask(Loc.Get("duel_quit_title"), Loc.Format("duel_quit_body", Duel.TheirName), Art.IconSprite(Icon.Flag),
                 Loc.Get("duel_quit_ok"), () => Duel.Forfeit(), Loc.Get("duel_quit_no"), null);
         }
@@ -1052,6 +1090,7 @@ namespace Bascule
             switch (Duel.Current)
             {
                 case DuelController.Phase.None:
+                    DeferEdgeGestures(false);
                     _challengeAfterHost = (null, null);
                     InvitedName = "";
                     _invitedFriendId = null;
@@ -1071,14 +1110,27 @@ namespace Bascule
                     break;
                 case DuelController.Phase.Countdown:
                     // Départ (ou revanche) : la partie est lancée à la prochaine image par le contrôleur.
+                    DeferEdgeGestures(true);
                     CloseOpenDuel();
                     _confirm.Hide();
                     _prompt.Hide();
                     break;
                 case DuelController.Phase.Results:
+                    DeferEdgeGestures(false);
                     if (_duelResult.Visible) _duelResult.Refresh();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Pendant un duel, un glissement depuis le bord de l'écran (Centre de contrôle, notifications) demande un second
+        /// geste sur iPhone : un lâcher près du bord n'ouvre plus le Centre de contrôle en pleine partie.
+        /// </summary>
+        static void DeferEdgeGestures(bool on)
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            UnityEngine.iOS.Device.deferSystemGesturesMode = on ? UnityEngine.iOS.SystemGestureDeferMode.All : UnityEngine.iOS.SystemGestureDeferMode.None;
+#endif
         }
 
         void OnDuelResult()

@@ -3,7 +3,9 @@ Vérification obligatoire AVANT chaque envoi à Apple (docs/AVANT_PUBLICATION.md
 qui va partir (dépôt bacule-ios) et les serveurs Unity, pour attraper ce qui a déjà cassé une version publiée :
 - 1.4 : classements renommés par rapport à la version en ligne (les records des joueurs avaient disparu) ;
 - 1.4 build 21 : régies en bibliothèque dynamique non embarquées (plantage au lancement) ;
-- 1.4 : numéro de build déjà utilisé (envoi refusé par Apple).
+- 1.4 : numéro de build déjà utilisé (envoi refusé par Apple) ;
+- 1.4 : duel qui ne démarre pas (Wi-Fi + 4G, retour de Snap, connexion lente) : 179 scénarios simulés
+  (Tests/Bascule.Duel.Tests, le vrai DuelController sur un faux réseau).
 
   python3 Tools/verif_publication.py ../bacule-ios          # tout, tests et compilation compris (~5 min)
   python3 Tools/verif_publication.py ../bacule-ios --rapide # sans les tests ni la compilation
@@ -137,6 +139,11 @@ if not RAPIDE:
     r = subprocess.run(["dotnet", "test", "Tests/Bascule.Core.Tests"], cwd=ROOT, capture_output=True, text=True)
     m = re.search(r"(Passed!|Failed!).*", r.stdout)
     check(r.returncode == 0, "Tests des règles", m.group(0)[:120] if m else r.stdout[-200:])
+    r = subprocess.run(["dotnet", "test", "Tests/Bascule.Duel.Tests"], cwd=ROOT, capture_output=True, text=True)
+    m = re.search(r"(Passed!|Failed!).*", r.stdout)
+    failed = re.findall(r"^\s+Failed (\S+)", r.stdout, re.M)
+    check(r.returncode == 0, "Duel : scénarios simulés (Wi-Fi, 4G, Snap, pauses, abandons, revanche…)",
+          (m.group(0)[:120] if m else r.stdout[-200:]) + (" ; en échec : " + ", ".join(failed[:6]) if failed else ""))
     for defs in ["", "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_IOS",
                  "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_ANDROID"]:
         r = subprocess.run(["dotnet", "build", "Tools/CompileCheck", "-p:ExtraDefines=" + defs.replace(";", "%3B")], cwd=ROOT, capture_output=True, text=True)

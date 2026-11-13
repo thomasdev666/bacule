@@ -404,6 +404,14 @@ namespace Bascule.Core.Tests
             Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink("https://orpheex.fr/bascule/duel.html?x=1&c=k7qm2x#top"));
             Assert.AreEqual("K7QM2X", DuelRules.CodeFromLink(DuelRules.InviteLink("K7QM2X")));
             Assert.IsNull(DuelRules.CodeFromLink("bascule://duel"));
+            Assert.IsNull(DuelRules.CodeFromLink("https://orpheex.fr/bascule/duel.html"));
+            // 1.4.1 : le code ami de l'hôte (f) passe avant le code de la partie (c), qui reste lu par la 1.4.
+            string link = DuelRules.InviteLink("ZX81QP", "4K7Q2M");
+            Assert.AreEqual("4K7Q2M", DuelRules.CodeFromLink(link));
+            Assert.AreEqual("ZX81QP", DuelRules.SessionFromLink(link));
+            Assert.AreEqual("4K7Q2M", DuelRules.CodeFromLink("bascule://duel/ZX81QP?f=4k7q2m"));
+            Assert.AreEqual("ZX81QP", DuelRules.SessionFromLink("bascule://duel/ZX81QP?f=4k7q2m"));
+            Assert.AreEqual("ZX81QP", DuelRules.CodeFromLink(DuelRules.InviteLink("ZX81QP", "")));
             Assert.IsNull(DuelRules.CodeFromLink("https://orpheex.fr/bascule"));
             Assert.IsNull(DuelRules.CodeFromLink(null));
         }

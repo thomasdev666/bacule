@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Simulation du duel sans téléphone : deux DuelController (le vrai code du jeu) reliés par un faux réseau
+    (latence, irrégularité, pertes, liaison lente ou absente, relais qui oublie un téléphone resté en arrière-plan),
+    avec une horloge virtuelle. Lancer : dotnet test Tests/Bascule.Duel.Tests
+    Lancé aussi par Tools/verif_publication.py avant chaque envoi à Apple.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS0067;CS1998</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Assets/Bascule/Scripts/Core/**/*.cs" Link="Core/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Bascule/Scripts/Runtime/Duel/DuelController.cs" Link="Runtime/DuelController.cs" />
+    <Compile Include="../../Assets/Bascule/Scripts/Runtime/Duel/DuelNetwork.cs" Link="Runtime/DuelNetwork.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+</Project>

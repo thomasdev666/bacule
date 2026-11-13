@@ -58,8 +58,11 @@ namespace Bascule.Core
         /// plusieurs secondes en 4G. Avant la 1.4.1, ce délai était timeoutSeconds (8 s) : « Connexion perdue » trop tôt.
         /// </summary>
         public float connectSeconds = 25f;
-        /// <summary>Nouvelles tentatives automatiques de l'invité quand la liaison n'aboutit pas (l'hôte revient dans l'appli…).</summary>
-        public int joinRetries = 3;
+        /// <summary>
+        /// Nouvelles tentatives automatiques de l'invité quand la partie est introuvable ou la liaison n'aboutit pas (l'hôte
+        /// est encore dans Snap, puis recrée sa partie en revenant). Bornées aussi dans le temps (DuelController.JoinBudgetSeconds).
+        /// </summary>
+        public int joinRetries = 6;
     }
 
     public enum DuelOutcome { Win, Lose, Draw }
@@ -179,23 +182,28 @@ namespace Bascule.Core
         /// <summary>Lien qui ouvre directement le jeu (schéma déclaré dans l'application) : bascule://duel/CODE.</summary>
         public const string AppScheme = "bascule";
 
-        public static string InviteLink(string code) => InviteUrl + "?c=" + Uri.EscapeDataString(code ?? "");
+        /// <summary>
+        /// Lien d'invitation : …/duel.html?c=SESSION&amp;f=CODEAMI. Le code de la partie (c) est lu par toutes les versions ;
+        /// le code ami de l'hôte (f, 1.4.1) mène toujours à sa partie du moment, même recréée après un passage dans Snap.
+        /// </summary>
+        public static string InviteLink(string session, string friendCode = null)
+        {
+            string link = InviteUrl + "?c=" + Uri.EscapeDataString(session ?? "");
+            return string.IsNullOrEmpty(friendCode) ? link : link + "&f=" + Uri.EscapeDataString(friendCode);
+        }
 
         /// <summary>
-        /// Code de duel contenu dans un lien (bascule://duel/CODE, …/duel.html?c=CODE) ; null si ce n'est pas un lien de duel.
+        /// Code de duel contenu dans un lien (bascule://duel/CODE, …/duel.html?c=CODE&amp;f=AMI) ; null si ce n'est pas un
+        /// lien de duel. Le code ami de l'hôte (f) passe en premier : il suit la partie même si elle a été recréée.
         /// </summary>
-        public static string CodeFromLink(string url)
+        public static string CodeFromLink(string url) => LinkCode(url, "f") ?? SessionFromLink(url);
+
+        /// <summary>Code de la partie seul (c=, ou bascule://duel/CODE) : repli si le code ami ne mène à aucune partie.</summary>
+        public static string SessionFromLink(string url)
         {
             if (string.IsNullOrEmpty(url) || url.IndexOf("duel", StringComparison.OrdinalIgnoreCase) < 0) return null;
-            string raw = null;
-            int q = url.IndexOf("c=", StringComparison.OrdinalIgnoreCase);
-            if (q >= 0 && q > 0 && (url[q - 1] == '?' || url[q - 1] == '&'))
-            {
-                raw = url.Substring(q + 2);
-                int amp = raw.IndexOfAny(new[] { '&', '#' });
-                if (amp >= 0) raw = raw.Substring(0, amp);
-            }
-            else
+            string raw = Param(url, "c");
+            if (raw == null)
             {
                 string path = url;
                 int cut = path.IndexOfAny(new[] { '?', '#' });
@@ -203,8 +211,37 @@ namespace Bascule.Core
                 path = path.TrimEnd('/');
                 int slash = path.LastIndexOf('/');
                 if (slash >= 0) raw = path.Substring(slash + 1);
-                if (raw != null && raw.Equals("duel", StringComparison.OrdinalIgnoreCase)) raw = null;
+                if (raw != null && (raw.Equals("duel", StringComparison.OrdinalIgnoreCase) || raw.IndexOf('.') >= 0)) raw = null;
             }
+            return Valid(raw);
+        }
+
+        static string LinkCode(string url, string name)
+        {
+            if (string.IsNullOrEmpty(url) || url.IndexOf("duel", StringComparison.OrdinalIgnoreCase) < 0) return null;
+            return Valid(Param(url, name));
+        }
+
+        /// <summary>Valeur du paramètre « name= » d'une adresse (après ? ou &amp;) ; null s'il n'y est pas.</summary>
+        static string Param(string url, string name)
+        {
+            int from = 0;
+            while (true)
+            {
+                int q = url.IndexOf(name + "=", from, StringComparison.OrdinalIgnoreCase);
+                if (q < 0) return null;
+                if (q > 0 && (url[q - 1] == '?' || url[q - 1] == '&'))
+                {
+                    string raw = url.Substring(q + name.Length + 1);
+                    int amp = raw.IndexOfAny(new[] { '&', '#' });
+                    return amp >= 0 ? raw.Substring(0, amp) : raw;
+                }
+                from = q + 1;
+            }
+        }
+
+        static string Valid(string raw)
+        {
             if (string.IsNullOrEmpty(raw)) return null;
             var code = NormalizeCode(Uri.UnescapeDataString(raw));
             return code != null && code.Length >= 4 && code.Length <= 12 ? code : null;

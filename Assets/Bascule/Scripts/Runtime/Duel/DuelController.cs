@@ -20,7 +20,9 @@ namespace Bascule.Duel
     ///    (Core.DuelRules.Decide). Pièces pour les deux, plus pour le gagnant ; « Challenger » à 15 victoires.
     ///
     /// Robustesse : sans nouvelles pendant timeoutSeconds, l'adversaire est considéré comme parti (victoire par
-    /// abandon si la partie était commencée). Quitter l'application pendant un duel compte comme un abandon.
+    /// abandon si la partie était commencée). Rester hors de l'application plus longtemps que ce délai compte comme un
+    /// abandon ; une courte sortie (Centre de contrôle, notification) non. Scénarios vérifiés sans téléphone par
+    /// Tests/Bascule.Duel.Tests (deux contrôleurs reliés par un faux réseau : latence, pertes, 4G lente, pauses…).
     /// </summary>
     public sealed class DuelController
     {
@@ -34,7 +36,8 @@ namespace Bascule.Duel
         OpponentView _view;
 
         public Phase Current { get; private set; }
-        public bool IsHost => _net.IsHost;
+        /// <summary>J'ai créé la partie (fixé dès « Défier un ami », sans attendre le réseau).</summary>
+        public bool IsHost => _isHost;
         public bool Available => _net.Available;
         public string Code => _net.Code;
         public DuelHello Me { get; private set; } = new DuelHello();
@@ -63,7 +66,7 @@ namespace Bascule.Duel
         uint _mySurvivedMs, _theirSurvivedMs;
         bool _myFinished, _theirFinished, _forfeit, _iForfeit;
         float _sendTimer, _lastHeard, _waitTimer, _goRunTime;
-        bool _runStarted;
+        bool _runStarted, _finishAsked;
         bool _wantRematch, _theyWantRematch;
 
         // Résultat
@@ -133,52 +136,88 @@ namespace Bascule.Duel
 
         // ------------------------------------------------------------------ Salle d'attente
 
+        /// <summary>
+        /// Numéro de l'opération en cours (créer, rejoindre, recréer, quitter). Une réponse du réseau qui arrive pour une
+        /// opération dépassée est ignorée : avant la 1.4.1, une ancienne tentative pouvait relancer ou fermer le duel suivant.
+        /// La sortie demandée par l'opération suivante nettoie la partie de l'ancienne (les étapes réseau passent dans l'ordre).
+        /// </summary>
+        int _op;
+        bool _isHost;
+        /// <summary>Début de la phase « Connexion… » : au-delà de ConnectGuardSeconds, on abandonne avec un message.</summary>
+        float _connectingSince, _joinStartedAt;
+        /// <summary>Hôte : présentation de l'ami reçue (le départ est donné un instant après, le temps de voir son nom).</summary>
+        float _helloAt = -1f;
+        /// <summary>Dernier retour dans l'application (une coupure juste après vient de MON absence, pas de la sienne).</summary>
+        float _resumedAt = -100f, _awayFor;
+
+        /// <summary>« Connexion… » ne dure jamais plus que ça (relais injoignable, serveur qui ne répond pas).</summary>
+        public const float ConnectGuardSeconds = 40f;
+        /// <summary>L'invité réessaie pendant au plus ce temps (code ami pas encore publié, hôte qui recrée sa partie).</summary>
+        public const float JoinBudgetSeconds = 45f;
+        /// <summary>Délai entre la présentation de l'ami et le départ (on voit son nom et sa tête dans la salle).</summary>
+        public const float StartDelaySeconds = 0.8f;
+
+        /// <summary>Attente (ms) ; remplacée par une horloge virtuelle dans les tests de simulation (Tests/Bascule.Duel.Tests).</summary>
+        public Func<int, System.Threading.Tasks.Task> Delay = ms => System.Threading.Tasks.Task.Delay(ms);
+
+        void SetConnecting()
+        {
+            Current = Phase.Connecting;
+            _connectingSince = Time.unscaledTime;
+            Changed?.Invoke();
+        }
+
         public async void Host(DuelHello me)
         {
             if (Current != Phase.None) return;
             Reset(me);
-            Current = Phase.Connecting;
-            Changed?.Invoke();
+            _isHost = true;
+            int op = ++_op;
+            SetConnecting();
             string error = await _net.HostAsync();
-            if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; } // annulé entre-temps
+            if (op != _op) return; // annulé ou remplacé entre-temps : la sortie déjà demandée nettoie cette partie
             if (error != null) { Fail(error); return; }
             if (Current == Phase.Connecting) Current = Phase.Hosting;
             Hosted?.Invoke(Code);
             Changed?.Invoke();
         }
 
-        public async void Join(DuelHello me, string code)
+        public void Join(DuelHello me, string code)
         {
             if (Current != Phase.None) return;
             code = DuelRules.NormalizeCode(code);
             if (string.IsNullOrEmpty(code)) { Notice?.Invoke("duel_invalid"); return; }
             Reset(me);
+            _isHost = false;
             _joinInput = code;
             _joinTries = 0;
-            Current = Phase.Connecting;
-            Changed?.Invoke();
-            await JoinNow();
+            _joinStartedAt = Time.unscaledTime;
+            int op = ++_op;
+            SetConnecting();
+            _ = JoinNow(op);
         }
 
         /// <summary>Rejoint (ou rejoint à nouveau) la partie de l'ami : code ami → duel ouvert le plus récent.</summary>
-        async System.Threading.Tasks.Task JoinNow()
+        async System.Threading.Tasks.Task JoinNow(int op)
         {
             string session = _joinInput;
             if (ResolveCode != null)
             {
                 try { var r = await ResolveCode(_joinInput); if (!string.IsNullOrEmpty(r)) session = r; }
                 catch (Exception e) { Debug.LogWarning("[Bascule] Duel : code ami : " + e.Message); }
+                if (op != _op) return;
             }
             if (Current != Phase.Connecting) return;
             string error = await _net.JoinAsync(session);
-            // Seule une vraie annulation (le joueur est parti) arrête tout. Avant la 1.4.1, le départ de l'hôte, arrivé
-            // pendant que la connexion se terminait (très rapide côte à côte sur le même Wi-Fi), faisait croire à une
-            // annulation : l'invité quittait la partie qui venait de commencer (« lent, puis ça s'arrête »).
-            if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; }
+            // Seule l'opération en cours compte. Avant la 1.4.1, le départ de l'hôte, arrivé pendant que la connexion se
+            // terminait (très rapide côte à côte sur le même Wi-Fi), faisait quitter la partie qui venait de commencer.
+            if (op != _op) return;
             if (error != null)
             {
-                // L'hôte recrée peut-être sa partie (retour dans l'appli) : on réessaie avant d'abandonner.
-                if (error == "duel_join_failed" && TryRejoin()) return;
+                // Erreur arrivée après le départ (la liaison marchait déjà) : la partie continue.
+                if (InMatch || Current == Phase.Results) return;
+                // L'hôte recrée peut-être sa partie (retour dans l'appli), ou les services se connectent encore : on réessaie.
+                if ((error == "duel_join_failed" || error == "duel_offline") && TryRejoin()) return;
                 Fail(error);
                 return;
             }
@@ -192,56 +231,101 @@ namespace Bascule.Duel
             if (_net.Linked && Them == null) OnLinked();
         }
 
-        /// <summary>Invité : nouvelle tentative (au plus joinRetries), sans rien afficher d'autre que « Connexion… ».</summary>
+        /// <summary>Invité : nouvelle tentative (au plus joinRetries, pendant JoinBudgetSeconds), en affichant « Connexion… ».</summary>
         bool TryRejoin()
         {
-            if (IsHost || string.IsNullOrEmpty(_joinInput) || _rejoining || _joinTries >= Mathf.Max(0, T.joinRetries)) return false;
+            if (_isHost || string.IsNullOrEmpty(_joinInput) || _joinTries >= Mathf.Max(0, T.joinRetries)) return false;
+            if (Time.unscaledTime - _joinStartedAt > JoinBudgetSeconds) return false;
             _joinTries++;
-            _rejoining = true;
-            Current = Phase.Connecting;
-            Changed?.Invoke();
-            _ = Rejoin();
+            int op = ++_op;
+            Them = null;
+            TheirName = "";
+            SetConnecting();
+            _ = Rejoin(op, RetryDelayMs(_joinTries));
             return true;
         }
 
-        async System.Threading.Tasks.Task Rejoin()
+        /// <summary>Attente avant la tentative n (laisse à l'hôte le temps de recréer sa partie) : 2,5 s, 4 s, puis 6 s.</summary>
+        public static int RetryDelayMs(int attempt) => attempt <= 1 ? 2500 : attempt == 2 ? 4000 : 6000;
+
+        async System.Threading.Tasks.Task Rejoin(int op, int delayMs)
         {
+            _rejoining = true;
             try
             {
                 await _net.LeaveAsync();
-                await System.Threading.Tasks.Task.Delay(1500);
+                await Delay(delayMs);
             }
-            finally { _rejoining = false; }
-            if (Current == Phase.Connecting) await JoinNow();
+            finally { if (op == _op) _rejoining = false; }
+            if (op != _op || Current != Phase.Connecting) return;
+            await JoinNow(op);
         }
 
         /// <summary>
-        /// Retour dans l'application. Pendant plus de quelques secondes en arrière-plan (envoyer le code par Snap ou
-        /// Messages…), iOS a coupé la liaison avec le relais : l'hôte qui attend son ami recrée sa partie (le même code ami
-        /// y mène), l'invité qui n'était pas encore relié réessaie.
+        /// Retour dans l'application. Pendant le duel : une courte absence (Centre de contrôle, notification) ne compte plus
+        /// comme un abandon ; au-delà du délai de l'adversaire, il a déjà gagné et on le reconnaît. Dans la salle d'attente,
+        /// après plus de quelques secondes ailleurs (envoyer le code par Snap ou Messages), le relais a pu oublier la
+        /// partie : l'hôte la recrée (le même code ami y mène), l'invité qui n'était pas encore relié réessaie.
         /// </summary>
         public async void OnAppResumed(float pausedSeconds)
         {
-            if (pausedSeconds < 5f || _net.Linked) return;
-            if (Current == Phase.Hosting && IsHost)
+            float now = Time.unscaledTime;
+            _resumedAt = now;
+            _awayFor = pausedSeconds;
+            if (Current == Phase.None) return;
+            if (InMatch)
             {
-                Current = Phase.Connecting;
-                Changed?.Invoke();
-                string error;
-                _rehosting = true;
-                try { error = await _net.HostAsync(); }
-                finally { _rehosting = false; }
-                if (Current == Phase.None) { if (error == null) _ = _net.LeaveAsync(); return; }
-                if (error != null) { Fail(error); return; }
-                if (Current == Phase.Connecting) Current = Phase.Hosting;
-                Hosted?.Invoke(Code);
-                Changed?.Invoke();
+                if (!_myFinished && pausedSeconds >= Mathf.Max(1f, T.timeoutSeconds - 1f)) { Forfeit(); return; }
+                _lastHeard = now; // le temps passé dehors ne fait pas croire que l'adversaire est parti
+                return;
             }
-            else if (!IsHost && (Current == Phase.Greeting || Current == Phase.Connecting) && Them == null)
+            _lastHeard = now;
+            if (_net.Linked || Current == Phase.Results) return;
+            if (_isHost && Current == Phase.Hosting)
             {
+                if (pausedSeconds < 3f) return;
+                int op = _op;
+                // Moins de 10 s : le relais garde souvent la partie. On regarde son état un instant plus tard.
+                if (pausedSeconds <= 10f)
+                {
+                    await Delay(1500);
+                    if (op != _op || Current != Phase.Hosting || _net.Linked || _net.RelayAlive) return;
+                }
+                await Rehost(0);
+            }
+            else if (!_isHost && Current == Phase.Greeting && Them == null && pausedSeconds >= 3f)
+            {
+                // Pas encore relié à l'hôte (une tentative en cours, « Connexion… », continue d'elle-même).
                 _joinTries = 0;
+                _joinStartedAt = now;
                 TryRejoin();
             }
+        }
+
+        /// <summary>L'hôte recrée sa partie (nouveau code de session, publié sous son code ami et renvoyé à l'ami invité).</summary>
+        async System.Threading.Tasks.Task Rehost(int attempt)
+        {
+            int op = ++_op;
+            _rehosting = true;
+            SetConnecting();
+            string error;
+            try { error = await _net.HostAsync(); }
+            finally { if (op == _op) _rehosting = false; }
+            if (op != _op) return;
+            if (error != null)
+            {
+                if (attempt == 0)
+                {
+                    await Delay(2000);
+                    if (op == _op && Current == Phase.Connecting) await Rehost(1);
+                    return;
+                }
+                Fail(error);
+                return;
+            }
+            if (Current == Phase.Connecting) Current = Phase.Hosting;
+            Hosted?.Invoke(Code);
+            Changed?.Invoke();
         }
 
         void Reset(DuelHello me)
@@ -250,6 +334,8 @@ namespace Bascule.Duel
             Them = null;
             TheirName = "";
             _wantRematch = _theyWantRematch = false;
+            _rejoining = _rehosting = false;
+            _helloAt = -1f;
             ResetMatch();
         }
 
@@ -258,7 +344,7 @@ namespace Bascule.Duel
             _myFall = _theirFall = null;
             _myScore = _theirScore = 0;
             _mySurvivedMs = _theirSurvivedMs = 0;
-            _myFinished = _theirFinished = _forfeit = _iForfeit = false;
+            _myFinished = _theirFinished = _forfeit = _iForfeit = _finishAsked = false;
             TimeUp = false;
             _runStarted = false;
             _goRunTime = 0f;
@@ -271,39 +357,55 @@ namespace Bascule.Duel
 
         void Fail(string errorKey)
         {
+            _op++;
             Current = Phase.None;
+            _rejoining = _rehosting = false;
             Changed?.Invoke();
             Notice?.Invoke(errorKey);
             _ = _net.LeaveAsync();
         }
 
-        /// <summary>Quitte le duel (salle d'attente, résultat). Pendant une partie : abandon (défaite).</summary>
+        /// <summary>Quitte le duel (salle d'attente, résultat). Pendant une partie : abandon (défaite), sauf si j'avais fini.</summary>
         public void Leave()
         {
             if (Current == Phase.None) return;
-            if (InMatch && !_myFinished)
+            if (InMatch)
             {
                 Forfeit();
                 return;
             }
+            _op++;
             if (_net.Linked) _net.Send(DuelProtocol.Simple(DuelMsg.Leave), true);
             Current = Phase.None;
+            _rejoining = _rehosting = false;
             _view?.End();
             Changed?.Invoke();
             _ = _net.LeaveAsync();
         }
 
-        /// <summary>J'abandonne la partie en cours : défaite immédiate, l'adversaire est prévenu.</summary>
+        /// <summary>
+        /// Je quitte la partie en cours : défaite immédiate, l'adversaire est prévenu. Si ma partie était déjà finie
+        /// (j'attendais son score), partir ne change pas le résultat : avant la 1.4.1, les deux joueurs perdaient.
+        /// </summary>
         public void Forfeit()
         {
             if (!InMatch) return;
-            _iForfeit = true;
+            _op++;
             if (_net.Linked) _net.Send(DuelProtocol.Simple(DuelMsg.Leave), true);
-            _myFall = _myFall ?? (RunTime != null ? RunTime() : 0f);
-            _myScore = Score != null ? Score() : _myScore;
-            _theirFall = null;
-            _forfeit = true;
-            Decide();
+            if (_myFinished)
+            {
+                _theirFinished = true;
+                Decide();
+            }
+            else
+            {
+                _iForfeit = true;
+                _myFall = _myFall ?? (RunTime != null ? RunTime() : 0f);
+                _myScore = Score != null ? Score() : _myScore;
+                _theirFall = null;
+                _forfeit = true;
+                Decide();
+            }
             _ = _net.LeaveAsync();
         }
 
@@ -324,6 +426,9 @@ namespace Bascule.Duel
             Gone();
         }
 
+        /// <summary>Une coupure juste après mon retour dans l'appli vient de mon absence (le relais m'a oublié).</summary>
+        bool JustCameBack => _awayFor >= 1f && Time.unscaledTime - _resumedAt < 3f;
+
         /// <summary>L'adversaire est parti (déconnexion, application quittée, temps dépassé).</summary>
         void Gone()
         {
@@ -331,35 +436,44 @@ namespace Bascule.Duel
             {
                 case Phase.Hosting:
                     // L'hôte attend son ami : un essai raté de l'ami ne ferme pas la partie, il peut revenir.
-                    if (IsHost) break;
+                    if (_isHost) break;
                     Fail("duel_lost_link");
                     break;
                 case Phase.Connecting:
                 case Phase.Greeting:
-                    if (IsHost && Current == Phase.Greeting && !InMatch)
+                    if (_isHost)
                     {
+                        // Création en cours : le garde-fou de « Connexion… » s'en occupe.
+                        if (Current == Phase.Connecting) break;
                         // Liaison perdue avant le départ : l'hôte se remet à attendre (même partie, même code).
                         Them = null;
                         TheirName = "";
+                        _helloAt = -1f;
                         Current = Phase.Hosting;
                         Changed?.Invoke();
                         break;
                     }
-                    if (!IsHost && Them == null && TryRejoin()) break;
+                    // Invité pas encore parti : l'hôte attend encore (ou recrée sa partie) ; on réessaie.
+                    if (TryRejoin()) break;
                     Fail("duel_lost_link");
                     break;
                 case Phase.Countdown:
                 case Phase.Playing:
                 case Phase.LastWeight:
                 case Phase.Waiting:
+                    // C'est moi qui suis parti (appli en arrière-plan, le relais m'a oublié) : l'adversaire gagne, pas moi.
+                    if (JustCameBack && !_myFinished) { Forfeit(); break; }
+                    // Il avait fini (son score est arrivé) : son départ ne change rien, on conclut normalement.
+                    bool theyHadFinished = _theirFinished;
                     // Abandon : victoire, sauf si j'avais déjà lâché (le résultat ne change pas).
-                    _forfeit = _theirFall == null && _myFall == null;
-                    if (_myFall == null && _theirFall == null) _theirFall = RunTime != null ? RunTime() : 0f;
+                    _forfeit = !theyHadFinished && _theirFall == null && _myFall == null;
+                    if (_forfeit) _theirFall = RunTime != null ? RunTime() : 0f;
                     _theirFinished = true;
+                    _op++;
                     if (_forfeit) Notice?.Invoke("duel_they_left");
                     if (_myFinished) Decide();
                     // Ma partie s'arrête là (bras levés) ; si elle n'a pas encore commencé, on conclut tout de suite.
-                    else if (_myFall == null && (FinishRun == null || !FinishRun())) { _myFinished = true; Decide(); }
+                    else if (_myFall == null && (FinishRun == null || !FinishRun())) { _myFinished = true; _myScore = Score != null ? Score() : _myScore; Decide(); }
                     break;
                 case Phase.Results:
                     _theyWantRematch = false;
@@ -384,11 +498,17 @@ namespace Bascule.Duel
                 case DuelMsg.Hello:
                     Them = DuelProtocol.ReadHello(data);
                     TheirName = DuelRules.CleanName(Them.Name, Loc.Get("duel_friend"));
-                    if (IsHost && Current == Phase.Greeting) StartMatch(GameRng.RandomSeed());
-                    else Changed?.Invoke();
+                    // Hôte : la présentation de l'ami suffit à passer aux présentations, même si l'annonce de la liaison
+                    // s'est perdue (ami reconnecté) ; le départ est donné un instant après (Tick).
+                    if (_isHost && (Current == Phase.Hosting || Current == Phase.Greeting))
+                    {
+                        Current = Phase.Greeting;
+                        if (_helloAt < 0f) _helloAt = Time.unscaledTime;
+                    }
+                    Changed?.Invoke();
                     break;
                 case DuelMsg.Start:
-                    if (IsHost) break;
+                    if (_isHost || InMatch) break;
                     DuelProtocol.ReadStart(data, out uint seed, out float countdown);
                     BeginCountdown(seed, countdown);
                     break;
@@ -426,7 +546,7 @@ namespace Bascule.Duel
                     break;
                 case DuelMsg.Rematch:
                     _theyWantRematch = true;
-                    if (Current == Phase.Results && _wantRematch && IsHost) StartMatch(GameRng.RandomSeed());
+                    if (Current == Phase.Results && _wantRematch && _isHost) StartMatch(GameRng.RandomSeed());
                     else Changed?.Invoke();
                     break;
                 case DuelMsg.Leave:
@@ -439,6 +559,9 @@ namespace Bascule.Duel
         void StartMatch(uint seed)
         {
             float countdown = Mathf.Max(1f, T.countdownSeconds);
+            _helloAt = -1f;
+            // Ma présentation d'abord (l'ami ne l'a peut-être pas reçue s'il s'est reconnecté), puis le départ.
+            _net.Send(DuelProtocol.Hello(Me), true);
             _net.Send(DuelProtocol.Start(seed, countdown), true);
             BeginCountdown(seed, countdown);
         }
@@ -524,7 +647,7 @@ namespace Bascule.Duel
             if (!_net.Linked) { Notice?.Invoke("duel_they_left"); return; }
             _wantRematch = true;
             _net.Send(DuelProtocol.Simple(DuelMsg.Rematch), true);
-            if (_theyWantRematch && IsHost) StartMatch(GameRng.RandomSeed());
+            if (_theyWantRematch && _isHost) StartMatch(GameRng.RandomSeed());
             else Changed?.Invoke();
         }
 
@@ -535,6 +658,16 @@ namespace Bascule.Duel
             _net.Tick();
             if (Current == Phase.None) return;
             float now = Time.unscaledTime;
+
+            // « Connexion… » bloquée (serveur qui ne répond pas) : on le dit au lieu d'attendre sans fin.
+            if (Current == Phase.Connecting && now - _connectingSince > ConnectGuardSeconds)
+            {
+                Fail(_isHost ? "duel_create_failed" : "duel_join_failed");
+                return;
+            }
+            // Hôte : l'ami s'est présenté, départ un instant après.
+            if (_isHost && Current == Phase.Greeting && Them != null && _helloAt >= 0f && now - _helloAt >= StartDelaySeconds)
+                StartMatch(GameRng.RandomSeed());
 
             // Plus de nouvelles : l'adversaire est parti.
             bool linkedPhase = Current != Phase.Connecting && Current != Phase.Hosting && !(Current == Phase.Results);
@@ -562,10 +695,22 @@ namespace Bascule.Duel
                     break;
                 case Phase.LastWeight:
                     LastWeightLeft -= dt;
-                    if (LastWeightLeft <= 0f && _myFall == null)
+                    // Une seule demande de fin (bras levés) : avant la 1.4.1, elle était refaite à l'image suivante, qui
+                    // concluait sans attendre la fin de ma partie.
+                    if (LastWeightLeft <= 0f && _myFall == null && !_finishAsked)
                     {
                         LastWeightLeft = 0f;
-                        if (FinishRun == null || !FinishRun()) { _myFinished = true; _myScore = Score != null ? Score() : _myScore; Decide(); }
+                        _finishAsked = true;
+                        if (FinishRun == null || !FinishRun())
+                        {
+                            // Ma partie ne peut pas lever les bras (déjà arrêtée) : j'envoie quand même mon score, sinon
+                            // l'adversaire attendrait jusqu'à son délai.
+                            _myFinished = true;
+                            _myScore = Score != null ? Score() : _myScore;
+                            _mySurvivedMs = (uint)Mathf.Max(0f, Elapsed * 1000f);
+                            _net.Send(DuelProtocol.Finished(_myScore, _mySurvivedMs), true);
+                            Decide();
+                        }
                     }
                     break;
                 case Phase.Waiting:
@@ -595,16 +740,21 @@ namespace Bascule.Duel
                 if (s != null)
                 {
                     Opponent = s;
-                    if (_theirFall == null) _theirScore = Mathf.Max(_theirScore, s.Score);
+                    // Son score en direct (le dernier reçu) ; figé dès qu'il a lâché ou fini (score exact reçu).
+                    if (_theirFall == null && !_theirFinished && Current != Phase.Results) _theirScore = s.Score;
                     _view.Apply(s, dt);
                 }
             }
         }
 
-        /// <summary>L'application passe en arrière-plan pendant un duel : c'est un abandon (le temps ne s'arrête pas chez l'autre).</summary>
+        /// <summary>
+        /// L'application passe en arrière-plan pendant un duel. Plus d'abandon immédiat (1.4.1) : tirer le Centre de
+        /// contrôle ou toucher une notification ne fait plus perdre. Ma partie est figée, celle de l'adversaire continue ;
+        /// si je reste parti plus que son délai (timeoutSeconds), il gagne et je le reconnais au retour (OnAppResumed).
+        /// </summary>
         public void OnAppPaused()
         {
-            if (InMatch && !_myFinished) Forfeit();
+            _lastHeard = Time.unscaledTime;
         }
 
         /// <summary>Temps du duel depuis « Partez ! » (s), arrêté quand je lâche.</summary>

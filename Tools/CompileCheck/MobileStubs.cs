@@ -10,6 +10,11 @@ namespace UnityEngine
 #if UNITY_IOS
 namespace UnityEngine.iOS
 {
-    public static class Device { public static bool RequestStoreReview() => true; }
+    public static class Device
+    {
+        public static bool RequestStoreReview() => true;
+        public static SystemGestureDeferMode deferSystemGesturesMode { get; set; }
+    }
+    [System.Flags] public enum SystemGestureDeferMode { None = 0, TopEdge = 1, LeftEdge = 2, BottomEdge = 4, RightEdge = 8, All = 15 }
 }
 #endif

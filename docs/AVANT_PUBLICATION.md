@@ -14,7 +14,11 @@ Elle compare le code, l'export iOS qui va partir et les serveurs Unity :
 - régies à bibliothèque dynamique embarquées (sinon plantage au lancement), identifiant AdMob, texte du suivi, SKAdNetwork ;
 - numéro de build Codemagic unique ;
 - classements et index Cloud Save présents sur le serveur ;
-- tests des règles et compilation iOS / Android avec tous les paquets.
+- tests des règles et compilation iOS / Android avec tous les paquets ;
+- **179 duels simulés** (`Tests/Bascule.Duel.Tests`) : le vrai code du duel sur un faux réseau (Wi-Fi, 4G lente,
+  Wi-Fi + 4G, relais lent, liaison qui n'aboutit jamais, hôte parti 4 à 40 s dans Snap, Centre de contrôle pendant la
+  partie, appli quittée, téléphone éteint, abandon, attente du score, fin au temps, revanche, mauvais code puis bon
+  code, 120 duels tirés au hasard). Les deux téléphones doivent toujours finir avec le même résultat.
 
 Tout doit être « OK ». Un « !! » se corrige avant d'aller plus loin.
 
@@ -30,10 +34,12 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 **Duel (deux iPhone, les deux avec ce build)**
 - [ ] Côte à côte, même Wi-Fi : « Défier un ami » → l'autre tape le code → départ en moins de 5 s → duel **jusqu'au résultat**.
 - [ ] Revanche depuis l'écran de résultat.
+- [ ] **Un en Wi-Fi, l'autre en 4G** (couper le Wi-Fi d'un téléphone).
 - [ ] En **4G des deux côtés**.
-- [ ] L'hôte envoie le code **par Snap ou Messages**, revient dans le jeu, l'ami rejoint par le lien.
+- [ ] L'hôte envoie le code **par Snap ou Messages**, y reste 30 s, revient dans le jeu ; l'ami touche le lien : le duel part.
 - [ ] Invitation depuis la liste d'amis (l'ami la reçoit sur l'accueil).
-- [ ] Un joueur quitte l'appli pendant le duel : l'autre gagne en quelques secondes.
+- [ ] Pendant la partie, tirer le Centre de contrôle 2 s puis revenir : **pas de défaite**, la partie continue.
+- [ ] Un joueur quitte l'appli pendant le duel (plus de 10 s) : l'autre gagne, celui qui est parti voit « défaite ».
 
 **Amis**
 - [ ] A ajoute B avec son code : B voit « A t'a ajouté en ami » et A apparaît dans ses amis, même sans score.

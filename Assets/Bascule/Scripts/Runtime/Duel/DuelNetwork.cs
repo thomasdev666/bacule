@@ -18,6 +18,8 @@ namespace Bascule.Duel
         string Code { get; }
         /// <summary>Les deux téléphones sont reliés.</summary>
         bool Linked { get; }
+        /// <summary>La liaison avec le relais est encore valable (après un passage en arrière-plan, elle peut avoir expiré).</summary>
+        bool RelayAlive { get; }
         event Action PeerLinked;
         event Action PeerLost;
         event Action<byte[]> Received;
@@ -38,6 +40,7 @@ namespace Bascule.Duel
         public bool IsHost => false;
         public string Code => "";
         public bool Linked => false;
+        public bool RelayAlive => false;
         public event Action PeerLinked { add { } remove { } }
         public event Action PeerLost { add { } remove { } }
         public event Action<byte[]> Received { add { } remove { } }
@@ -64,21 +67,61 @@ namespace Bascule.Duel
         public bool IsHost { get; private set; }
         public string Code { get; private set; } = "";
         public bool Linked => _link != null && _link.Linked;
+        public bool RelayAlive => _link != null && _link.RelayAlive;
         public event Action PeerLinked;
+
+        /// <summary>
+        /// Créer, rejoindre et quitter passent UN PAR UN, dans l'ordre : avant la 1.4.1, une sortie encore en cours (lien
+        /// d'invitation touché depuis la salle d'attente) détruisait la liaison de la partie suivante, qui n'arrivait jamais.
+        /// </summary>
+        Task _queue = Task.CompletedTask;
+
+        Task<T> Serial<T>(Func<Task<T>> step)
+        {
+            var prev = _queue;
+            var tcs = new TaskCompletionSource<T>();
+            _queue = tcs.Task;
+            Run();
+            return tcs.Task;
+
+            async void Run()
+            {
+                try { await prev; } catch (Exception) { }
+                try { tcs.SetResult(await step()); }
+                catch (Exception e) { tcs.SetException(e); }
+            }
+        }
         public event Action PeerLost;
         public event Action<byte[]> Received;
 
+        /// <summary>
+        /// Connexion aux services de Unity. Au lancement par un lien d'invitation, le classement se connecte en même temps :
+        /// on attend qu'il ait fini au lieu d'échouer (« Connecte-toi à internet » alors qu'on l'est).
+        /// </summary>
         static async Task<string> SignInAsync()
         {
-            try
+            for (int attempt = 0; attempt < 3; attempt++)
             {
-                if (Unity.Services.Core.UnityServices.State == Unity.Services.Core.ServicesInitializationState.Uninitialized)
-                    await Unity.Services.Core.UnityServices.InitializeAsync();
-                var auth = Unity.Services.Authentication.AuthenticationService.Instance;
-                if (!auth.IsSignedIn) await auth.SignInAnonymouslyAsync();
-                return null;
+                try
+                {
+                    if (Unity.Services.Core.UnityServices.State != Unity.Services.Core.ServicesInitializationState.Initialized)
+                        await Unity.Services.Core.UnityServices.InitializeAsync();
+                    var auth = Unity.Services.Authentication.AuthenticationService.Instance;
+                    if (!auth.IsSignedIn) await auth.SignInAnonymouslyAsync();
+                    return null;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[Bascule] Duel : connexion (essai " + (attempt + 1) + ") : " + e.Message);
+                    for (int k = 0; k < 16; k++)
+                    {
+                        await Task.Delay(250);
+                        if (Unity.Services.Core.UnityServices.State == Unity.Services.Core.ServicesInitializationState.Initialized
+                            && Unity.Services.Authentication.AuthenticationService.Instance.IsSignedIn) return null;
+                    }
+                }
             }
-            catch (Exception e) { Debug.LogWarning("[Bascule] Duel : connexion impossible : " + e.Message); return "duel_offline"; }
+            return "duel_offline";
         }
 
         UtpLink NewLink()
@@ -90,9 +133,11 @@ namespace Bascule.Duel
             return link;
         }
 
-        public async Task<string> HostAsync()
+        public Task<string> HostAsync() => Serial(HostNow);
+
+        async Task<string> HostNow()
         {
-            await LeaveAsync();
+            await LeaveNow();
             var err = await SignInAsync();
             if (err != null) return err;
             try
@@ -129,7 +174,7 @@ namespace Bascule.Duel
             catch (Exception e)
             {
                 Debug.LogWarning("[Bascule] Duel : création impossible : " + e.Message);
-                await LeaveAsync();
+                await LeaveNow();
                 return "duel_create_failed";
             }
         }
@@ -151,9 +196,11 @@ namespace Bascule.Duel
             return await Unity.Services.Multiplayer.MultiplayerService.Instance.CreateSessionAsync(options);
         }
 
-        public async Task<string> JoinAsync(string code)
+        public Task<string> JoinAsync(string code) => Serial(() => JoinNow(code));
+
+        async Task<string> JoinNow(string code)
         {
-            await LeaveAsync();
+            await LeaveNow();
             IsHost = false;
             var err = await SignInAsync();
             if (err != null) return err;
@@ -170,7 +217,9 @@ namespace Bascule.Duel
             catch (Exception e)
             {
                 Debug.LogWarning("[Bascule] Duel : impossible de rejoindre : " + e.Message);
-                await LeaveAsync();
+                // La liaison est déjà établie (erreur arrivée après coup) : la partie continue.
+                if (_link != null && _link.Linked) { IsHost = false; Code = code; return null; }
+                await LeaveNow();
                 // Code faux, partie pleine ou terminée : on le dit simplement.
                 return "duel_join_failed";
             }
@@ -180,7 +229,9 @@ namespace Bascule.Duel
         {
             _session = session;
             // Seulement pour la partie en cours : une ancienne session (quittée ou recréée) ne coupe plus le duel.
-            session.PlayerHasLeft += _ => { if (_session == session) PeerLost?.Invoke(); };
+            // Départ d'un joueur annoncé par la salle : seulement si la liaison directe ne répond plus (un ancien essai de
+            // l'ami, annoncé en retard, ne coupe pas la partie qui vient de commencer).
+            session.PlayerHasLeft += _ => { if (_session == session && !Linked) PeerLost?.Invoke(); };
             session.Deleted += () => { if (_session == session) PeerLost?.Invoke(); };
             session.RemovedFromSession += () => { if (_session == session) PeerLost?.Invoke(); };
         }
@@ -188,11 +239,17 @@ namespace Bascule.Duel
         public void Send(byte[] data, bool reliable) => _link?.Send(data, reliable);
         public void Tick() => _link?.Tick();
 
-        public async Task LeaveAsync()
+        public Task LeaveAsync() => Serial(async () => { await LeaveNow(); return true; });
+
+        async Task LeaveNow()
         {
+            // Tout est détaché AVANT d'attendre le serveur : rien de la partie suivante ne peut être touché ensuite.
             var s = _session;
+            var link = _link;
             _session = null;
+            _link = null;
             Code = "";
+            link?.Dispose();
             if (s != null)
             {
                 try
@@ -203,8 +260,6 @@ namespace Bascule.Duel
                 }
                 catch (Exception e) { Debug.LogWarning("[Bascule] Duel : sortie : " + e.Message); }
             }
-            _link?.Dispose();
-            _link = null;
         }
 
         /// <summary>
@@ -217,14 +272,18 @@ namespace Bascule.Duel
             Unity.Networking.Transport.NetworkDriver _driver;
             Unity.Networking.Transport.NetworkPipeline _reliable, _unreliable;
             Unity.Networking.Transport.NetworkConnection _conn;
-            bool _host, _started;
+            bool _host, _started, _disposed;
             public bool Linked { get; private set; }
+            public bool RelayAlive => _started && _driver.IsCreated
+                && Unity.Networking.Transport.Relay.RelayDriverExtensions.GetRelayConnectionStatus(_driver) == Unity.Networking.Transport.Relay.RelayConnectionStatus.Established;
             public event Action OnLinked;
             public event Action OnLost;
             public event Action<byte[]> OnReceived;
 
             public Task StartAsync(Unity.Services.Multiplayer.NetworkConfiguration configuration)
             {
+                // Partie déjà quittée pendant sa création : pas de pilote orphelin (jamais mis à jour ni libéré).
+                if (_disposed) return Task.CompletedTask;
                 var relay = configuration.RelayServerData;
                 var settings = new Unity.Networking.Transport.NetworkSettings();
                 Unity.Networking.Transport.Relay.RelayParameterExtensions.WithRelayParameters(ref settings, ref relay);
@@ -254,15 +313,18 @@ namespace Bascule.Duel
                     Unity.Networking.Transport.NetworkConnection c;
                     while ((c = _driver.Accept()) != default)
                     {
-                        // Un seul adversaire : une seconde connexion (rare) remplace la première.
+                        // Un seul adversaire : une seconde connexion (l'ami qui se reconnecte) remplace la première, et la
+                        // liaison est annoncée à nouveau pour que les présentations recommencent.
                         if (_conn.IsCreated) _driver.Disconnect(_conn);
                         _conn = c;
+                        Linked = false;
                         SetLinked(true);
                     }
                 }
                 if (!_conn.IsCreated) return;
                 Unity.Networking.Transport.NetworkEvent.Type ev;
-                while ((ev = _driver.PopEventForConnection(_conn, out var reader)) != Unity.Networking.Transport.NetworkEvent.Type.Empty)
+                while (_started && _driver.IsCreated && _conn.IsCreated
+                       && (ev = _driver.PopEventForConnection(_conn, out var reader)) != Unity.Networking.Transport.NetworkEvent.Type.Empty)
                 {
                     if (ev == Unity.Networking.Transport.NetworkEvent.Type.Connect) SetLinked(true);
                     else if (ev == Unity.Networking.Transport.NetworkEvent.Type.Data)
@@ -297,6 +359,8 @@ namespace Bascule.Duel
 
             public void Dispose()
             {
+                _disposed = true;
+                Linked = false;
                 if (_started && _driver.IsCreated)
                 {
                     if (_conn.IsCreated) _driver.Disconnect(_conn);
