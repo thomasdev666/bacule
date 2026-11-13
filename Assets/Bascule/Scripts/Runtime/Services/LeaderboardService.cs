@@ -72,6 +72,8 @@ namespace Bascule.Services
         Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0);
         /// <summary>Pseudo public d'un joueur (publié avec son code ami) ; vide s'il est inconnu.</summary>
         Task<string> GetPlayerNameAsync(string playerId);
+        /// <summary>Pseudo et tête publics d'un joueur (publiés avec son code ami) ; ("", 0) s'ils sont inconnus.</summary>
+        Task<(string name, int head)> GetPublicProfileAsync(string playerId);
         /// <summary>Retrouve un joueur par son code court ; null s'il est introuvable (ou ambigu).</summary>
         Task<string> FindPlayerByCodeAsync(string code);
         /// <summary>
@@ -115,6 +117,7 @@ namespace Bascule.Services
         public Task<bool> DeleteAccountAsync() => Task.FromResult(false);
         public Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0) => Task.FromResult<string>(null);
         public Task<string> GetPlayerNameAsync(string playerId) => Task.FromResult("");
+        public Task<(string name, int head)> GetPublicProfileAsync(string playerId) => Task.FromResult(("", 0));
         public Task<string> FindPlayerByCodeAsync(string code) => Task.FromResult<string>(null);
         public Task<bool> PublishFriendLinkAsync(string friendId, int slot) => Task.FromResult(false);
         public Task<bool> PublishFriendLinksAsync(IList<string> friendIds) => Task.FromResult(false);

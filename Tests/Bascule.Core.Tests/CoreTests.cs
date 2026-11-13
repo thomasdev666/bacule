@@ -1289,6 +1289,32 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class FriendRequestTests
+    {
+        [Test]
+        public void SomeoneWhoAddedMeIsARequestNotAFriend()
+        {
+            var p = new Profile(); p.Sanitize();
+            var pending = FriendRequests.Pending(p, new[] { "lea", "me", "lea", "", "tom" }, "me");
+            CollectionAssert.AreEqual(new[] { "lea", "tom" }, pending);
+            Assert.IsEmpty(p.friends, "personne n'est ajouté sans mon accord");
+
+            Assert.True(FriendRequests.Accept(p, "lea", "me"));
+            Assert.Contains("lea", p.friends);
+            Assert.True(FriendRequests.Decline(p, "tom"));
+            Assert.IsEmpty(FriendRequests.Pending(p, new[] { "lea", "tom" }, "me"), "acceptée ou refusée : la demande ne revient pas");
+            CollectionAssert.DoesNotContain(p.friends, "tom");
+
+            // Refusé, puis je l'ajoute moi-même plus tard : il redevient possible.
+            Assert.True(FriendCode.Add(p, "tom", "me"));
+            Assert.Contains("tom", p.friends);
+            // Bloqué ou retiré : pas de demande.
+            Moderation.Block(p, "zoe", "me");
+            FriendCode.Remove(p, "lea");
+            Assert.IsEmpty(FriendRequests.Pending(p, new[] { "zoe", "lea" }, "me"));
+        }
+    }
+
     public class HeadTests
     {
         [Test]

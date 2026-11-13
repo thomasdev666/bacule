@@ -237,6 +237,43 @@ namespace Bascule.Core
     }
 
     /// <summary>
+    /// Demandes d'ami (1.4.1). Quand A ajoute B (code ami ou profil du classement), B est dans les amis de A tout de
+    /// suite ; chez B, A arrive comme une DEMANDE à accepter ou refuser (avant : ajouté d'office, sans rien demander).
+    /// Refuser range A dans friendsRemoved : sa demande ne revient plus (B peut toujours l'ajouter lui-même plus tard).
+    /// Seuls les amis acceptés peuvent inviter en duel (GameApp.CheckInvites).
+    /// </summary>
+    public static class FriendRequests
+    {
+        /// <summary>
+        /// Demandes en attente : les joueurs qui m'ont ajouté (<paramref name="addedMe"/>), sauf ceux déjà dans mes amis,
+        /// refusés ou retirés, bloqués, et moi-même. Dans l'ordre reçu, sans doublon.
+        /// </summary>
+        public static List<string> Pending(Profile p, IEnumerable<string> addedMe, string myId)
+        {
+            var list = new List<string>();
+            if (addedMe == null) return list;
+            foreach (var id in addedMe)
+            {
+                if (string.IsNullOrEmpty(id) || id == myId || list.Contains(id)) continue;
+                if (p.friends.Contains(id) || p.friendsRemoved.Contains(id) || Moderation.IsBlocked(p, id)) continue;
+                list.Add(id);
+            }
+            return list;
+        }
+
+        /// <summary>J'accepte : il devient mon ami (amitié réciproque). Faux si la liste est pleine ou s'il y est déjà.</summary>
+        public static bool Accept(Profile p, string playerId, string myId) => FriendCode.Add(p, playerId, myId);
+
+        /// <summary>Je refuse : sa demande ne reviendra plus.</summary>
+        public static bool Decline(Profile p, string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId) || p.friendsRemoved.Contains(playerId)) return false;
+            p.friendsRemoved.Add(playerId);
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Modération du classement (règle 1.2 de l'App Store : contenu créé par les joueurs) :
     /// chaque joueur peut bloquer ou signaler un pseudo. Un joueur bloqué disparaît de son classement
     /// et de sa liste d'amis. Les signalements partent par e-mail vers l'éditeur (voir GameApp.ReportPlayer).

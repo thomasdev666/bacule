@@ -32,3 +32,4 @@ Tools/**/obj/
 /_expo_abandonne/
 /Bascule_Unity.zip
 /Bascule*.zip
+__pycache__/

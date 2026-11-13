@@ -2,7 +2,9 @@
 
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
-## 1.4.1 (build 9) – à sortir quand on veut, rien d'urgent
+## 1.5 (build 9) – en préparation : tous les correctifs ci-dessous (prévus pour une 1.4.1 qui ne sortira pas seule) + matchmaking et ligues
+- **Demandes d'ami** (`Core.FriendRequests`) : quand quelqu'un t'ajoute (code ami ou profil), tu reçois une demande « Léa veut t'ajouter en ami » avec Accepter / Refuser / Plus tard (avant : ajouté d'office, sans rien demander ni annoncer clairement). Les demandes en attente restent en haut de Classement → Amis. Refuser ne dit rien à l'autre et la demande ne revient plus. Seuls les amis acceptés peuvent inviter en duel.
+- **Profil d'un joueur** : toucher n'importe quelle ligne (ou le podium) du classement ouvre son profil (tête, pseudo, place, record) avec « Ajouter en ami », ou « Accepter / Refuser », ou « Défier » et « Retirer des amis » ; « Signaler » et « Bloquer » toujours là.
 - **Classements** : la 1.4 lisait `bascule_monde` / `bascule_jour` alors que la version publiée avant écrivait dans `bascule_monde_s2` / `bascule_jour_s2`. Corrigé sans mise à jour le 13/11/2026 : records des 48 joueurs copiés dans les classements de la 1.4 (`Tools/copy_leaderboards.py`). Les noms restent ceux de la 1.4.
 - **Record renvoyé à chaque lancement** : un joueur qui met à jour, réinstalle ou change d'iPhone apparaît tout de suite, sans rejouer. Scores en attente sous les noms `_s2` envoyés aux classements actuels.
 - **Mise à jour conseillée** (`Core/AppUpdate.cs`) : quelques secondes après le lancement, le jeu lit la version en ligne sur l'App Store (recherche publique d'Apple). Si elle est plus récente, l'accueil affiche « Nouvelle version ! » avec « Mettre à jour » (page de l'App Store) et « Plus tard ». Jamais obligatoire, jamais pendant une partie ni au premier lancement, au plus une fois par jour et 3 fois par version. Ne marche qu'à partir des joueurs qui ont la 1.4.1.
@@ -30,7 +32,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (6).
 - **Tête Samb'bach retirée** (partenariat annulé) : le code ne marche plus, la tête, sa coiffe, sa tenue et le logo du BDE sont supprimés. Un joueur qui l'avait la perd et reprend Basile s'il la portait. Numéro 66 réservé à vie (`HeadCatalog.RetiredIds`). 66 têtes.
 - **Têtes de partenaires cachées** : à l'avenir, une tête offerte par un code n'apparaît dans la collection (ni dans le total) qu'une fois le code entré (`HeadCatalog.IsVisible`, `docs/PARTENAIRES.md`).
-- Version 1.4.1, build iOS 9, version Android 41.
+- Version 1.5, build iOS 9, version Android 50.
 
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)
 - **Rien n'est remis à zéro** : les joueurs de la 1.2 gardent tout (record, têtes, pièces, niveau, planches, missions, série, code ami, amis, achats). La remise à zéro de « saison » prévue pour le lancement est désactivée (`Seasons.ResetOldSaves = false`, `Seasons.OnLoad`) ; une sauvegarde de la 1.2 est seulement marquée de la saison en cours (test `A12SaveIsKeptIntactWhenUpdating`). Aucun champ sauvegardé de la 1.2 n'a été renommé ni changé de type (vérifié), fichiers `profile.json` et `run.json` inchangés. Classements : `bascule_monde` et `bascule_jour`, les mêmes que la 1.2.

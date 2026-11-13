@@ -448,6 +448,7 @@ namespace Bascule
             _pause = Make<PauseScreen>(t, Palette.Shade);
             _prompt = Make<PromptScreen>(t, Palette.Shade);
             _playerMenu = Make<PlayerMenuScreen>(t, Palette.Shade);
+            _friendRequest = Make<FriendRequestScreen>(t, Palette.Shade);
             _missions = Make<MissionsScreen>(t, Palette.Shade);
             _shop = Make<ShopScreen>(t, Palette.Shade);
             _gift = Make<GiftScreen>(t, Palette.Shade);
@@ -932,8 +933,9 @@ namespace Bascule
         bool _inviteBusy;
 
         /// <summary>
-        /// Amis réciproques (toutes les 30 s hors partie) : ajoute les joueurs qui nous ont ajouté en ami. Une seule
-        /// requête par case, et seulement hors partie : le jeu ne se met jamais à attendre le réseau.
+        /// Amis (toutes les 30 s hors partie) : les joueurs qui nous ont ajouté arrivent comme DEMANDES à accepter ou
+        /// refuser (1.4.1 ; avant, ils étaient ajoutés d'office, sans rien demander). Une seule requête par case, et
+        /// seulement hors partie : le jeu ne se met jamais à attendre le réseau.
         /// </summary>
         async void SyncFriends()
         {
@@ -942,35 +944,99 @@ namespace Bascule
             try
             {
                 var me = Leaderboard.Service.PlayerId;
-                int added = 0;
-                string firstNew = null;
+                var addedMe = await Leaderboard.Service.FindPlayersWhoAddedMeAsync();
                 bool mutual = false;
-                foreach (var id in await Leaderboard.Service.FindPlayersWhoAddedMeAsync())
+                foreach (var id in addedMe) if (Profile.friends.Contains(id)) mutual = true;
+                if (mutual) GrantDuo();
+
+                var pending = Core.FriendRequests.Pending(Profile, addedMe, me);
+                bool changed = pending.Count != PendingFriends.Count || pending.Exists(id => !PendingFriends.Contains(id));
+                PendingFriends.Clear();
+                PendingFriends.AddRange(pending);
+                string firstNew = null;
+                foreach (var id in pending)
                 {
-                    if (FriendCode.AddedBy(Profile, id, me)) { added++; if (firstNew == null) firstNew = id; }
-                    if (Profile.friends.Contains(id)) mutual = true;
+                    // Pseudo et tête publics, pour la demande et la liste.
+                    if (!PlayerInfo.ContainsKey(id)) PlayerInfo[id] = await Leaderboard.Service.GetPublicProfileAsync(id);
+                    if (_seenRequests.Add(id) && firstNew == null) firstNew = id;
                 }
-                // Parrainage « Duo » : la tête se gagne dès qu'un ami et toi êtes amis tous les deux.
-                if (mutual && DuoHead.Grant(Profile))
+                if (firstNew != null)
                 {
-                    SaveProfile();
-                    Stats.Event("duo_head");
-                    _toast.Reward(Icon.Heart, Palette.Secondary, Loc.Format("new_head", DuoHead.Head.Name(Loc.Language)), Loc.Get("duo_detail"), 0);
-                    if (_home.Visible) _home.Refresh();
+                    Stats.Event("friend_request_received", ("pending", pending.Count));
+                    var (name, head) = PlayerInfo[firstNew];
+                    string who = PseudoFilter.Display(name, Loc.Get("lb_player"));
+                    if (CanShowInvite) { _haptics.Light(); _friendRequest.Open(firstNew, who, head); }
+                    else _toast.Say(Loc.Format("freq_toast", who), Icon.Heart, Palette.Secondary, 5f);
                 }
-                if (added > 0)
-                {
-                    SaveProfile();
-                    Stats.Event("friend_mutual", ("added", added));
-                    // Avec le pseudo quand on le connaît : « Léa t'a ajouté en ami ! » (plus long à lire).
-                    string who = added == 1 ? PseudoFilter.Display(await Leaderboard.Service.GetPlayerNameAsync(firstNew), "") : "";
-                    _toast.Say(string.IsNullOrEmpty(who) ? Loc.Get("friend_added_you_generic") : Loc.Format("friend_added_you", who), Icon.Heart, Palette.Secondary, 5f);
-                    if (_leaderboard.Visible) _leaderboard.Refresh();
-                    if (_duelLobby.Visible) _duelLobby.Refresh();
-                }
+                if (changed && _leaderboard.Visible) _leaderboard.Refresh();
             }
-            catch (Exception e) { Debug.LogWarning("[Bascule] Amis réciproques : " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Demandes d'ami : " + e.Message); }
             finally { _socialBusy = false; }
+        }
+
+        /// <summary>Demandes d'ami en attente (joueurs qui m'ont ajouté, pas encore acceptés ni refusés).</summary>
+        public readonly List<string> PendingFriends = new List<string>();
+        /// <summary>Pseudo et tête publics des joueurs des demandes (affichage).</summary>
+        public readonly Dictionary<string, (string name, int head)> PlayerInfo = new Dictionary<string, (string, int)>();
+        /// <summary>Demandes déjà annoncées pendant cette session (la fenêtre ne revient pas toutes les 30 s).</summary>
+        readonly HashSet<string> _seenRequests = new HashSet<string>();
+        FriendRequestScreen _friendRequest;
+
+        /// <summary>Parrainage « Duo » : la tête se gagne dès qu'un ami et toi êtes amis tous les deux.</summary>
+        void GrantDuo()
+        {
+            if (!DuoHead.Grant(Profile)) return;
+            SaveProfile();
+            Stats.Event("duo_head");
+            _toast.Reward(Icon.Heart, Palette.Secondary, Loc.Format("new_head", DuoHead.Head.Name(Loc.Language)), Loc.Get("duo_detail"), 0);
+            if (_home.Visible) _home.Refresh();
+        }
+
+        /// <summary>Nom affichable d'un joueur des demandes (« Joueur » s'il n'a pas de pseudo public).</summary>
+        public string RequestName(string playerId) =>
+            PseudoFilter.Display(PlayerInfo.TryGetValue(playerId, out var info) ? info.name : "", Loc.Get("lb_player"));
+        public int RequestHead(string playerId) => PlayerInfo.TryGetValue(playerId, out var info) ? info.head : 0;
+
+        /// <summary>J'accepte la demande : amis tous les deux (scores, duels, tête Duo).</summary>
+        public void AcceptFriendRequest(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId)) return;
+            string name = RequestName(playerId);
+            PendingFriends.Remove(playerId);
+            bool ok = Core.FriendRequests.Accept(Profile, playerId, Leaderboard.Service.PlayerId);
+            if (!ok && !Profile.friends.Contains(playerId)) { _toast.Say(Loc.Get("friend_offline")); return; }
+            SaveProfile();
+            _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
+            Stats.Event("friend_request_accept", ("friends", Profile.friends.Count));
+            _toast.Say(Loc.Format("freq_now_friends", name), Icon.Heart, Palette.Secondary, 3f);
+            GrantDuo();
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+            if (_duelLobby.Visible) _duelLobby.Refresh();
+        }
+
+        /// <summary>Je refuse : la demande disparaît et ne reviendra plus (rien n'est dit à l'autre joueur).</summary>
+        public void DeclineFriendRequest(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId)) return;
+            PendingFriends.Remove(playerId);
+            if (Core.FriendRequests.Decline(Profile, playerId)) SaveProfile();
+            Stats.Event("friend_request_decline");
+            _toast.Say(Loc.Get("freq_declined"), 2f);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
+        /// <summary>« Ajouter en ami » depuis le profil d'un joueur du classement : il reçoit une demande.</summary>
+        public void AddFriendFromProfile(string playerId, string name)
+        {
+            if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("friend_offline")); return; }
+            // Il m'avait déjà demandé : c'est une acceptation.
+            if (PendingFriends.Contains(playerId)) { AcceptFriendRequest(playerId); return; }
+            if (!FriendCode.Add(Profile, playerId, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
+            SaveProfile();
+            _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
+            Stats.Event("friend_add_profile", ("friends", Profile.friends.Count));
+            _toast.Say(Loc.Format("friend_request_sent", string.IsNullOrEmpty(name) ? Loc.Get("lb_player") : name), Icon.Check, Palette.Play);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
         }
 
         /// <summary>
@@ -1014,6 +1080,7 @@ namespace Bascule
 
         /// <summary>Une invitation peut s'afficher : pas de partie, de pub, de coffre ni d'autre fenêtre en cours.</summary>
         bool CanShowInvite => !Duel.InDuel && !AdBusy && !Session.IsRunning && !_confirm.Visible && !_prompt.Visible
+            && !_friendRequest.Visible && !_playerMenu.Visible
             && !_chest.Visible && !_headReveal.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
 
         /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
@@ -2074,10 +2141,18 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Modération du classement
 
-        public void ShowPlayerMenu(string playerId, string name)
+        public void ShowPlayerMenu(string playerId, string name) => ShowPlayerProfile(playerId, name, -1, 0, 0);
+
+        /// <summary>
+        /// Profil d'un joueur touché dans le classement : sa tête, son pseudo, sa place et son record, et selon le cas
+        /// « Ajouter en ami », « Accepter / Refuser » sa demande, ou « Défier » et « Retirer des amis » ; « Signaler » et
+        /// « Bloquer » toujours. <paramref name="head"/> = -1 : inconnue (on prend celle publiée avec son code ami).
+        /// </summary>
+        public void ShowPlayerProfile(string playerId, string name, int head, int rank, int score)
         {
-            if (string.IsNullOrEmpty(playerId)) return;
-            _playerMenu.Open(playerId, name);
+            if (string.IsNullOrEmpty(playerId) || playerId == Leaderboard.Service.PlayerId) return;
+            if (head < 0) head = FriendHeads.TryGetValue(playerId, out var fh) ? fh : RequestHead(playerId);
+            _playerMenu.Open(playerId, name, head, rank, score);
         }
 
         public void RemoveFriend(string playerId)
@@ -2144,6 +2219,7 @@ namespace Bascule
                 if (id == null) id = FriendCode.Parse(text);
                 if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
                 if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
+                PendingFriends.Remove(id); // il m'avait déjà demandé : nous voilà amis
                 SaveProfile();
                 // Amitié réciproque : l'ami nous retrouvera et nous ajoutera à son tour (dès qu'il ouvre le jeu).
                 _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
@@ -2438,6 +2514,7 @@ namespace Bascule
                 else if (_surprise.Visible) _surprise.Back();
                 else if (_prompt.Visible) _prompt.Hide();
                 else if (_playerMenu.Visible) _playerMenu.Hide();
+                else if (_friendRequest.Visible) _friendRequest.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
                 else if (_welcome.Visible) { _welcome.Hide(); AfterWelcome(); }

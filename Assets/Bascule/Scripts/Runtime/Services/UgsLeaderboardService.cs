@@ -409,6 +409,17 @@ namespace Bascule.Services
 #endif
         }
 
+        public async Task<(string name, int head)> GetPublicProfileAsync(string playerId)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(playerId)) return ("", 0);
+            return await PublicProfile(playerId);
+#else
+            await Task.CompletedTask;
+            return ("", 0);
+#endif
+        }
+
 #if BASCULE_CLOUDSAVE
         /// <summary>Pseudo et tête publics d'un joueur, retrouvés par son code ami (index friend_code).</summary>
         static async Task<(string name, int head)> PublicProfile(string playerId)

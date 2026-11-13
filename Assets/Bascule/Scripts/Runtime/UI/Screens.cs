@@ -1749,7 +1749,12 @@ namespace Bascule.UI
             LeaderboardPage page;
             if (friends)
             {
-                if (App.Profile.friends.Count == 0) { _status.text = Loc.Get("friends_empty"); return; }
+                if (App.Profile.friends.Count == 0)
+                {
+                    _status.text = App.PendingFriends.Count == 0 ? Loc.Get("friends_empty") : "";
+                    RequestRows();
+                    return;
+                }
                 page = await service.GetFriendsAsync(Boards.World, App.Profile.friends);
             }
             else page = await service.GetTopAsync(_board, PageSize);
@@ -1764,6 +1769,7 @@ namespace Bascule.UI
                 shown.Add(e);
             }
             _status.text = shown.Count == 0 ? Loc.Get(friends ? "friends_empty" : _board == Boards.Daily ? "lb_daily_empty" : "lb_empty") : "";
+            if (friends) RequestRows();
             // Podium des trois premiers, puis les autres en lignes.
             int podium = shown.Count >= 2 ? Mathf.Min(3, shown.Count) : 0;
             if (podium > 0) Podium(shown.GetRange(0, podium), friends);
@@ -1793,6 +1799,35 @@ namespace Bascule.UI
                 else { _meRank.text = "–"; _meScore.text = ""; }
                 _meName.text = me != null ? (string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("lb_you") : App.Profile.pseudo) : Loc.Get("lb_not_ranked");
                 _meFace.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
+            }
+        }
+
+        /// <summary>Demandes d'ami en attente, en haut de l'onglet Amis : portrait, pseudo, Accepter (vert) et Refuser.</summary>
+        void RequestRows()
+        {
+            var pending = App.PendingFriends;
+            if (pending.Count == 0) return;
+            var title = Ui.Title(_list, Loc.Format("freq_section", pending.Count), 46, Palette.Accent);
+            title.alignment = TextAnchor.LowerLeft;
+            Ui.Size(title, 84);
+            foreach (var pid in pending.ToArray())
+            {
+                string id = pid, who = App.RequestName(pid);
+                int head = App.RequestHead(pid);
+                var row = Ui.Card(_list, "Demande");
+                row.color = ArtCache.Hex("#FFE3EC");
+                Ui.Size(row, 150);
+                var icon = Ui.Icon(row.transform, Art.PortraitIfLoaded(HeadCatalog.Get(head), false));
+                if (icon.sprite == null) { icon.sprite = Art.SoftDisc; icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((icon, head)); }
+                Ui.Place(icon.rectTransform, 0, 0.5f, 26, 0, 124, 124, 0, 0.5f);
+                var n = Ui.Plain(Ui.Label(row.transform, who, 46, Palette.Ink, TextAnchor.MiddleLeft));
+                Ui.Place(n.rectTransform, 0, 0.5f, 170, 20, 480, 64, 0, 0.5f);
+                var w = Ui.Plain(Ui.Label(row.transform, Loc.Get("profile_wants"), 32, Palette.Muted, TextAnchor.MiddleLeft));
+                Ui.Place(w.rectTransform, 0, 0.5f, 170, -34, 480, 44, 0, 0.5f);
+                var yes = Ui.Button(row.transform, "", Palette.Play, () => App.AcceptFriendRequest(id), Icon.Check, 40, "Accepter");
+                Ui.Place((RectTransform)yes.transform, 1, 0.5f, -150, 0, 120, 112, 1, 0.5f);
+                var no = Ui.Button(row.transform, "", Palette.Secondary, () => App.DeclineFriendRequest(id), Icon.Close, 40, "Refuser");
+                Ui.Place((RectTransform)no.transform, 1, 0.5f, -18, 0, 120, 112, 1, 0.5f);
             }
         }
 
@@ -1905,7 +1940,8 @@ namespace Bascule.UI
                     string id = e.PlayerId, who = e.Name;
                     ring.raycastTarget = true;
                     var b = ring.gameObject.AddComponent<Button>();
-                    b.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerMenu(id, who); });
+                    int pHead = e.Head, pRank = friends ? 0 : e.Rank, pScore = e.Score;
+                    b.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, pHead, pRank, pScore); });
                     ring.gameObject.AddComponent<PressScale>();
                 }
             }
@@ -1941,13 +1977,20 @@ namespace Bascule.UI
             var s = Ui.Plain(Ui.Label(row.transform, score > 0 ? Loc.FormatScore(score) : "–", 50, Palette.Ink, TextAnchor.MiddleRight)); // ami sans score : « – »
             Ui.Place(s.rectTransform, 1, 0.5f, challenge ? -150 : -36, 0, 220, 100, 1, 0.5f);
             string id = playerId, who = name;
+            if (report)
+            {
+                // Toute la ligne se touche : profil du joueur (ajouter en ami, défier, signaler, bloquer).
+                int pRank = friend ? 0 : rank;
+                row.raycastTarget = true;
+                var open = row.gameObject.AddComponent<Button>();
+                open.transition = Selectable.Transition.None;
+                open.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, head, pRank, score); });
+            }
             if (challenge)
             {
                 // Ami : défi en un geste (épées) ; le drapeau reste dans le menu du joueur (appui sur le portrait).
                 var duel = Ui.Button(row.transform, "", Palette.Play, () => App.ChallengeFriend(id, who), Icon.Swords, 40, "Defier");
                 Ui.Place((RectTransform)duel.transform, 1, 0.5f, -18, 0, 116, 108, 1, 0.5f);
-                icon.raycastTarget = true;
-                icon.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerMenu(id, who));
             }
             else if (report)
             {
@@ -1957,7 +2000,7 @@ namespace Bascule.UI
                 Ui.Place(hit, 1, 0.5f, -264, 0, 88, 100, 1, 0.5f);
                 var hitImg = hit.gameObject.AddComponent<Image>();
                 hitImg.color = new Color(0, 0, 0, 0);
-                hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerMenu(id, who));
+                hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerProfile(id, who, head, friend ? 0 : rank, score));
                 var flag = Ui.Icon(hit, Art.IconSprite(Icon.Flag), "Drapeau");
                 Ui.Place(flag.rectTransform, 0.5f, 0.5f, 0, 0, 54, 54);
                 flag.color = new Color(1f, 1f, 1f, 0.55f);
@@ -2226,50 +2269,112 @@ namespace Bascule.UI
     }
 
     /// <summary>Signaler un pseudo ou bloquer un joueur du classement (règle 1.2 de l'App Store).</summary>
+    /// <summary>
+    /// Profil d'un joueur touché dans le classement : tête, pseudo, place et record ; selon le cas « Ajouter en ami »,
+    /// « Accepter / Refuser » sa demande, ou « Défier » et « Retirer des amis » ; toujours « Signaler » et « Bloquer »
+    /// (App Store, règle 1.2).
+    /// </summary>
     public sealed class PlayerMenuScreen : UiScreen
     {
-        Text _title;
+        Text _title, _sub, _status;
         string _id, _name;
-        GameObject _unfriend, _duel;
-        Image _card;
+        GameObject _unfriend, _duel, _add, _accept, _decline;
+        Image _card, _face;
+        const float Top = 560f, Bottom = 350f, RowStep = 160f;
 
         protected override void Build()
         {
             var card = Ui.Card(Safe, "Fenetre");
             _card = card;
-            Ui.Place(card.rectTransform, 0.5f, 0.55f, 0, 0, 940, 1130);
+            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 940, 1100);
             card.gameObject.AddComponent<PopIn>();
+            _face = DuelUi.Portrait(card.transform, Palette.Primary, 240, "Portrait");
+            Ui.Place((RectTransform)_face.transform.parent, 0.5f, 1, 0, -170, 240, 240);
             _title = Ui.Title(card.transform, "", 64, Palette.Ink);
             Ui.Plain(_title);
-            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -100, 860, 120);
-            var note = Ui.Label(card.transform, Loc.Get("mod_note"), 44, Palette.Muted);
-            Ui.Place(note.rectTransform, 0.5f, 1, 0, -280, 860, 220);
-            var report = Ui.Button(card.transform, Loc.Get("mod_report"), Palette.Primary, () => { Hide(); App.ReportPlayer(_id, _name); }, null, 52, "Signaler");
-            Ui.Place((RectTransform)report.transform, 0.5f, 0, 0, 470, 780, 140);
-            var block = Ui.Button(card.transform, Loc.Get("mod_block"), Palette.Dark, () => { Hide(); App.BlockPlayer(_id); }, null, 52, "Bloquer");
-            Ui.Place((RectTransform)block.transform, 0.5f, 0, 0, 300, 780, 140);
-            var cancel = Ui.Button(card.transform, Loc.Get("cancel"), Palette.Muted, Hide, Icon.Close, 50, "Annuler");
-            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 130, 780, 140);
-            var unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Secondary, () => { Hide(); App.RemoveFriend(_id); }, null, 52, "RetirerAmi");
-            Ui.Place((RectTransform)unfriend.transform, 0.5f, 0, 0, 640, 780, 140);
-            _unfriend = unfriend.gameObject;
-            // Ami : défi en duel directement depuis son nom.
-            var duel = Ui.Button(card.transform, Loc.Get("duel_friend_challenge"), Palette.Play, () => { Hide(); App.ChallengeFriend(_id, _name); }, Icon.Swords, 52, "Defier");
-            Ui.Place((RectTransform)duel.transform, 0.5f, 0, 0, 810, 780, 140);
-            _duel = duel.gameObject;
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -350, 860, 90);
+            _sub = Ui.Label(card.transform, "", 44, Palette.Muted);
+            Ui.Place(_sub.rectTransform, 0.5f, 1, 0, -430, 860, 64);
+            _status = Ui.Label(card.transform, "", 40, Palette.Secondary);
+            Ui.Place(_status.rectTransform, 0.5f, 1, 0, -494, 860, 56);
+
+            var cancel = Ui.Button(card.transform, Loc.Get("cancel"), Palette.Muted, Hide, Icon.Close, 50, "Fermer");
+            Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 110, 780, 130);
+            var report = Ui.Button(card.transform, Loc.Get("profile_report"), Palette.Dark, () => { Hide(); App.ReportPlayer(_id, _name); }, Icon.Flag, 42, "Signaler");
+            Ui.Place((RectTransform)report.transform, 0.5f, 0, -198, 262, 384, 120);
+            var block = Ui.Button(card.transform, Loc.Get("profile_block"), Palette.Dark, () => { Hide(); App.BlockPlayer(_id); }, Icon.Close, 42, "Bloquer");
+            Ui.Place((RectTransform)block.transform, 0.5f, 0, 198, 262, 384, 120);
+
+            _unfriend = Ui.Button(card.transform, Loc.Get("friend_remove"), Palette.Secondary, () => { Hide(); App.RemoveFriend(_id); }, null, 50, "RetirerAmi").gameObject;
+            _duel = Ui.Button(card.transform, Loc.Get("duel_friend_challenge"), Palette.Play, () => { Hide(); App.ChallengeFriend(_id, _name); }, Icon.Swords, 52, "Defier").gameObject;
+            _add = Ui.Button(card.transform, Loc.Get("profile_add"), Palette.Play, () => { Hide(); App.AddFriendFromProfile(_id, _name); }, Icon.Plus, 52, "Ajouter").gameObject;
+            _accept = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 52, "Accepter").gameObject;
+            _decline = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Secondary, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 50, "Refuser").gameObject;
         }
 
-        public void Open(string playerId, string name)
+        public void Open(string playerId, string name, int head = 0, int rank = 0, int score = 0)
         {
             Show();
             _id = playerId;
-            _name = string.IsNullOrEmpty(name) ? "-" : name;
+            _name = string.IsNullOrEmpty(name) ? Loc.Get("lb_player") : name;
             _title.text = _name;
-            // « Retirer des amis » et « Défier » seulement pour un ami ; la fenêtre grandit pour les accueillir.
+            _face.sprite = Art.Portrait(HeadCatalog.Get(head));
+            string record = score > 0 ? Loc.Format("profile_record", Loc.FormatScore(score)) : Loc.Get("profile_no_score");
+            _sub.text = rank > 0 && score > 0 ? Loc.Rank(rank) + " · " + record : record;
             bool friend = App.Profile.friends.Contains(playerId);
-            _unfriend.SetActive(friend);
-            _duel.SetActive(friend && App.DuelAvailable);
-            _card.rectTransform.sizeDelta = new Vector2(940, friend && App.DuelAvailable ? 1300 : 1130);
+            bool asked = !friend && App.PendingFriends.Contains(playerId);
+            _status.text = friend ? Loc.Get("profile_friend") : asked ? Loc.Get("profile_wants") : "";
+            // Boutons du cas présent, empilés au-dessus de « Signaler / Bloquer ».
+            var rows = new List<GameObject>();
+            if (friend) { rows.Add(_unfriend); if (App.DuelAvailable) rows.Add(_duel); }
+            else if (asked) { rows.Add(_decline); rows.Add(_accept); }
+            else rows.Add(_add);
+            foreach (var go in new[] { _unfriend, _duel, _add, _accept, _decline }) go.SetActive(rows.Contains(go));
+            for (int i = 0; i < rows.Count; i++)
+                Ui.Place((RectTransform)rows[i].transform, 0.5f, 0, 0, Bottom + 70 + i * RowStep, 780, 140);
+            _card.rectTransform.sizeDelta = new Vector2(940, Top + Bottom + rows.Count * RowStep);
+        }
+    }
+
+    /// <summary>Demande d'ami reçue (fenêtre sur les menus) : Accepter, Refuser, ou Plus tard (elle reste dans Classement → Amis).</summary>
+    public sealed class FriendRequestScreen : UiScreen
+    {
+        Text _title;
+        Image _face;
+        string _id;
+
+        protected override void Build()
+        {
+            var card = Ui.Card(Safe, "Fenetre");
+            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 940, 1120);
+            card.gameObject.AddComponent<PopIn>();
+            _face = DuelUi.Portrait(card.transform, Palette.Secondary, 260, "Portrait");
+            Ui.Place((RectTransform)_face.transform.parent, 0.5f, 1, 0, -190, 260, 260);
+            _face.transform.parent.gameObject.AddComponent<Rock>().Angle = 4f;
+            var heart = Ui.Icon(card.transform, Art.IconSprite(Icon.Heart), "Coeur");
+            heart.color = Palette.Primary;
+            Ui.Place(heart.rectTransform, 0.5f, 1, 120, -290, 96, 96);
+            heart.gameObject.AddComponent<Pulse>().Amount = 0.08f;
+            _title = Ui.Title(card.transform, "", 58, Palette.Ink);
+            Ui.Plain(_title);
+            Ui.Place(_title.rectTransform, 0.5f, 1, 0, -420, 860, 150);
+            var sub = Ui.Label(card.transform, Loc.Get("freq_sub"), 42, Palette.Muted);
+            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -560, 840, 120);
+            var yes = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 58, "Accepter");
+            Ui.Place((RectTransform)yes.transform, 0.5f, 0, 0, 380, 780, 160);
+            var no = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Secondary, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 50, "Refuser");
+            Ui.Place((RectTransform)no.transform, 0.5f, 0, 0, 220, 780, 130);
+            var later = Ui.Button(card.transform, Loc.Get("freq_later"), Palette.Muted, Hide, null, 46, "PlusTard");
+            Ui.Place((RectTransform)later.transform, 0.5f, 0, 0, 84, 520, 110);
+        }
+
+        public void Open(string playerId, string name, int head)
+        {
+            Show();
+            Root.SetAsLastSibling();
+            _id = playerId;
+            _title.text = Loc.Format("freq_title", name);
+            _face.sprite = Art.Portrait(HeadCatalog.Get(head));
         }
     }
 

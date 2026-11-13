@@ -20,10 +20,10 @@ namespace Bascule.EditorTools
         public const string BundleId = "fr.orpheex.bascule";
         public const string Company = "Orphex";
         /// <summary>Version du jeu : la même que celle du zip (Bascule_V9.zip → 9.0).</summary>
-        public const string Version = "1.4.1";
+        public const string Version = "1.5";
         /// <summary>Numéro de build iOS : à augmenter à chaque envoi à Apple (deux envois ne peuvent pas avoir le même).</summary>
         const string BuildNumber = "9";
-        const int VersionCode = 41;
+        const int VersionCode = 50;
 
         static BasculeSetup()
         {
