@@ -5,6 +5,13 @@ Refaite par `python3 Tools/promo_video.py Exports/art Exports/audio docs/promo/b
 
 C'est une **animation** faite avec les dessins du jeu, pas une capture de l'iPhone. Elle sert d'annonce. Les vidéos qui percent le plus restent les vraies captures, filmées par un joueur (voir « À filmer toi-même »).
 
+## Version avec accroche (à publier en premier)
+
+`docs/promo/bascule_lancement_accroche.mp4` (22,8 s) : 3 s d'accroche devant la vidéo ci-dessus. Gros plan sur l'accueil du jeu, un doigt s'arrête à un jeton du bouton JOUER (« N'appuie surtout pas… / …tu vas plus pouvoir t'arrêter »), cœur qui bat, appui, zoom dans le bouton, éclair blanc, et la partie démarre.
+Refaite par `python3 Tools/promo_intro.py Exports/art docs/promo/bascule_lancement.mp4 docs/promo/bascule_lancement_accroche.mp4`.
+
+Le doigt est dessiné. La même accroche filmée avec un vrai doigt devant l'iPhone sera encore plus efficace : filmer 5 s en vertical, puis remplacer les 3 premières secondes.
+
 ## Ce que disent les recherches (novembre 2026)
 
 - Les 3 premières secondes décident de tout : l'image, le texte et le son doivent accrocher en même temps, sur un moment fort du jeu.
