@@ -277,12 +277,23 @@ def nine(dst, src, box, border, tint=None, alpha=1.0):
     dst.alpha_composite(out, (l, t))
 
 
+TIGHT = []
+
+
 def title(img, text, box, size, color=(255, 255, 255), align="mm", outline=True):
     d = ImageDraw.Draw(img)
     l, t, r, b = box
     x = {"l": l, "m": (l + r) / 2, "r": r}[align[0]]
     y = (t + b) / 2
     f = font(size)
+    # FitText : un texte plus large que sa zone rétrécit (comme dans le jeu), et on le note s'il rétrécit nettement.
+    width = d.textlength(text, font=f)
+    if r - l > 4 and width > (r - l) + 2:
+        fit = max(12, int(size * (r - l) / width))
+        if fit < size:
+            TIGHT.append(f"texte « {text} » : zone de {int(r - l)} px, taille {size} -> {fit}")
+        size = fit
+        f = font(size)
     if outline:
         sw = max(3, int(size * 0.07))
         d.text((x, y + size * 0.11), text, font=f, fill=(40, 26, 64, 200), anchor=align[0] + "m", stroke_width=sw, stroke_fill=(40, 26, 64, 200))
@@ -298,21 +309,38 @@ def icon(img, name, box):
     img.alpha_composite(im.resize((s, s), Image.LANCZOS), (int((l + r) / 2 - s / 2), int((t + b) / 2 - s / 2)))
 
 
+# Contrôle des maquettes : boutons et textes trop serrés (dans le jeu, ButtonLayout et FitText rétrécissent le contenu
+# pour qu'il tienne ; ici on fait pareil ET on le note, pour corriger la mise en page au lieu de livrer un texte minuscule).
 def button(img, box, color, label=None, ic=None, size=60):
+    """Ui.Button + ButtonLayout : icône et texte centrés ; s'ils ne tiennent pas, l'icône se resserre puis le texte rétrécit."""
     nine(img, load("ui/button.png"), box, (64, 64, 64, 66), tint=COL.get(color, color))
     nine(img, load("ui/gloss.png"), box, (64, 64, 64, 66))  # reflet liquide (Ui.Button)
     l, t, r, b = box
     cl, ct, cr, cb = l + 18, t + 6, r - 18, b - 20
     cy = (ct + cb) / 2
-    isz = max(56, min(120, size * 1.35)) if ic else 0
-    tw = ImageDraw.Draw(img).textlength(label, font=font(size)) if label else 0
-    total = isz + tw + (18 if ic and label else 0)
+    avail_w, avail_h = cr - cl, cb - ct
+    isz = min(max(56, min(120, size * 1.35)), avail_h) if ic else 0
+    gap = 18 if ic and label else 0
+    want = (ImageDraw.Draw(img).textlength(label, font=font(size)) + 8) if label else 0
+    tw, fsize = want, size
+    if label:
+        if ic and want + isz + gap > avail_w:
+            isz = max(isz * 0.66, min(isz, avail_w - want - gap))
+            gap = 18 * 0.6
+        tw = max(1, min(want, avail_w - isz - gap))
+        if tw < want:
+            fsize = max(12, int(size * tw / want))
+        if fsize < size or (ic and isz < min(max(56, min(120, size * 1.35)), avail_h) - 0.5):
+            TIGHT.append(f"bouton « {label} » : {int(r - l)} px de large, texte {size} -> {fsize}, icône {int(isz)}")
+    elif ic and isz > avail_w:
+        isz = avail_w
+    total = isz + gap + tw
     x = (cl + cr) / 2 - total / 2
     if ic:
         icon(img, ic, (x, cy - isz / 2, x + isz, cy + isz / 2))
-        x += isz + 18
+        x += isz + gap
     if label:
-        title(img, label, (x, cy - size / 2, x + tw, cy + size / 2), size, align="lm")
+        title(img, label, (x, cy - fsize / 2, x + tw, cy + fsize / 2), fsize, align="lm")
 
 
 def card(img, box, tint=None):

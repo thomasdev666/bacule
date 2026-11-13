@@ -918,7 +918,8 @@ namespace Bascule
             _duelLobby.Refresh();
             if (g == null) { _toast.Say(Loc.Get("ranked_none_toast"), 3.5f); return; }
             string name = DuelRules.CleanName(g.Who.Name, Loc.Get("lb_player"));
-            _confirm.Ask(Loc.Get("ranked_none_title"), Loc.Format("ranked_none_body", name), Art.IconSprite(Icon.Swords),
+            // Le portrait du joueur dont on rejoue la partie.
+            _confirm.Ask(Loc.Get("ranked_none_title"), Loc.Format("ranked_none_body", name), Art.Portrait(HeadCatalog.Get(g.Who.Head)),
                 Loc.Get("ranked_none_yes"), () => StartGhostDuel(g), Loc.Get("ranked_none_no"), null);
         }
 

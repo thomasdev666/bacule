@@ -51,10 +51,10 @@ def league_card(img, box, d, line, reset):
     """Carte « ma ligue » de l'entrée du duel (DuelLobbyScreen.BuildChoice)."""
     sp.card(img, box, tint=hexc(NIGHT))
     badge(img, child(box, 0, 0.5, 106, 0, 140, 140), d)
-    sp.title(img, "Division " + DIV[d][3], child(box, 0, 0.5, 200, 46, 500, 64, 0, 0.5), 50, color=sp.rgb(DIV[d][0]), align="lm")
-    sp.title(img, line, child(box, 0, 0.5, 200, -8, 500, 50, 0, 0.5), 36, color=CREAM, align="lm")
-    sp.title(img, reset, child(box, 0, 0.5, 200, -56, 500, 40, 0, 0.5), 28, color=SKY, align="lm")
-    sp.button(img, child(box, 1, 0.5, -24, 0, 270, 124, 1, 0.5), "Accent", "Classement", "Trophy", 38)
+    sp.title(img, "Division " + DIV[d][3], child(box, 0, 0.5, 200, 46, 440, 64, 0, 0.5), 50, color=sp.rgb(DIV[d][0]), align="lm")
+    sp.title(img, line, child(box, 0, 0.5, 200, -8, 440, 50, 0, 0.5), 36, color=CREAM, align="lm")
+    sp.title(img, reset, child(box, 0, 0.5, 200, -56, 440, 40, 0, 0.5), 28, color=SKY, align="lm")
+    sp.button(img, child(box, 1, 0.5, -24, 0, 330, 124, 1, 0.5), "Accent", "Classement", "Trophy", 36)
 
 
 def duel_choice():
@@ -88,28 +88,31 @@ def duel_search(progress=0.45):
     return s
 
 
-def confirm(img, title, body, yes, no, icon="Swords"):
-    """Fenêtre de confirmation (ConfirmScreen), posée sur l'écran courant."""
+def confirm(img, title, body, yes, no, head):
+    """ConfirmScreen (UI/MetaScreens.cs), mêmes positions : titre, image, texte, deux boutons."""
     img.alpha_composite(Image.new("RGBA", (W, H), (26, 20, 51, 150)))
-    cb = at(0.5, 0.52, 0, 0, 940, 900)
+    cb = at(0.5, 0.5, 0, 40, 920, 1140)
     sp.card(img, cb)
-    db = child(cb, 0.5, 1, 0, -130, 150, 150)
-    disc(img, db, c("Play"))
-    sp.tinted_icon(img, icon, (db[0] + 30, db[1] + 30, db[2] - 30, db[3] - 30), "#FFFFFF")
-    sp.title(img, title, child(cb, 0.5, 1, 0, -270, 860, 90), 60, color=INK, outline=False)
-    y = cb[1] + 340
-    for ln in v14.wrap(img, body, 800, 40):
-        sp.title(img, ln, (cb[0] + 60, y, cb[2] - 60, y + 52), 40, color=MUTED, outline=False)
-        y += 54
-    sp.button(img, child(cb, 0.5, 0, 0, 250, 780, 150), "Play", yes, icon, 50)
-    sp.button(img, child(cb, 0.5, 0, 0, 100, 520, 120), "Muted", no, None, 46)
+    sp.title(img, title, child(cb, 0.5, 1, 0, -100, 840, 140), 70, color=c("Accent"))
+    ib = child(cb, 0.5, 1, 0, -330, 280, 280)
+    img.alpha_composite(sp.load(f"heads/{head:02d}.png").resize((280, 280), Image.LANCZOS), (int(ib[0]), int(ib[1])))
+    # Texte : zone de 800 px de large, de 500 px sous le haut à 300 px du bas (340 px de haut).
+    lines = v14.wrap(img, body, 800, 46)
+    if len(lines) * 56 > 340:
+        sp.TIGHT.append(f"texte de la fenêtre « {title} » : {len(lines)} lignes pour 340 px")
+    y = cb[1] + 500
+    for ln in lines:
+        sp.title(img, ln, (cb[0] + 60, y, cb[2] - 60, y + 52), 46, color=INK, outline=False)
+        y += 56
+    sp.button(img, child(cb, 0.5, 0, 0, 260, 760, 160), "Play", yes, None, 56)
+    sp.button(img, child(cb, 0.5, 0, 0, 100, 560, 120), "Muted", no, None, 48)
 
 
 def duel_ghost_offer():
     s = duel_search(1.0)
     confirm(s.img, "Personne pour l'instant",
-            "Affronte le fantôme de Léa : sa vraie partie, rejouée avec les mêmes poids et les mêmes rafales que toi. Moins de points, mais ça compte !",
-            "Affronter le fantôme", "Plus tard")
+            "Affronte le fantôme de Léa : sa vraie partie, rejouée avec les mêmes poids et les mêmes rafales. Moins de points, mais ça compte !",
+            "Affronter le fantôme", "Plus tard", 14)
     return s
 
 
@@ -235,9 +238,9 @@ def duel_result_ranked():
     # On recouvre l'ancienne bande (même emplacement) par la bande de ligue.
     sp.card(img, lb, tint=hexc(NIGHT))
     badge(img, child(lb, 0, 0.5, 88, 0, 116, 116), 1)
-    sp.title(img, "+30 points de ligue", child(lb, 0, 0.5, 172, 30, 560, 64, 0, 0.5), 50, color=c("Accent"), align="lm")
-    sp.title(img, "165 points cette semaine  ·  4e", child(lb, 0, 0.5, 172, -32, 560, 46, 0, 0.5), 32, color=SOFT, align="lm")
-    sp.button(img, child(lb, 1, 0.5, -20, 0, 240, 110, 1, 0.5), "Accent", "Classement", "Trophy", 34)
+    sp.title(img, "+30 points de ligue", child(lb, 0, 0.5, 172, 30, 470, 64, 0, 0.5), 50, color=c("Accent"), align="lm")
+    sp.title(img, "165 points cette semaine  ·  4e", child(lb, 0, 0.5, 172, -32, 470, 46, 0, 0.5), 32, color=SOFT, align="lm")
+    sp.button(img, child(lb, 1, 0.5, -20, 0, 330, 116, 1, 0.5), "Accent", "Classement", "Trophy", 36)
     sp.button(img, at(0.5, 0, 0, 300, 860, 180, 0.5, 0), "Play", "Nouveau duel classé", "Replay", 60)
     return s
 
@@ -310,6 +313,7 @@ def friend_request():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    sp.TIGHT.clear()
     shots = {
         "duel_classe_entree": duel_choice(), "duel_classe_recherche": duel_search(), "duel_classe_fantome": duel_ghost_offer(),
         "duel_classe_resultat": duel_result_ranked(), "ligue_classement": league_screen(), "ligue_fin_semaine": league_reward(),
@@ -317,6 +321,11 @@ if __name__ == "__main__":
     }
     for name, s in shots.items():
         s.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
+    # Contrôle : aucun bouton ni texte de ces écrans ne doit être rétréci pour tenir (sinon : agrandir la zone).
+    tight = sorted(set(sp.TIGHT))
+    for t in tight:
+        print("  SERRÉ : " + t)
+    print(f"{len(tight)} élément(s) trop serré(s)")
     keys = list(shots)
     for part, names in (("ecrans_duel_classe_1_5", keys[:4]), ("ecrans_ligue_1_5", keys[4:6]), ("ecrans_amis_1_5", keys[6:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))

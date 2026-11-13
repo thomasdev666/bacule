@@ -665,7 +665,7 @@ namespace Bascule.Core
             ["ranked_again"] = new[] { "Nouveau duel classé", "New ranked duel" },
             ["ranked_offline"] = new[] { "Connecte-toi à Internet pour le duel classé.", "Go online for ranked duels." },
             ["ranked_none_title"] = new[] { "Personne pour l'instant", "Nobody right now" },
-            ["ranked_none_body"] = new[] { "Affronte le fantôme de {0} : sa vraie partie, rejouée avec les mêmes poids et les mêmes rafales que toi. Moins de points, mais ça compte !", "Face {0}'s ghost: their real game, replayed with the same weights and gusts as you. Fewer points, but it counts!" },
+            ["ranked_none_body"] = new[] { "Affronte le fantôme de {0} : sa vraie partie, rejouée avec les mêmes poids et les mêmes rafales. Moins de points, mais ça compte !", "Face {0}'s ghost: their real game, replayed with the same weights and gusts. Fewer points, but it counts!" },
             ["ranked_none_yes"] = new[] { "Affronter le fantôme", "Face the ghost" },
             ["ranked_none_no"] = new[] { "Plus tard", "Later" },
             ["ranked_none_toast"] = new[] { "Personne pour l'instant. Réessaie dans un moment !", "Nobody right now. Try again in a moment!" },

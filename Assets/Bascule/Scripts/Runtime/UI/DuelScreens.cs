@@ -221,16 +221,17 @@ namespace Bascule.UI
             _leagueBadge = LeagueUi.MakeBadge(league.transform, 140);
             Ui.Place(_leagueBadge.Root, 0, 0.5f, 106, 0, 140, 140);
             _leagueDivision = Ui.Title(league.transform, "", 50, Color.white, "Division");
-            Ui.Place(_leagueDivision.rectTransform, 0, 0.5f, 200, 46, 500, 64, 0, 0.5f);
+            Ui.Place(_leagueDivision.rectTransform, 0, 0.5f, 200, 46, 440, 64, 0, 0.5f);
             _leagueDivision.alignment = TextAnchor.MiddleLeft;
             _leagueLine = Ui.Title(league.transform, "", 36, ArtCache.Hex("#FFE9A8"), "Place");
-            Ui.Place(_leagueLine.rectTransform, 0, 0.5f, 200, -8, 500, 50, 0, 0.5f);
+            Ui.Place(_leagueLine.rectTransform, 0, 0.5f, 200, -8, 440, 50, 0, 0.5f);
             _leagueLine.alignment = TextAnchor.MiddleLeft;
             _leagueReset = Ui.Title(league.transform, "", 28, ArtCache.Hex("#BFE0FF"), "Fin");
-            Ui.Place(_leagueReset.rectTransform, 0, 0.5f, 200, -56, 500, 40, 0, 0.5f);
+            Ui.Place(_leagueReset.rectTransform, 0, 0.5f, 200, -56, 440, 40, 0, 0.5f);
             _leagueReset.alignment = TextAnchor.MiddleLeft;
-            var open = Ui.Button(league.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 38, "Classement");
-            Ui.Place((RectTransform)open.transform, 1, 0.5f, -24, 0, 270, 124, 1, 0.5f);
+            // Assez large pour l'icône et le mot entier, sans rétrécir (contrôlé par Tools/screens_preview_v15.py).
+            var open = Ui.Button(league.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 36, "Classement");
+            Ui.Place((RectTransform)open.transform, 1, 0.5f, -24, 0, 330, 124, 1, 0.5f);
 
             // ---- Duel classé : le gros bouton, un adversaire trouvé tout seul.
             var ranked = Ui.Button(_choice, Loc.Get("ranked_button"), Palette.Play, App.DuelRanked, Icon.Swords, 70, "DuelClasse");
@@ -896,13 +897,13 @@ namespace Bascule.UI
             _leagueBadge = LeagueUi.MakeBadge(lg.transform, 116);
             Ui.Place(_leagueBadge.Root, 0, 0.5f, 88, 0, 116, 116);
             _leagueGain = Ui.Title(lg.transform, "", 50, Palette.Accent, "Gain");
-            Ui.Place(_leagueGain.rectTransform, 0, 0.5f, 172, 30, 560, 64, 0, 0.5f);
+            Ui.Place(_leagueGain.rectTransform, 0, 0.5f, 172, 30, 470, 64, 0, 0.5f);
             _leagueGain.alignment = TextAnchor.MiddleLeft;
             _leagueTotal = Ui.Title(lg.transform, "", 32, ArtCache.Hex("#D8E9FF"), "Total");
-            Ui.Place(_leagueTotal.rectTransform, 0, 0.5f, 172, -32, 560, 46, 0, 0.5f);
+            Ui.Place(_leagueTotal.rectTransform, 0, 0.5f, 172, -32, 470, 46, 0, 0.5f);
             _leagueTotal.alignment = TextAnchor.MiddleLeft;
-            var board = Ui.Button(lg.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 34, "Classement");
-            Ui.Place((RectTransform)board.transform, 1, 0.5f, -20, 0, 240, 110, 1, 0.5f);
+            var board = Ui.Button(lg.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 36, "Classement");
+            Ui.Place((RectTransform)board.transform, 1, 0.5f, -20, 0, 330, 116, 1, 0.5f);
 
             var ch = Ui.Glass(Safe, "Challenger");
             _challengerBand = ch.gameObject;
