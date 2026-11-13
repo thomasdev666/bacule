@@ -98,6 +98,10 @@ Instances Rewarded et Interstitial actives et ajoutées aux groupes de médiatio
 
 Ad unit **Interstitial_iOS** (Setup → Ad units → Advanced settings) : **Capping 6 par jour**, **Pacing 1 pub toutes les 10 minutes**. S'applique tout de suite à toutes les versions installées, en plus des règles du jeu (`AdPolicy`). Mis en place après un retour de joueur (« une pub à chaque partie »).
 
+## Régies à bibliothèque dynamique (plantage au lancement de la 1.4 build 21)
+
+InMobiSDK et AppLovinSDK sont des bibliothèques **dynamiques** : le Podfile d'External Dependency Manager ne les liait qu'à UnityFramework, l'app ne les embarquait pas et iOS la fermait au lancement. `Editor/IosPodfileFix.cs` les ajoute à la cible `Unity-iPhone` du Podfile après chaque build iOS (vérifié sur les binaires le 13/11/2026 ; les autres régies sont statiques). **À chaque nouvelle régie : vérifier si son SDK est dynamique et l'ajouter à la liste.**
+
 ## Adaptateurs installés dans Unity (fait le 12/11/2026)
 
 Network Manager : AppLovin, Chartboost, DT Exchange, Google (AdMob), InMobi, Liftoff Monetize, Mintegral, Pangle sont installés et à jour (Unity Ads et ironSource inclus). Ils peuvent donc être activés depuis LevelPlay sans nouvelle version. À refaire seulement si on ajoute une nouvelle régie.
