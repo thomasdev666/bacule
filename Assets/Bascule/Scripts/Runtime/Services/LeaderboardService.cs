@@ -69,7 +69,9 @@ namespace Bascule.Services
         /// Publie le code ami court du joueur (Cloud Save, donnée publique indexée) pour qu'on puisse le retrouver.
         /// Renvoie le code, ou null si les codes courts ne sont pas disponibles (paquet Cloud Save absent, hors ligne).
         /// </summary>
-        Task<string> PublishFriendCodeAsync();
+        Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0);
+        /// <summary>Pseudo public d'un joueur (publié avec son code ami) ; vide s'il est inconnu.</summary>
+        Task<string> GetPlayerNameAsync(string playerId);
         /// <summary>Retrouve un joueur par son code court ; null s'il est introuvable (ou ambigu).</summary>
         Task<string> FindPlayerByCodeAsync(string code);
         /// <summary>
@@ -104,7 +106,8 @@ namespace Bascule.Services
         public string PlayerId => "";
         public Task<LeaderboardPage> GetFriendsAsync(string board, IList<string> playerIds) => Task.FromResult(new LeaderboardPage { Online = false });
         public Task<bool> DeleteAccountAsync() => Task.FromResult(false);
-        public Task<string> PublishFriendCodeAsync() => Task.FromResult<string>(null);
+        public Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0) => Task.FromResult<string>(null);
+        public Task<string> GetPlayerNameAsync(string playerId) => Task.FromResult("");
         public Task<string> FindPlayerByCodeAsync(string code) => Task.FromResult<string>(null);
         public Task<bool> PublishFriendLinkAsync(string friendId, int slot) => Task.FromResult(false);
         public Task<bool> PublishFriendLinksAsync(IList<string> friendIds) => Task.FromResult(false);

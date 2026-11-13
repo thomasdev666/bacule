@@ -136,6 +136,19 @@ namespace Bascule.Services
                         Head = ParseHead(r.Metadata),
                         IsMe = r.PlayerId == me,
                     });
+#if BASCULE_CLOUDSAVE
+                // Amis sans score (ils n'ont pas encore fini de partie en ligne) : affichés quand même, avec leur pseudo
+                // public, sinon on croit que l'ajout n'a pas marché (retour 1.4).
+                var known = new HashSet<string>();
+                foreach (var e in page.Entries) known.Add(e.PlayerId);
+                foreach (var id in playerIds)
+                {
+                    if (string.IsNullOrEmpty(id) || id == me || known.Contains(id)) continue;
+                    known.Add(id);
+                    var (name, headId) = await PublicProfile(id);
+                    page.Entries.Add(new LeaderboardEntry { PlayerId = id, Name = name, Score = 0, Head = headId, IsMe = false });
+                }
+#endif
                 // Rang entre amis (le rang mondial ne veut rien dire ici).
                 page.Entries.Sort((a, b) => b.Score.CompareTo(a.Score));
                 for (int i = 0; i < page.Entries.Count; i++) page.Entries[i].Rank = i + 1;
@@ -160,7 +173,10 @@ namespace Bascule.Services
         /// <summary>Clé Cloud Save (données publiques du joueur) qui porte le code ami court. Indexée dans le tableau de bord.</summary>
         public const string FriendCodeKey = "friend_code";
 
-        public async Task<string> PublishFriendCodeAsync()
+        /// <summary>Pseudo et tête publiés avec le code ami : un ami sans score apparaît quand même dans « Amis » (1.4.1).</summary>
+        public const string PseudoKey = "pseudo", HeadKey = "head";
+
+        public async Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0)
         {
 #if BASCULE_CLOUDSAVE
             if (!IsOnline) return null;
@@ -168,7 +184,7 @@ namespace Bascule.Services
             {
                 string code = FriendCode.Short(AuthenticationService.Instance.PlayerId);
                 await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.SaveAsync(
-                    new Dictionary<string, object> { { FriendCodeKey, code } },
+                    new Dictionary<string, object> { { FriendCodeKey, code }, { PseudoKey, Sanitize(pseudo ?? "") }, { HeadKey, head.ToString() } },
                     new Unity.Services.CloudSave.Models.Data.Player.SaveOptions(new Unity.Services.CloudSave.Models.Data.Player.PublicWriteAccessClassOptions()));
                 return code;
             }
@@ -330,7 +346,40 @@ namespace Bascule.Services
             return list;
         }
 
+        public async Task<string> GetPlayerNameAsync(string playerId)
+        {
 #if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(playerId)) return "";
+            return (await PublicProfile(playerId)).name;
+#else
+            await Task.CompletedTask;
+            return "";
+#endif
+        }
+
+#if BASCULE_CLOUDSAVE
+        /// <summary>Pseudo et tête publics d'un joueur, retrouvés par son code ami (index friend_code).</summary>
+        static async Task<(string name, int head)> PublicProfile(string playerId)
+        {
+            try
+            {
+                foreach (var e in await QueryPublic(FriendCodeKey, FriendCode.Short(playerId), 3, PseudoKey, HeadKey))
+                {
+                    if (e.Id != playerId || e.Data == null) continue;
+                    string name = ""; int head = 0;
+                    foreach (var item in e.Data)
+                    {
+                        string v = item.Value?.GetAs<string>() ?? "";
+                        if (item.Key == PseudoKey) name = v;
+                        else if (item.Key == HeadKey) int.TryParse(v, out head);
+                    }
+                    return (name, head);
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning("[Bascule] Profil public : " + ex.Message); }
+            return ("", 0);
+        }
+
         static Task SavePublic(Dictionary<string, object> data) =>
             Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.SaveAsync(data,
                 new Unity.Services.CloudSave.Models.Data.Player.SaveOptions(new Unity.Services.CloudSave.Models.Data.Player.PublicWriteAccessClassOptions()));

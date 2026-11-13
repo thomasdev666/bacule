@@ -1871,7 +1871,7 @@ namespace Bascule.UI
                 Ui.Place(block.rectTransform, 0.5f, 0, x, 0, 312, h, 0.5f, 0);
                 var name = Ui.Title(block.transform, string.IsNullOrEmpty(e.Name) ? "-" : e.Name, 40, e.IsMe ? Palette.Accent : Color.white);
                 Ui.Place(name.rectTransform, 0.5f, 1, 0, -54, 290, 56);
-                var score = Ui.Title(block.transform, Loc.FormatScore(e.Score), 40, ArtCache.Hex("#FFF5D6"));
+                var score = Ui.Title(block.transform, e.Score > 0 ? Loc.FormatScore(e.Score) : "–", 40, ArtCache.Hex("#FFF5D6"));
                 Ui.Place(score.rectTransform, 0.5f, 1, 0, -112, 290, 54);
 
                 var ring = Ui.Image(holder, Art.Circle, e.IsMe ? Palette.Primary : medals[i], "Cercle");
@@ -1933,7 +1933,7 @@ namespace Bascule.UI
             float nameW = challenge ? 300 : report ? 330 : 400;
             var n = Ui.Plain(Ui.Label(row.transform, string.IsNullOrEmpty(name) ? "-" : name, 46, Palette.Ink, TextAnchor.MiddleLeft));
             Ui.Place(n.rectTransform, 0, 0.5f, 286, 0, nameW, 100, 0, 0.5f);
-            var s = Ui.Plain(Ui.Label(row.transform, Loc.FormatScore(score), 50, Palette.Ink, TextAnchor.MiddleRight));
+            var s = Ui.Plain(Ui.Label(row.transform, score > 0 ? Loc.FormatScore(score) : "–", 50, Palette.Ink, TextAnchor.MiddleRight)); // ami sans score : « – »
             Ui.Place(s.rectTransform, 1, 0.5f, challenge ? -150 : -36, 0, 220, 100, 1, 0.5f);
             string id = playerId, who = name;
             if (challenge)

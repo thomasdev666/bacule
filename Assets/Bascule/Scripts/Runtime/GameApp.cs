@@ -383,7 +383,7 @@ namespace Bascule
             _socialTimer = 2f;
             _inviteTimer = 1f;
             // Code ami court (Cloud Save) : publié une fois, puis gardé dans le profil.
-            string code = await Leaderboard.Service.PublishFriendCodeAsync();
+            string code = await Leaderboard.Service.PublishFriendCodeAsync(Profile.pseudo, Profile.selectedHead);
             if (!string.IsNullOrEmpty(code) && code != Profile.friendCode)
             {
                 Profile.friendCode = code;
@@ -875,10 +875,11 @@ namespace Bascule
             {
                 var me = Leaderboard.Service.PlayerId;
                 int added = 0;
+                string firstNew = null;
                 bool mutual = false;
                 foreach (var id in await Leaderboard.Service.FindPlayersWhoAddedMeAsync())
                 {
-                    if (FriendCode.AddedBy(Profile, id, me)) added++;
+                    if (FriendCode.AddedBy(Profile, id, me)) { added++; if (firstNew == null) firstNew = id; }
                     if (Profile.friends.Contains(id)) mutual = true;
                 }
                 // Parrainage « Duo » : la tête se gagne dès qu'un ami et toi êtes amis tous les deux.
@@ -893,7 +894,9 @@ namespace Bascule
                 {
                     SaveProfile();
                     Stats.Event("friend_mutual", ("added", added));
-                    _toast.Say(Loc.Get("friend_added_you_generic"), 3f);
+                    // Avec le pseudo quand on le connaît : « Léa t'a ajouté en ami ! » (plus long à lire).
+                    string who = added == 1 ? PseudoFilter.Display(await Leaderboard.Service.GetPlayerNameAsync(firstNew), "") : "";
+                    _toast.Say(string.IsNullOrEmpty(who) ? Loc.Get("friend_added_you_generic") : Loc.Format("friend_added_you", who), Icon.Heart, Palette.Secondary, 5f);
                     if (_leaderboard.Visible) _leaderboard.Refresh();
                     if (_duelLobby.Visible) _duelLobby.Refresh();
                 }
