@@ -356,7 +356,7 @@ namespace Bascule.Core
             ["welcome_sub"] = new[] { "Merci d'avoir téléchargé Bascule !", "Thanks for downloading Bascule!" },
             ["welcome_launch"] = new[] { "NOUVELLE VERSION", "NEW VERSION" },
             ["welcome_f1"] = new[] { "14 mondes à traverser, jusqu'à la Lune", "14 worlds to cross, all the way to the Moon" },
-            ["welcome_f2"] = new[] { "67 têtes à gagner, chacune avec sa tenue", "67 heads to win, each with its own outfit" },
+            ["welcome_f2"] = new[] { "66 têtes à gagner, chacune avec sa tenue", "66 heads to win, each with its own outfit" },
             ["welcome_f3"] = new[] { "Un nouveau défi chaque jour", "A new challenge every day" },
             ["welcome_f4"] = new[] { "Défie tes amis en duel, en direct", "Challenge your friends in live duels" },
             ["welcome_f4_solo"] = new[] { "Grimpe dans le classement mondial", "Climb the world leaderboard" },

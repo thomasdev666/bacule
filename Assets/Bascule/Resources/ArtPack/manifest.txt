@@ -78,7 +78,6 @@ headback62
 headback63
 headback64
 headback65
-headback66
 headback7
 headback8
 headback9
@@ -145,7 +144,6 @@ headfront62
 headfront63
 headfront64
 headfront65
-headfront66
 headfront7
 headfront8
 headfront9
@@ -243,7 +241,6 @@ locked62
 locked63
 locked64
 locked65
-locked66
 locked7
 locked8
 locked9
@@ -427,15 +424,6 @@ mascot_C68642_h64_shorts
 mascot_C68642_h64_thigh
 mascot_C68642_h64_torso
 mascot_C68642_h64_upperArm
-mascot_C68C5D_h66_cushion
-mascot_C68C5D_h66_forearm
-mascot_C68C5D_h66_hand
-mascot_C68C5D_h66_shin
-mascot_C68C5D_h66_shoe
-mascot_C68C5D_h66_shorts
-mascot_C68C5D_h66_thigh
-mascot_C68C5D_h66_torso
-mascot_C68C5D_h66_upperArm
 mascot_C9D3E0_h57_cushion
 mascot_C9D3E0_h57_forearm
 mascot_C9D3E0_h57_hand
@@ -913,7 +901,6 @@ portrait62
 portrait63
 portrait64
 portrait65
-portrait66
 portrait7
 portrait8
 portrait9

@@ -126,7 +126,8 @@ namespace Bascule.Core
             surprisesOpened = Math.Max(0, surprisesOpened);
             surpriseTickets = Math.Max(0, Math.Min(9, surpriseTickets));
             if (!unlockedHeads.Contains(0)) unlockedHeads.Insert(0, 0);
-            // Sauvegarde abîmée ou venue d'une version plus récente : têtes en double ou inconnues retirées.
+            // Sauvegarde abîmée ou venue d'une version plus récente : têtes en double ou inconnues retirées. Les têtes
+            // retirées du jeu (HeadCatalog.RetiredIds, ex. Samb'bach) aussi : la tête portée redevient Basile.
             Clean(unlockedHeads, HeadCatalog.Exists);
             Clean(ownedPlanks, PlankCatalog.Exists);
             if (!ownedPlanks.Contains(selectedPlank)) selectedPlank = 0;

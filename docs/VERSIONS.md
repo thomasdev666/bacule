@@ -28,6 +28,8 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
     - score de l'adversaire en direct = le dernier reçu, figé dès qu'il a fini ; erreur de jointure arrivée après le départ ignorée.
   - Page `docs/site/bascule/duel.html` mise à jour (transmet les deux codes) : **à remettre sur orpheex.fr** (sans elle, les liens marchent quand même avec le code de partie).
   - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (6).
+- **Tête Samb'bach retirée** (partenariat annulé) : le code ne marche plus, la tête, sa coiffe, sa tenue et le logo du BDE sont supprimés. Un joueur qui l'avait la perd et reprend Basile s'il la portait. Numéro 66 réservé à vie (`HeadCatalog.RetiredIds`). 66 têtes.
+- **Têtes de partenaires cachées** : à l'avenir, une tête offerte par un code n'apparaît dans la collection (ni dans le total) qu'une fois le code entré (`HeadCatalog.IsVisible`, `docs/PARTENAIRES.md`).
 - Version 1.4.1, build iOS 9, version Android 41.
 
 ## 1.4 (build 8) – tout ce qui a été fait depuis la 1.2 (la 1.3 n'est jamais sortie)

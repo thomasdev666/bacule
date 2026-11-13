@@ -178,5 +178,5 @@ capture(1, "ecran_partie.png", "JEU D'ÉQUILIBRE", "Pose les poids, tiens bon !"
 capture(2, "ecran_duel_invitation.png", "DUEL EN DIRECT", "Défie tes amis en 1 contre 1", "Primary")
 capture(3, "ecran_montgolfiere.png", "FUSIONNE LES POIDS", "1 + 1 = 2… jusqu'au 128 !", "Success")
 capture(4, "ecran_classement_podium.png", "CLASSEMENT MONDIAL", "Bats le record de tes amis", "Purple")
-capture(5, "ecran_tetes.png", "67 TÊTES À GAGNER", "Collectionne-les toutes", "Accent")
+capture(5, "ecran_tetes.png", "66 TÊTES À GAGNER", "Collectionne-les toutes", "Accent")
 capture(6, "ecran_roue.png", "CADEAUX CHAQUE JOUR", "Roue, coffres et missions", "Play")

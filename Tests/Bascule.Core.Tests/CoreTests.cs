@@ -1222,38 +1222,63 @@ namespace Bascule.Core.Tests
 
     public class PromoTests
     {
+        // Code de test (aucun code n'est en service depuis le retrait de Samb'bach) : le mécanisme reste prêt pour un
+        // prochain partenaire.
+        static readonly PromoCode[] TestCodes = { new PromoCode { Key = "clubx", Display = "Club X", HeadId = 67, Partner = "le club X" } };
+
         [Test]
         public void PartnerCodeUnlocksItsHeadOnceWhateverTheSpelling()
         {
-            foreach (var typed in new[] { "Samb'bach", "SAMB'BACH", "samb bach", " Samb-Bach ", "sambbach", "Samb’bach", "SAMBBÂCH" })
-                Assert.NotNull(PromoCodes.Find(typed), typed);
-            Assert.IsNull(PromoCodes.Find("samba"));
+            foreach (var typed in new[] { "Club X", "CLUB-X", "club x", " Club'X ", "clubx", "CLÜB X" })
+                Assert.NotNull(PromoCodes.Find(typed, TestCodes), typed);
+            Assert.IsNull(PromoCodes.Find("club", TestCodes));
 
             var p = new Profile();
-            Assert.AreEqual(PromoResult.Empty, PromoCodes.Redeem(p, "  ' ", out _));
-            Assert.AreEqual(PromoResult.Unknown, PromoCodes.Redeem(p, "bascule", out _));
-            Assert.False(p.unlockedHeads.Contains(HeadCatalog.SambBachId));
-            Assert.AreEqual(PromoResult.Ok, PromoCodes.Redeem(p, "Samb'bach", out var promo));
-            Assert.AreEqual(HeadCatalog.SambBachId, promo.HeadId);
-            Assert.True(p.unlockedHeads.Contains(HeadCatalog.SambBachId));
-            Assert.AreEqual(PromoResult.AlreadyUsed, PromoCodes.Redeem(p, "SAMBBACH", out _), "un code ne sert qu'une fois");
-            Assert.AreEqual(1, p.unlockedHeads.Count(id => id == HeadCatalog.SambBachId));
-
-            // Remise à zéro de saison : la tête offerte reste acquise et le code reste utilisé.
-            var fresh = Seasons.Reset(p);
-            Assert.True(fresh.unlockedHeads.Contains(HeadCatalog.SambBachId));
-            Assert.AreEqual(PromoResult.AlreadyUsed, PromoCodes.Redeem(fresh, "samb'bach", out _));
+            Assert.AreEqual(PromoResult.Empty, PromoCodes.Redeem(p, "  ' ", out _, TestCodes));
+            Assert.AreEqual(PromoResult.Unknown, PromoCodes.Redeem(p, "bascule", out _, TestCodes));
+            Assert.AreEqual(PromoResult.Ok, PromoCodes.Redeem(p, "Club X", out var promo, TestCodes));
+            Assert.AreEqual(67, promo.HeadId);
+            Assert.True(p.unlockedHeads.Contains(67));
+            Assert.AreEqual(PromoResult.AlreadyUsed, PromoCodes.Redeem(p, "CLUBX", out _, TestCodes), "un code ne sert qu'une fois");
+            Assert.AreEqual(1, p.unlockedHeads.Count(id => id == 67));
         }
 
         [Test]
-        public void PartnerHeadsAreOnlyGivenByTheirCode()
+        public void SambBachIsGoneAndItsNumberIsNeverReused()
         {
-            var h = HeadCatalog.Get(HeadCatalog.SambBachId);
-            Assert.AreEqual(UnlockKind.Code, h.Unlock);
-            Assert.AreEqual("Samb'bach", h.NameFr);
-            Assert.AreEqual(Rarity.Legendary, HeadCatalog.RarityOf(h));
-            Assert.False(HeadCatalog.IsEarned(h, new RunAchievements { Score = 999999, Balloons = 99, BestChain = 99, DailyStreak = 99, WorldRank = 1, DuelWins = 99 }));
-            // Chaque code donne une tête de partenaire qui existe, avec sa tenue et son logo.
+            // Partenariat annulé (1.4.1) : le code ne marche plus, la tête n'existe plus, son numéro reste réservé.
+            Assert.IsEmpty(PromoCodes.All);
+            Assert.AreEqual(PromoResult.Unknown, PromoCodes.Redeem(new Profile(), "Samb'bach", out _));
+            Assert.Contains(66, HeadCatalog.RetiredIds);
+            Assert.False(HeadCatalog.Exists(66));
+            foreach (var h in HeadCatalog.All) CollectionAssert.DoesNotContain(HeadCatalog.RetiredIds, h.Id, "numéro retiré réutilisé : " + h.NameFr);
+
+            // Un joueur de la 1.4 qui l'avait (et la portait) : elle disparaît, il reprend Basile, rien d'autre ne bouge.
+            var p = new Profile();
+            p.unlockedHeads.AddRange(new[] { 5, 66 });
+            p.redeemedCodes.Add("sambbach");
+            p.selectedHead = 66;
+            p.Sanitize();
+            CollectionAssert.DoesNotContain(p.unlockedHeads, 66);
+            Assert.Contains(5, p.unlockedHeads);
+            Assert.AreEqual(0, p.selectedHead);
+        }
+
+        [Test]
+        public void PartnerHeadsStayHiddenUntilTheirCodeIsEntered()
+        {
+            var partner = new HeadDef { Id = 67, Unlock = UnlockKind.Code, NameFr = "Club X" };
+            var shop = HeadCatalog.All.First(h => h.Unlock == UnlockKind.Shop);
+            var unlocked = new List<int> { 0 };
+            Assert.False(HeadCatalog.IsVisible(partner, unlocked), "invisible sans le code");
+            Assert.True(HeadCatalog.IsVisible(shop, unlocked), "les autres têtes restent visibles, même pas encore gagnées");
+            unlocked.Add(67);
+            Assert.True(HeadCatalog.IsVisible(partner, unlocked), "visible une fois le code entré");
+            Assert.AreEqual(Rarity.Legendary, HeadCatalog.RarityOf(partner));
+            Assert.False(HeadCatalog.IsEarned(partner, new RunAchievements { Score = 999999, Balloons = 99, BestChain = 99, DailyStreak = 99, WorldRank = 1, DuelWins = 99 }));
+            // Le total affiché dans la collection ne compte que les têtes visibles.
+            Assert.AreEqual(HeadCatalog.All.Count(h => h.Unlock != UnlockKind.Code), HeadCatalog.VisibleCount(new List<int> { 0 }));
+            // Chaque code en service donne une tête de partenaire qui existe, avec sa tenue et son logo.
             foreach (var promo in PromoCodes.All)
             {
                 Assert.AreEqual(UnlockKind.Code, HeadCatalog.Get(promo.HeadId).Unlock);
@@ -1261,11 +1286,6 @@ namespace Bascule.Core.Tests
                 Assert.AreEqual(promo.Patch, OutfitCatalog.For(promo.HeadId).Patch);
             }
             Assert.AreEqual(PromoCodes.All.Length, PromoCodes.All.Select(c => c.Key).Distinct().Count());
-            // La robe : silhouette fine, robe à volants, ballerines, le logo en broche.
-            var o = OutfitCatalog.For(HeadCatalog.SambBachId);
-            Assert.AreEqual(Top.Dress, o.Top);
-            Assert.AreEqual(Emblem.Patch, o.Emblem);
-            Assert.AreEqual(Shoe.Flats, o.Shoe);
         }
     }
 
@@ -1274,15 +1294,17 @@ namespace Bascule.Core.Tests
         [Test]
         public void HeadIdsAreUniqueAndStable()
         {
-            Assert.AreEqual(67, HeadCatalog.All.Count);
-            Assert.AreEqual(67, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
-            Assert.AreEqual(HeadCatalog.SambBachId, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Code).Id, "Samb'bach");
+            Assert.AreEqual(66, HeadCatalog.All.Count);
+            Assert.AreEqual(66, HeadCatalog.All.Select(h => h.Id).Distinct().Count());
             Assert.AreEqual(64, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Friends).Id, "Duo");
             Assert.AreEqual(65, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Wheel).Id, "Chanceux");
             Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.DuelWins));
             Assert.AreEqual(1, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Ads));
             Assert.AreEqual(63, HeadCatalog.All.First(h => h.Unlock == UnlockKind.Ads).Id, "la Superstar arrive à la fin");
-            for (int i = 0; i < HeadCatalog.All.Count; i++) Assert.AreEqual(i, HeadCatalog.All[i].Id, "les identifiants sont sauvegardés : ne jamais les renuméroter");
+            // Les identifiants sont sauvegardés : jamais renumérotés. 0 à 65 dans l'ordre, puis les numéros retirés (66)
+            // sautés, et les nouvelles têtes à la suite.
+            for (int i = 0; i <= 65; i++) Assert.AreEqual(i, HeadCatalog.All[i].Id, "les identifiants sont sauvegardés : ne jamais les renuméroter");
+            for (int i = 1; i < HeadCatalog.All.Count; i++) Assert.Greater(HeadCatalog.All[i].Id, HeadCatalog.All[i - 1].Id);
             Assert.AreEqual(UnlockKind.Default, HeadCatalog.Get(0).Unlock);
             Assert.AreEqual(20, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Score));
             Assert.AreEqual(13, HeadCatalog.All.Count(h => h.Unlock == UnlockKind.Level));

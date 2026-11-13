@@ -2,7 +2,8 @@
 Aperçu d'une tête de partenaire (offerte avec un code, Core/Promo.cs), avec les MÊMES images que le jeu.
 
   dotnet run --project Tools/ArtPreview -c Release -- Exports/art
-  python3 Tools/sponsor_preview.py Exports/art docs/apercu sambbach
+  python3 Tools/sponsor_preview.py Exports/art docs/apercu <clé> "<Nom>" <numéro de la tête>
+  (ex. : python3 Tools/sponsor_preview.py Exports/art docs/apercu clubx "Club X" 67)
 
 Produit : la tête en grand, le personnage en pied (maillot et écusson), l'accueil et une partie avec ce personnage.
 """
@@ -15,9 +16,11 @@ from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scene_preview as sp  # noqa: E402
 
-KEY = sys.argv[3] if len(sys.argv) > 3 else "sambbach"
-# Clé du partenaire -> (nom, numéro de la tête dans HeadCatalog).
-NAME, HEAD = {"sambbach": ("Samb'bach", 66)}[KEY]
+if len(sys.argv) < 6:
+    sys.exit("Usage : python3 Tools/sponsor_preview.py Exports/art docs/apercu <clé> \"<Nom>\" <numéro de la tête>")
+# Clé du code promo, nom affiché, numéro de la tête dans HeadCatalog (UnlockKind.Code).
+KEY, NAME, HEAD = sys.argv[3], sys.argv[4], int(sys.argv[5])
+PARTNER = sys.argv[6] if len(sys.argv) > 6 else NAME  # « Offerte par … » (ex. "le club X")
 BODY = f"mascot_h/{HEAD}"
 W, H = sp.W, sp.H
 GREEN, YELLOW, ORANGE = (0, 166, 81), (255, 214, 10), (247, 162, 59)
@@ -63,7 +66,7 @@ def character_card():
     # Étiquette du code (comme il sera proposé dans Réglages → Code promo).
     tag = (W / 2 - 330, H - 190, W / 2 + 330, H - 80)
     sp.pill(img, tag, color=GREEN + (255,))
-    sp.title(img, "Code : SAMB'BACH", (tag[0] + 20, tag[1], tag[2] - 20, tag[3] - 6), 58)
+    sp.title(img, "Code : " + NAME.upper(), (tag[0] + 20, tag[1], tag[2] - 20, tag[3] - 6), 58)
     return img
 
 
@@ -133,7 +136,7 @@ def code_prompt():
     sp.title(img, "t'offre une tête introuvable ailleurs.", child(card, 0.5, 1, 0, -285, 860, 60), 40, color=(140, 153, 173), outline=False)
     field = child(card, 0.5, 0.5, 0, 30, 800, 150)
     sp.pill(img, field, color=(255, 255, 255, 255))
-    sp.title(img, "Samb'bach", field, 60, color=sp.INK, outline=False)
+    sp.title(img, NAME, field, 60, color=sp.INK, outline=False)
     sp.button(img, child(card, 0.5, 0, 205, 120, 390, 150), "Play", "Valider", "Check", 54)
     sp.button(img, child(card, 0.5, 0, -205, 120, 390, 150), "Muted", "Plus tard", "Close", 50)
     return img
@@ -163,7 +166,7 @@ def code_reward():
     sp.pill(img, kick, color=GREEN + (255,))
     sp.title(img, "Code accepté !", (kick[0] + 24, kick[1] + 2, kick[2] - 24, kick[3] - 6), 46)
     sp.title(img, NAME, (40, 290 - 85, W - 40, 290 + 85), 128, color=GREEN)
-    sp.title(img, "Offerte par le BDE Samb'bach", (50, 405 - 35, W - 50, 405 + 35), 48)
+    sp.title(img, "Offerte par " + PARTNER, (50, 405 - 35, W - 50, 405 + 35), 48)
     sp.button(img, (W / 2 - 380, H - 272 - 83, W / 2 + 380, H - 272 + 83), "Play", "La porter", "Face", 60)
     sp.button(img, (W / 2 - 260, H - 88 - 58, W / 2 + 260, H - 88 + 58), "Muted", "Plus tard", None, 46)
     return img

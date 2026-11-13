@@ -28,13 +28,14 @@ namespace Bascule.Core
     /// </summary>
     public static class PromoCodes
     {
-        public static readonly PromoCode[] All =
-        {
-            // BDE Samb'bach : la tête « Samb'bach », avec le logo du BDE en broche sur sa robe.
-            new PromoCode { Key = "sambbach", Display = "Samb'bach", HeadId = HeadCatalog.SambBachId, Partner = "le BDE Samb'bach", Patch = "sambbach" },
-        };
+        /// <summary>
+        /// Codes en service. Aucun pour l'instant (le code « Samb'bach » a été retiré en 1.4.1 : partenariat annulé ; un
+        /// joueur qui le tape voit « code inconnu »). Exemple pour un prochain partenaire :
+        /// new PromoCode { Key = "nomdupartenaire", Display = "NomDuPartenaire", HeadId = 67, Partner = "le club X", Patch = "nomdupartenaire" }
+        /// </summary>
+        public static readonly PromoCode[] All = { };
 
-        /// <summary>Majuscules, espaces, apostrophes, tirets et accents ne comptent pas : « Samb'bach », « SAMB BACH », « sambbach ».</summary>
+        /// <summary>Majuscules, espaces, apostrophes, tirets et accents ne comptent pas : « Club X », « CLUB-X », « clubx ».</summary>
         public static string Normalize(string code)
         {
             if (string.IsNullOrEmpty(code)) return "";
@@ -47,20 +48,21 @@ namespace Bascule.Core
             return sb.ToString();
         }
 
-        public static PromoCode Find(string code)
+        /// <summary>Code en service correspondant à ce texte (<paramref name="codes"/> : All, ou une liste de test).</summary>
+        public static PromoCode Find(string code, IReadOnlyList<PromoCode> codes = null)
         {
             string k = Normalize(code);
             if (k.Length == 0) return null;
-            foreach (var p in All) if (p.Key == k) return p;
+            foreach (var p in codes ?? All) if (p.Key == k) return p;
             return null;
         }
 
         /// <summary>Utilise un code : la tête est débloquée et le code marqué comme utilisé (une seule fois).</summary>
-        public static PromoResult Redeem(Profile p, string code, out PromoCode promo)
+        public static PromoResult Redeem(Profile p, string code, out PromoCode promo, IReadOnlyList<PromoCode> codes = null)
         {
             promo = null;
             if (Normalize(code).Length == 0) return PromoResult.Empty;
-            promo = Find(code);
+            promo = Find(code, codes);
             if (promo == null) return PromoResult.Unknown;
             if (p.redeemedCodes == null) p.redeemedCodes = new List<string>();
             if (p.redeemedCodes.Contains(promo.Key)) return PromoResult.AlreadyUsed;

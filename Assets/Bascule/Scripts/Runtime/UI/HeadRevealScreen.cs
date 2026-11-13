@@ -199,7 +199,7 @@ namespace Bascule.UI
         }
 
         /// <param name="kicker">Petit bandeau du haut (« Code accepté ! »).</param>
-        /// <param name="subtitle">Ligne sous le nom (« Offerte par le BDE Samb'bach »).</param>
+        /// <param name="subtitle">Ligne sous le nom (« Offerte par le club X »).</param>
         public void Show(HeadDef head, string kicker, string subtitle, Action onWear)
         {
             Show();

@@ -1352,6 +1352,9 @@ namespace Bascule.UI
             }
         }
 
+        /// <summary>Tête rangée dans cet onglet et visible pour ce joueur (tête de partenaire : seulement une fois le code entré).</summary>
+        static bool Shown(string tab, HeadDef h, Profile p) => InTab(tab, h) && HeadCatalog.IsVisible(h, p.unlockedHeads);
+
         protected override void Build()
         {
             BackButton(App.GoHome);
@@ -1458,13 +1461,15 @@ namespace Bascule.UI
             _wornChip.color = rc;
             _wornRarity.text = Loc.Get("rarity_" + rarity);
             if (_random != null && _random.On != p.randomHead) _random.On = p.randomHead;
-            _count.text = Loc.Format("collection_short", p.unlockedHeads.Count, HeadCatalog.All.Count);
-            MetaUi.SetFill(_progressFill, p.unlockedHeads.Count / (float)Mathf.Max(1, HeadCatalog.All.Count));
+            // Les têtes de partenaires pas encore débloquées (code promo) ne sont ni montrées ni comptées.
+            int visible = HeadCatalog.VisibleCount(p.unlockedHeads);
+            _count.text = Loc.Format("collection_short", p.unlockedHeads.Count, visible);
+            MetaUi.SetFill(_progressFill, p.unlockedHeads.Count / (float)Mathf.Max(1, visible));
 
             foreach (var tab in Tabs)
             {
                 int total = 0, owned = 0;
-                foreach (var h in HeadCatalog.All) if (InTab(tab, h)) { total++; if (p.unlockedHeads.Contains(h.Id)) owned++; }
+                foreach (var h in HeadCatalog.All) if (Shown(tab, h, p)) { total++; if (p.unlockedHeads.Contains(h.Id)) owned++; }
                 _tabs[tab].GetComponent<Image>().color = tab == _tab ? Palette.Primary : Palette.Dark;
                 _tabCounts[tab].text = owned + "/" + total;
                 int fresh = HeadNews.Count(p, h => InTab(tab, h));
@@ -1474,7 +1479,7 @@ namespace Bascule.UI
             }
 
             var heads = new List<HeadDef>();
-            foreach (var h in HeadCatalog.All) if (InTab(_tab, h)) heads.Add(h);
+            foreach (var h in HeadCatalog.All) if (Shown(_tab, h, p)) heads.Add(h);
             // Tri par difficulté (les têtes premium gardent l'ordre du catalogue).
             if (_tab != "sec_premium" && _tab != "sec_special") heads.Sort((a, b) => a.UnlockValue.CompareTo(b.UnlockValue));
             HeadDef next = null;

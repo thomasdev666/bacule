@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace Bascule.Core
 {
     public enum HairStyle { None, Short, Spiky, Curly, Bun, Mohawk, Long, Afro, Pigtails, Swoosh, Curls,
-        // Coiffure unique de la tête « Samb'bach » : raie profonde, grande vague balayée sur le front, grosse tresse
-        // sur une seule épaule tenue par une bague dorée, pointes couleur miel (balayage brésilien) ; l'autre côté lissé derrière l'oreille.
+        // Raie profonde, grande vague balayée sur le front, grosse tresse sur une seule épaule tenue par une bague dorée,
+        // pointes couleur miel ; l'autre côté lissé derrière l'oreille. Dessinée pour une tête de partenaire (aucune tête ne
+        // la porte depuis la 1.4.1) : réutilisable pour un prochain partenaire.
         Cascade }
 
     /// <summary>Tenue du corps : le débardeur de Basile, ou le costume croisé (tête Challenger).</summary>
@@ -22,8 +23,6 @@ namespace Bascule.Core
         StarGlasses,
         // Trèfle à quatre feuilles de la tête « Chanceux » (roue de la chance)
         Clover,
-        // Coiffe du carnaval : éventail de plumes aux couleurs du Brésil, diadème doré et créoles (tête « Samb'bach »)
-        Samba,
     }
 
     public enum UnlockKind
@@ -85,9 +84,10 @@ namespace Bascule.Core
     }
 
     /// <summary>
-    /// 67 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
-    /// 16 à acheter avec des pièces, 6 premium (achats), la Challenger (duels), la Superstar (vidéos), Duo (amis), Chanceux (roue)
-    /// et les têtes de partenaires (codes promo : Samb'bach). Les visuels sont dessinés par le code (HeadArtist).
+    /// 66 têtes : 1 de départ, 20 par palier de score, 13 par niveau de joueur, 6 spéciales (exploits),
+    /// 16 à acheter avec des pièces, 6 premium (achats), la Challenger (duels), la Superstar (vidéos), Duo (amis), Chanceux (roue).
+    /// Plus, plus tard, les têtes de partenaires (codes promo) : invisibles tant que le joueur n'a pas entré leur code
+    /// (IsVisible). Les visuels sont dessinés par le code (HeadArtist).
     /// Simulation (docs/RAPPORT.md) : avec les anciens paliers (jusqu'à 60 000 points), 25 têtes sur 33 étaient
     /// hors de portée de presque tous les joueurs ; les niveaux et la boutique donnent un objectif à chaque partie.
     /// </summary>
@@ -98,8 +98,26 @@ namespace Bascule.Core
         const string S1 = "#FFD9B3", S2 = "#F1C27D", S3 = "#E0AC69", S4 = "#C68642", S5 = "#8D5524", S6 = "#FFE7D1",
             Alien = "#A8E6CF", Sky = "#B5C7FF", Rose = "#FFB8CF";
 
-        /// <summary>Tête du BDE Samb'bach (code promo « Samb'bach »).</summary>
-        public const int SambBachId = 66;
+        /// <summary>
+        /// Identifiants retirés, à ne JAMAIS réutiliser : des joueurs les ont dans leur sauvegarde (une nouvelle tête à ce
+        /// numéro leur serait donnée sans rien faire). 66 : tête « Samb'bach » (partenariat annulé, retirée en 1.4.1).
+        /// </summary>
+        public static readonly int[] RetiredIds = { 66 };
+
+        /// <summary>
+        /// Tête affichée dans la collection et comptée dans « x / y » : toutes, sauf les têtes de partenaires (code promo)
+        /// pas encore débloquées. Personne ne doit savoir qu'elles existent avant d'avoir entré le code.
+        /// </summary>
+        public static bool IsVisible(HeadDef h, ICollection<int> unlocked) =>
+            h != null && (h.Unlock != UnlockKind.Code || (unlocked != null && unlocked.Contains(h.Id)));
+
+        /// <summary>Nombre de têtes visibles pour ce joueur (le total affiché dans la collection).</summary>
+        public static int VisibleCount(ICollection<int> unlocked)
+        {
+            int n = 0;
+            foreach (var h in All) if (IsVisible(h, unlocked)) n++;
+            return n;
+        }
 
         public static readonly IReadOnlyList<HeadDef> All = Build();
 
@@ -341,12 +359,10 @@ namespace Bascule.Core
             list.Add(H(id++, "Duo", "Duo", UnlockKind.Friends, 1, S4, HairStyle.Pigtails, "#3A86FF", Accessory.Headband, Expression.Wink));
             // Gros lot de la roue de la chance (rien d'autre ne la donne).
             list.Add(H(id++, "Chanceux", "Lucky", UnlockKind.Wheel, 0, S1, HairStyle.Swoosh, "#2D6A4F", Accessory.Clover, Expression.Grin));
-            // Têtes de partenaires, offertes avec un code (Réglages → Code promo, Core/Promo.cs).
-            // Samb'bach (BDE) : une Brésilienne, coiffure unique (tresse sur l'épaule au balayage miel), coiffe du carnaval,
-            // robe de fête avec le logo du BDE en broche (tenue 66, Core/Outfits.cs).
-            var samba = H(id++, "Samb'bach", "Samb'bach", UnlockKind.Code, 0, "#C68C5D", HairStyle.Cascade, "#3A1F14", Accessory.Samba, Expression.Grin);
-            samba.Lashes = true;
-            list.Add(samba);
+            // 66 : ancienne tête « Samb'bach » (partenariat annulé), retirée en 1.4.1. Numéro réservé (RetiredIds).
+            id++;
+            // Têtes de partenaires, offertes avec un code (Réglages → Code promo, Core/Promo.cs) : à ajouter ICI, à la suite
+            // (67, 68…), avec UnlockKind.Code. Elles restent cachées tant que le joueur n'a pas entré le code (IsVisible).
             return list;
         }
 

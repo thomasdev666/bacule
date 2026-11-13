@@ -32,7 +32,7 @@ Défie un ami en un geste et jouez en même temps, avec les mêmes poids. 3 minu
 • Facile à prendre en main, difficile à lâcher : une partie dure une à deux minutes.
 • Un score infini : la planche raccourcit et les poids s'alourdissent à mesure que tu progresses.
 • Le classement mondial, le classement du jour et le classement entre amis.
-• 67 têtes à collectionner pour Basile : records, niveaux, roue de la chance, duels, exploits.
+• 66 têtes à collectionner pour Basile : records, niveaux, roue de la chance, duels, exploits.
 • La roue de la chance chaque jour, l'événement de la semaine, des missions et des coffres.
 • 14 mondes à traverser selon ton score, du village jusqu'à la Lune.
 • Une musique qui s'emballe quand la chute approche… et le cœur de Basile qui bat de plus en plus vite.
@@ -104,7 +104,7 @@ Nouveau : le DUEL EN DIRECT ! Défie tes amis, 3 minutes max, le premier qui lâ
 
 ### Captures avec titre (1290 × 2796)
 
-Six captures prêtes dans `docs/store/captures`, dans l'ordre : jeu d'équilibre, duel en direct, fusion (128), classement mondial, 67 têtes, cadeaux chaque jour. Elles sont faites avec les aperçus du jeu (`docs/apercu`) ; pour utiliser de vraies captures de l'iPhone, les mettre à la place dans `docs/apercu` et relancer :
+Six captures prêtes dans `docs/store/captures`, dans l'ordre : jeu d'équilibre, duel en direct, fusion (128), classement mondial, 66 têtes, cadeaux chaque jour. Elles sont faites avec les aperçus du jeu (`docs/apercu`) ; pour utiliser de vraies captures de l'iPhone, les mettre à la place dans `docs/apercu` et relancer :
 `python3 Tools/store_listing_assets.py Exports/art docs/apercu docs/store`
 
 ## Captures d'écran

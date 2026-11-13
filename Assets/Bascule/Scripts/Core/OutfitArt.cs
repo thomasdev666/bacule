@@ -86,7 +86,7 @@ namespace Bascule.Core
             };
         }
 
-        // ================================================================== Robe de fête (tête Samb'bach)
+        // ================================================================== Robe de fête (têtes de partenaires)
 
         /// <summary>
         /// Robe de fête : corsage ajusté à manches ballon et col à volant, ceinture nouée d'un gros nœud, jupe à trois

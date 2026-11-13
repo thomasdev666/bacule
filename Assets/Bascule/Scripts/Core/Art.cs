@@ -42,9 +42,6 @@ namespace Bascule.Core
             var skin = Rgba.FromHex(h.Skin);
             float sz = r * 2f;
 
-            // Coiffe du carnaval : l'éventail de plumes passe derrière toute la tête.
-            if (h.Accessory == Accessory.Samba) SambaPlumes(img, cx, cy, r);
-
             switch (h.Hair)
             {
                 case HairStyle.Cascade:
@@ -138,68 +135,6 @@ namespace Bascule.Core
                 s = Shape.Union(s, Shape.Circle(cx + (float)Math.Cos(a) * (radius - bump), cy + (float)Math.Sin(a) * (radius - bump), bump * 1.25f));
             }
             return s;
-        }
-
-        // ================================================================== Samba (tête « Samb'bach »)
-
-        static readonly Rgba BrGreen = Rgba.FromHex("#00A651"), BrYellow = Rgba.FromHex("#FFD60A"), BrBlue = Rgba.FromHex("#2F6FE0");
-
-        /// <summary>
-        /// Plume de carnaval duveteuse : une chaîne de ronds le long de la tige (fine au pied, large aux deux tiers,
-        /// bout arrondi) dont l'union donne un bord festonné, comme du duvet. Angle depuis la verticale, en degrés.
-        /// </summary>
-        static Shape Plume(float bx, float by, float angle, float start, float len, float width)
-        {
-            double rad = angle * Math.PI / 180;
-            float dx = (float)Math.Sin(rad), dy = (float)Math.Cos(rad);
-            var s = Shape.Tapered(bx + dx * start, by + dy * start, width * 0.18f, bx + dx * (start + len * 0.5f), by + dy * (start + len * 0.5f), width * 0.5f);
-            const int n = 9;
-            for (int i = 0; i < n; i++)
-            {
-                float t = 0.2f + 0.8f * i / (n - 1);
-                float prof = (float)Math.Sin(Math.PI * Math.Min(1f, t * 0.95f + 0.08f)) * 0.75f + 0.25f;
-                float d = start + len * t - width * prof * 0.55f * (i == n - 1 ? 1f : 0f);
-                s = Shape.Union(s, Shape.Circle(bx + dx * d, by + dy * d, width * prof));
-            }
-            return s;
-        }
-
-        static void DrawPlume(Raster img, float bx, float by, float angle, float start, float len, float width, Rgba c, float sz)
-        {
-            var style = new Toon.Style { Outline = 0.024f, Shade = 0.08f, Soft = 0.08f, ShadeStrength = 0.85f, Rim = 0.035f, RimOpacity = 0.55f, Specular = false };
-            double rad = angle * Math.PI / 180;
-            float dx = (float)Math.Sin(rad), dy = (float)Math.Cos(rad);
-            var plume = Plume(bx, by, angle, start, len, width);
-            // Encoches sur les bords, inclinées vers la pointe : la silhouette d'une plume, pas d'une feuille.
-            foreach (var (t, sd) in new[] { (0.46f, 1), (0.66f, -1), (0.8f, 1) })
-            {
-                float d = start + len * t;
-                float ex = bx + dx * d + dy * sd * width * 0.95f, ey = by + dy * d - dx * sd * width * 0.95f;
-                plume = Shape.Subtract(plume, Shape.Ellipse(ex, ey, width * 0.42f, width * 0.07f, 90f - angle - sd * 35f));
-            }
-            Toon.Part(img, plume, c, sz, style);
-            // Pied plus soutenu, pointe plus claire : la plume prend la lumière.
-            img.FillClipped(plume, Shape.Circle(bx + dx * (start + len * 0.15f), by + dy * (start + len * 0.15f), width * 1.1f), c.Shade(0.8f).WithAlpha(0.5f), width * 0.8f);
-            float tx = bx + dx * (start + len), ty = by + dy * (start + len);
-            img.FillClipped(plume, Shape.Circle(tx, ty, width * 1.1f), c.Light(1.5f).WithAlpha(0.6f), width * 0.7f);
-            // Tige blanche, un peu décalée vers le haut de la plume.
-            img.FillClipped(plume, Shape.Capsule(bx + dx * start, by + dy * start, bx + dx * (start + len * 0.92f), by + dy * (start + len * 0.92f), width * 0.075f), Rgba.White.WithAlpha(0.85f), 1f);
-        }
-
-        /// <summary>Grandes plumes du fond (calque arrière) : elles dépassent derrière les cheveux, de chaque côté.</summary>
-        static void SambaPlumes(Raster img, float cx, float cy, float r)
-        {
-            float sz = r * 2f, bx = cx, by = cy + 0.55f * r;
-            foreach (var (a, len, c) in new[] { (-58f, 1.22f, BrGreen), (58f, 1.22f, BrGreen), (-34f, 1.28f, BrBlue), (34f, 1.28f, BrBlue) })
-                DrawPlume(img, bx, by, a, 0.3f * r, len * r, 0.21f * r, c, sz * 0.5f);
-        }
-
-        /// <summary>Éventail de plumes du diadème (calque avant), aux couleurs du Brésil : la grande plume jaune au milieu.</summary>
-        static void SambaFan(Raster img, float cx, float cy, float r)
-        {
-            float sz = r * 2f, bx = cx, by = cy + 0.9f * r;
-            foreach (var (a, len, c) in new[] { (-40f, 0.7f, BrYellow), (40f, 0.7f, BrYellow), (-20f, 0.8f, BrGreen), (20f, 0.8f, BrGreen), (0f, 0.84f, BrYellow) })
-                DrawPlume(img, bx, by, a, 0.12f * r, len * r, 0.17f * r, c, sz * 0.45f);
         }
 
         static readonly Rgba Honey = Rgba.FromHex("#C98B4A");
@@ -841,33 +776,6 @@ namespace Bascule.Core
                         img.FillClipped(horn, Shape.Capsule(cx - 0.3f * r, cy + (0.95f + i * 0.2f) * r, cx + 0.3f * r, cy + (1.08f + i * 0.2f) * r, 0.02f * r), Gold.Shade(0.8f), 1f);
                     foreach (var (fx, fy, c) in new[] { (-0.55f, 0.92f, "#FF8FB8"), (-0.28f, 1.02f, "#9B5DE5"), (0.34f, 1.0f, "#3A86FF") })
                         Toon.Part(img, Shape.Circle(cx + fx * r, cy + fy * r, 0.12f * r), Rgba.FromHex(c), sz * 0.15f, acc);
-                    break;
-                }
-                case Accessory.Samba:
-                {
-                    // Éventail de plumes sur le dessus, diadème doré serti de pierres à leur pied, créoles dorées.
-                    SambaFan(img, cx, cy, r);
-                    var band = Shape.Arc(cx, cy - 0.04f * r, 0.95f * r, 40f, 140f, 0.14f * r);
-                    Toon.Part(img, band, Gold, sz, acc);
-                    img.FillClipped(band, Shape.Arc(cx, cy - 0.04f * r, 1.0f * r, 40f, 140f, 0.025f * r), Gold.Light(1.4f).WithAlpha(0.8f), 1f);
-                    foreach (var (deg, c) in new[] { (62f, BrBlue), (118f, BrBlue), (76f, BrGreen), (104f, BrGreen) })
-                    {
-                        double a = deg * Math.PI / 180;
-                        float gx = cx + (float)Math.Cos(a) * 0.95f * r, gy = cy - 0.04f * r + (float)Math.Sin(a) * 0.95f * r;
-                        Toon.Part(img, Shape.Circle(gx, gy, 0.055f * r), c, sz * 0.1f, acc);
-                    }
-                    // Médaillon : une étoile dorée sur une pierre verte.
-                    float mx = cx, my = cy + 0.95f * r;
-                    Toon.Part(img, Shape.Circle(mx, my, 0.2f * r), Gold.Light(1.05f), sz * 0.3f, acc);
-                    Toon.Part(img, Shape.Circle(mx, my, 0.13f * r), BrGreen, sz * 0.2f, acc);
-                    img.Fill(StarShape(mx, my, 0.09f * r, 0.04f * r, 0f), BrYellow);
-                    for (int sd = -1; sd <= 1; sd += 2)
-                    {
-                        if (sd > 0 && h.Hair == HairStyle.Cascade) continue; // oreille droite sous les boucles
-                        float hr = h.Hair == HairStyle.Cascade ? 0.15f : 0.13f;
-                        var hoop = Shape.Subtract(Shape.Circle(cx + sd * 1.04f * r, cy - 0.48f * r, hr * r), Shape.Circle(cx + sd * 1.04f * r, cy - 0.48f * r, (hr - 0.045f) * r));
-                        Toon.Part(img, hoop, Gold, sz * 0.2f, acc);
-                    }
                     break;
                 }
                 case Accessory.DevilHorns:

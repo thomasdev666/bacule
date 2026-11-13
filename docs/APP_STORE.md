@@ -63,7 +63,7 @@ FIRST LAUNCH STEPS: after the welcome screen, the player chooses a nickname (can
 
 ADS: Unity LevelPlay mediation. Interstitials only appear between two games, never during a game. All other ads are optional rewarded videos chosen by the player: second chance after losing, free chest, double the chest, and an exclusive cosmetic head and plank earned after 8 videos (cosmetic only, never a gameplay advantage).
 
-PROMO CODE (Settings > "Code promo"): partner codes (e.g. our partner student association) unlock one FREE cosmetic head that is not sold anywhere in the app. No paid content, no coins and no gameplay advantage can be unlocked with a code. Test code: SAMB'BACH (unlocks the "Samb'bach" head).
+PROMO CODE (Settings > "Code promo"): partner codes unlock one FREE cosmetic head that is not sold anywhere in the app. No paid content, no coins and no gameplay advantage can be unlocked with a code. No partner code is active in this version.
 
 NOTIFICATIONS: optional, at most one local reminder per day, asked only after the first games.
 
@@ -140,7 +140,7 @@ La plus grosse mise à jour de Bascule ! Ta progression est conservée.
 • DUEL EN DIRECT : défie un ami en un geste, 3 minutes max, le premier qui lâche a perdu (sinon, le meilleur score gagne).
 • Roue de la chance chaque jour, événement de la semaine et quête du débutant, avec des têtes à gagner.
 • Nouveau classement avec podium, et les places gagnées en fin de partie.
-• Têtes exclusives : Superstar (vidéos), Duo (parrainage), Chanceux (roue)… 67 têtes en tout.
+• Têtes exclusives : Superstar (vidéos), Duo (parrainage), Chanceux (roue)… 66 têtes en tout.
 • Codes promo partenaires (Réglages → Code promo).
 • Décors plus tôt, rafales plus douces, le 128 mieux expliqué.
 • Choisis ton pseudo, et chasse les notifications du jeu d'un geste.

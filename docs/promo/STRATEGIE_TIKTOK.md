@@ -5,9 +5,9 @@
 ## Le contexte
 
 - **Bascule** : jeu mobile d'équilibre (iPhone, en français), éditeur ORPHÉE X. Basile porte une planche, le joueur lâche des poids, deux poids identiques fusionnent (1+1=2… jusqu'au 128 qui s'envole en montgolfière), la planche penche, on perd quand tout tombe.
-- **La 1.4 vient de sortir** : duel en direct entre amis (3 min max, le premier qui lâche a perdu, sinon le meilleur score gagne), roue de la chance, événement de la semaine, classement avec podium, 67 têtes, codes promo partenaires (ex. BDE Samb'bach).
+- **La 1.4 vient de sortir** : duel en direct entre amis (3 min max, le premier qui lâche a perdu, sinon le meilleur score gagne), roue de la chance, événement de la semaine, classement avec podium, 66 têtes.
 - **Objectif des vidéos** : de la visibilité et des téléchargements. Chaque vidéo finit par **« Cherche "Bascule" sur l'App Store »** : un téléchargement fait après cette recherche fait monter le jeu sur le mot « bascule » (aujourd'hui des applis de pesée passent devant, voir `docs/STORE.md`).
-- **Compétition dans l'école** prévue la semaine prochaine (5 jours, code Samb'bach) : bon moment pour une vidéo par jour.
+- **Compétition dans l'école** prévue la semaine prochaine (5 jours) : bon moment pour une vidéo par jour. (Le partenariat Samb'bach est annulé : plus de code ni de tête.)
 
 ## Ce que disent les recherches (novembre 2026)
 
