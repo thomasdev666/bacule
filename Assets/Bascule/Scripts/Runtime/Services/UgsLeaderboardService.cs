@@ -409,6 +409,112 @@ namespace Bascule.Services
 #endif
         }
 
+        // ------------------------------------------------------------------ Ligue et fantômes (1.5)
+
+        public async Task<int> GetArchivedRankAsync(string board, DateTime weekStartUtc)
+        {
+            if (!IsOnline) return -1;
+            try
+            {
+                // Les dernières semaines archivées ; celle qui contient le milieu de la semaine demandée.
+                var versions = await LeaderboardsService.Instance.GetVersionsAsync(board, new GetVersionsOptions { Limit = 8 });
+                var middle = weekStartUtc.AddDays(3.5);
+                string versionId = null;
+                if (versions != null && versions.Results != null)
+                    foreach (var v in versions.Results)
+                        if (v != null && v.Start.ToUniversalTime() <= middle && v.End.ToUniversalTime() >= middle) { versionId = v.Id; break; }
+                if (versionId == null) return 0; // semaine pas archivée (classement créé après, ou archive trop ancienne)
+                // Les 100 premiers suffisent : les divisions récompensées s'arrêtent bien avant.
+                var page = await LeaderboardsService.Instance.GetVersionScoresAsync(board, versionId, new GetVersionScoresOptions { Limit = 100 });
+                string me = AuthenticationService.Instance.PlayerId;
+                if (page != null && page.Results != null)
+                    foreach (var r in page.Results)
+                        if (r.PlayerId == me) return r.Rank + 1;
+                return 0;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Ligue : semaine finie : " + e.Message); return -1; }
+        }
+
+        /// <summary>Fantôme (données publiques du joueur, sans index) : la partie et l'heure de publication.</summary>
+        public const string GhostKey = "ghost", GhostAtKey = "ghost_at";
+
+        public async Task<bool> PublishGhostAsync(string data)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline || string.IsNullOrEmpty(data)) return false;
+            try
+            {
+                await SavePublic(new Dictionary<string, object> { { GhostKey, data }, { GhostAtKey, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() } });
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Fantôme : publication : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        static readonly System.Random _ghostRng = new System.Random();
+
+        public async Task<GhostRecording> FindGhostAsync(ICollection<string> avoid, int maxAgeDays)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return null;
+            try
+            {
+                string me = AuthenticationService.Instance.PlayerId;
+                long oldest = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - Math.Max(1, maxAgeDays) * 86400L;
+                // Les codes amis sont répartis au hasard : on part d'une lettre tirée au sort dans l'index friend_code (déjà
+                // en place), puis du début si rien ne suit. Aucun réglage en plus dans le tableau de bord.
+                string start = FriendCode.ShortAlphabet[_ghostRng.Next(FriendCode.ShortAlphabet.Length)].ToString();
+                var candidates = new List<string>();
+                var fallback = new List<string>();
+                foreach (string from in new[] { start, "0" })
+                {
+                    var filters = new List<Unity.Services.CloudSave.Models.FieldFilter>
+                    {
+                        new Unity.Services.CloudSave.Models.FieldFilter(FriendCodeKey, from, Unity.Services.CloudSave.Models.FieldFilter.OpOptions.GE, true),
+                    };
+                    var query = new Unity.Services.CloudSave.Models.Query(filters, new HashSet<string> { FriendCodeKey, GhostAtKey }, 0, 100);
+                    var found = await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.QueryAsync(query, new Unity.Services.CloudSave.Models.Data.Player.QueryOptions());
+                    if (found != null)
+                        foreach (var e in found)
+                        {
+                            if (e == null || string.IsNullOrEmpty(e.Id) || e.Id == me || e.Data == null) continue;
+                            long at = 0;
+                            foreach (var item in e.Data)
+                                if (item.Key == GhostAtKey) long.TryParse(item.Value?.GetAs<string>() ?? "", out at);
+                            if (at < oldest) continue;
+                            if (avoid != null && avoid.Contains(e.Id)) { if (!fallback.Contains(e.Id)) fallback.Add(e.Id); }
+                            else if (!candidates.Contains(e.Id)) candidates.Add(e.Id);
+                        }
+                    if (candidates.Count > 0) break;
+                }
+                // Tous déjà affrontés récemment : mieux vaut un fantôme déjà vu que pas de duel.
+                if (candidates.Count == 0) candidates = fallback;
+                // Quelques essais : un fantôme abîmé ou d'un autre format est passé.
+                for (int tries = 0; tries < 3 && candidates.Count > 0; tries++)
+                {
+                    int k = _ghostRng.Next(candidates.Count);
+                    string id = candidates[k];
+                    candidates.RemoveAt(k);
+                    var loaded = await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { GhostKey },
+                        new Unity.Services.CloudSave.Models.Data.Player.LoadOptions(new Unity.Services.CloudSave.Models.Data.Player.PublicReadAccessClassOptions(id)));
+                    if (loaded == null || !loaded.TryGetValue(GhostKey, out var value) || value == null) continue;
+                    var ghost = GhostRecording.FromBase64(value.Value?.GetAs<string>() ?? "");
+                    if (ghost == null) continue;
+                    ghost.PlayerId = id;
+                    return ghost;
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Fantôme : recherche : " + e.Message); }
+            return null;
+#else
+            await Task.CompletedTask;
+            return null;
+#endif
+        }
+
         public async Task<(string name, int head)> GetPublicProfileAsync(string playerId)
         {
 #if BASCULE_CLOUDSAVE

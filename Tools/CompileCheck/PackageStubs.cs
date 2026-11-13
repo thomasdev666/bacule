@@ -146,6 +146,10 @@ namespace Unity.Services.Leaderboards.Models
     public class LeaderboardEntry { public string PlayerId; public string PlayerName; public int Rank; public double Score; public string Metadata; }
     public class LeaderboardScoresPage { public System.Collections.Generic.List<LeaderboardEntry> Results; }
     public class LeaderboardScores { public System.Collections.Generic.List<LeaderboardEntry> Results; }
+    // Semaines archivées (signatures de com.unity.services.leaderboards 2.3.5, Unity.Services.Leaderboards.api).
+    public class LeaderboardVersion { public string Id { get; } public DateTime Start { get; } public DateTime End { get; } }
+    public class LeaderboardVersions { public System.Collections.Generic.List<LeaderboardVersion> Results { get; } public DateTime NextReset { get; } public int TotalArchivedVersions { get; } }
+    public class LeaderboardVersionScoresPage { public System.Collections.Generic.List<LeaderboardEntry> Results { get; } public int Total { get; } }
 }
 
 namespace Unity.Services.Leaderboards
@@ -157,6 +161,8 @@ namespace Unity.Services.Leaderboards
     public class GetPlayerRangeOptions { public int? RangeLimit { get; set; } public bool IncludeMetadata { get; set; } }
     public class GetPlayerScoreOptions { public bool IncludeMetadata { get; set; } }
     public class GetScoresByPlayerIdsOptions { public bool IncludeMetadata { get; set; } }
+    public class GetVersionsOptions { public int? Limit { get; set; } }
+    public class GetVersionScoresOptions { public int? Offset { get; set; } public int? Limit { get; set; } public bool? IncludeMetadata { get; set; } }
     public interface ILeaderboardsService
     {
         Task<LeaderboardEntry> AddPlayerScoreAsync(string leaderboardId, double score, AddPlayerScoreOptions options = null);
@@ -164,6 +170,8 @@ namespace Unity.Services.Leaderboards
         Task<LeaderboardEntry> GetPlayerScoreAsync(string leaderboardId, GetPlayerScoreOptions options = null);
         Task<LeaderboardScores> GetPlayerRangeAsync(string leaderboardId, GetPlayerRangeOptions options = null);
         Task<LeaderboardScores> GetScoresByPlayerIdsAsync(string leaderboardId, System.Collections.Generic.List<string> playerIds, GetScoresByPlayerIdsOptions options = null);
+        Task<LeaderboardVersions> GetVersionsAsync(string leaderboardId, GetVersionsOptions options = null);
+        Task<LeaderboardVersionScoresPage> GetVersionScoresAsync(string leaderboardId, string versionId, GetVersionScoresOptions options = null);
     }
     public static class LeaderboardsService { public static ILeaderboardsService Instance => null; }
 }
@@ -223,6 +231,15 @@ namespace Unity.Services.CloudSave.Models
     }
     public interface IDeserializable { T GetAs<T>(); }
     public class Item { public string Key { get; } public IDeserializable Value { get; } }
+}
+namespace Unity.Services.CloudSave.Models.Data.Player
+{
+    public abstract class ReadAccessClassOptions { }
+    public class PublicReadAccessClassOptions : ReadAccessClassOptions { public PublicReadAccessClassOptions() { } public PublicReadAccessClassOptions(string playerId) { } }
+    public class LoadOptions { public LoadOptions() { } public LoadOptions(ReadAccessClassOptions accessClassOptions) { } }
+}
+namespace Unity.Services.CloudSave.Models
+{
     public class EntityData { public string Id { get; } public List<Item> Data { get; } }
 }
 
@@ -240,6 +257,7 @@ namespace Unity.Services.CloudSave
     {
         System.Threading.Tasks.Task<Dictionary<string, string>> SaveAsync(IDictionary<string, object> data, Models.Data.Player.SaveOptions options);
         System.Threading.Tasks.Task<List<Models.EntityData>> QueryAsync(Models.Query query, Models.Data.Player.QueryOptions options);
+        System.Threading.Tasks.Task<Dictionary<string, Models.Item>> LoadAsync(ISet<string> keys, Models.Data.Player.LoadOptions options);
     }
     public interface IDataService { IPlayerDataService Player { get; } }
     public interface ICloudSaveService { IDataService Data { get; } }

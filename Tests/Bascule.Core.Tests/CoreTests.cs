@@ -1315,6 +1315,160 @@ namespace Bascule.Core.Tests
         }
     }
 
+    public class LeagueTests
+    {
+        static readonly LeagueTuning T = new LeagueTuning();
+
+        [Test]
+        public void WeekStartsOnMondayUtc()
+        {
+            Assert.AreEqual("2026-11-09", League.WeekKey(new DateTime(2026, 11, 9, 0, 0, 0, DateTimeKind.Utc)), "lundi 00:00");
+            Assert.AreEqual("2026-11-09", League.WeekKey(new DateTime(2026, 11, 13, 19, 0, 0, DateTimeKind.Utc)), "vendredi");
+            Assert.AreEqual("2026-11-09", League.WeekKey(new DateTime(2026, 11, 15, 23, 59, 59, DateTimeKind.Utc)), "dimanche soir");
+            Assert.AreEqual("2026-11-16", League.WeekKey(new DateTime(2026, 11, 16, 0, 0, 1, DateTimeKind.Utc)), "lundi suivant");
+            Assert.AreEqual("2026-12-28", League.WeekKey(new DateTime(2027, 1, 1, 12, 0, 0, DateTimeKind.Utc)), "à cheval sur deux années");
+            Assert.AreEqual(new DateTime(2026, 11, 16, 0, 0, 0, DateTimeKind.Utc), League.NextReset(new DateTime(2026, 11, 13, 19, 0, 0, DateTimeKind.Utc)));
+            Assert.AreEqual(new DateTime(2026, 11, 9, 0, 0, 0, DateTimeKind.Utc), League.WeekStart("2026-11-09"));
+            Assert.IsNull(League.WeekStart("pas une date"));
+        }
+
+        [Test]
+        public void DivisionsFollowTheRank()
+        {
+            Assert.AreEqual(Division.Legend, League.DivisionOf(1, T));
+            Assert.AreEqual(Division.Legend, League.DivisionOf(3, T));
+            Assert.AreEqual(Division.Elite, League.DivisionOf(4, T));
+            Assert.AreEqual(Division.Elite, League.DivisionOf(10, T));
+            Assert.AreEqual(Division.Challenger, League.DivisionOf(11, T));
+            Assert.AreEqual(Division.Challenger, League.DivisionOf(30, T));
+            Assert.AreEqual(Division.Hopeful, League.DivisionOf(31, T));
+            Assert.AreEqual(Division.Hopeful, League.DivisionOf(0, T), "pas classé");
+            Assert.AreEqual(500, League.Reward(Division.Legend, T));
+            Assert.AreEqual(250, League.Reward(Division.Elite, T));
+            Assert.AreEqual(100, League.Reward(Division.Challenger, T));
+            Assert.AreEqual(0, League.Reward(Division.Hopeful, T));
+            Assert.AreEqual(30, League.LastPlace(Division.Challenger, T));
+        }
+
+        [Test]
+        public void PointsTable()
+        {
+            Assert.AreEqual(30, League.Points(DuelOutcome.Win, false, false, false, 60, T));
+            Assert.AreEqual(15, League.Points(DuelOutcome.Draw, false, false, false, 60, T));
+            Assert.AreEqual(8, League.Points(DuelOutcome.Lose, false, false, false, 60, T));
+            Assert.AreEqual(10, League.Points(DuelOutcome.Win, true, false, false, 60, T));
+            Assert.AreEqual(5, League.Points(DuelOutcome.Draw, true, false, false, 60, T));
+            Assert.AreEqual(2, League.Points(DuelOutcome.Lose, true, false, false, 60, T));
+            Assert.AreEqual(0, League.Points(DuelOutcome.Lose, false, true, false, 60, T), "abandon : rien");
+            Assert.AreEqual(8, League.Points(DuelOutcome.Win, false, false, true, 5, T), "adversaire parti tout de suite : pas une vraie victoire");
+            Assert.AreEqual(30, League.Points(DuelOutcome.Win, false, false, true, 40, T), "adversaire parti après un vrai duel");
+        }
+
+        [Test]
+        public void PointsResetEachWeekAndTheRewardIsGivenOnce()
+        {
+            var p = new Profile(); p.Sanitize();
+            int coins0 = p.coins;
+            Assert.AreEqual(30, League.Award(p.league, "2026-11-09", DuelOutcome.Win, false, false, false, 50, T));
+            Assert.AreEqual(8, League.Award(p.league, "2026-11-09", DuelOutcome.Lose, false, false, false, 50, T));
+            Assert.AreEqual(38, p.league.points);
+            Assert.AreEqual(2, p.league.duels);
+            Assert.False(League.RewardPending(p.league, "2026-11-09"), "la semaine n'est pas finie");
+
+            // Lundi suivant : les points repartent de zéro, la semaine finie attend sa récompense.
+            Assert.True(League.RewardPending(p.league, "2026-11-16"));
+            Assert.AreEqual(0, p.league.points);
+            Assert.AreEqual("2026-11-09", p.league.lastWeek);
+            Assert.AreEqual(38, p.league.lastPoints);
+            Assert.AreEqual(250, League.Claim(p, 5, T, out var div));
+            Assert.AreEqual(Division.Elite, div);
+            Assert.AreEqual(coins0 + 250, p.coins);
+            Assert.False(League.RewardPending(p.league, "2026-11-16"));
+            Assert.AreEqual(0, League.Claim(p, 1, T, out _), "jamais deux fois");
+            Assert.AreEqual(coins0 + 250, p.coins);
+            Assert.AreEqual((int)Division.Elite, p.league.bestDivision);
+
+            // Une semaine sans jouer, puis une semaine jouée : pas de récompense pour la semaine vide.
+            Assert.False(League.RewardPending(p.league, "2026-11-23"));
+            League.Award(p.league, "2026-11-23", DuelOutcome.Win, true, false, false, 50, T);
+            Assert.True(League.RewardPending(p.league, "2026-12-07"), "deux semaines plus tard : celle du 23 attend toujours");
+            Assert.AreEqual("2026-11-23", p.league.lastWeek);
+            Assert.AreEqual(0, League.Claim(p, 0, T, out div), "introuvable dans l'archive : soldée sans pièces");
+            Assert.False(League.RewardPending(p.league, "2026-12-07"));
+            Assert.AreEqual((int)Division.Elite, p.league.bestDivision, "une semaine non classée ne change pas la meilleure division");
+        }
+
+        [Test]
+        public void LeagueStateSurvivesSaveAndOldSaves()
+        {
+            // Une sauvegarde de la 1.4 n'a pas de ligue : elle en reçoit une vide, rien d'autre ne bouge.
+            var old = new Profile { league = null, coins = 123 };
+            old.Sanitize();
+            Assert.NotNull(old.league);
+            Assert.AreEqual(0, old.league.points);
+            Assert.AreEqual(123, old.coins);
+            for (int i = 0; i < 20; i++) old.league.recentGhosts.Add("g" + i);
+            old.league.Sanitize();
+            Assert.AreEqual(8, old.league.recentGhosts.Count);
+            Assert.AreEqual("g19", old.league.recentGhosts[7]);
+        }
+
+        [Test]
+        public void GhostPlaybackEmitsEverythingInOrderAndStopsAfterThePlayerFalls()
+        {
+            var g = new GhostRecording { Seed = 42, Countdown = 3f, Who = new DuelHello { Name = "Lea", Head = 5 } };
+            for (uint t = 0; t <= 30000; t += 200) g.Snapshots.Add(new DuelSnapshot { TimeMs = t, Score = (int)(t / 100) });
+            g.FellMs = 28000; g.FellScore = 280; g.EndMs = 30000; g.FinalScore = 280; g.SurvivedMs = 25000;
+            Assert.True(g.Usable(new DuelTuning(), T));
+
+            // Jusqu'au bout : présentation, départ, photos dans l'ordre, chute à 28 s, fin à 30 s.
+            var play = new GhostPlayback(g, 3f);
+            var kinds = new List<DuelMsg>();
+            var outp = new List<byte[]>();
+            float fellAt = -1, finishedAt = -1;
+            uint lastSnap = 0;
+            for (int i = 0; i < 40 * 60; i++)
+            {
+                outp.Clear();
+                play.Advance(1f / 60f, outp);
+                foreach (var m in outp)
+                {
+                    var k = DuelProtocol.Kind(m);
+                    kinds.Add(k);
+                    if (k == DuelMsg.Fell && fellAt < 0) fellAt = play.Clock;
+                    if (k == DuelMsg.Finished && finishedAt < 0) finishedAt = play.Clock;
+                    if (k == DuelMsg.Snapshot && finishedAt < 0) { var s = DuelProtocol.ReadSnapshot(m); Assert.GreaterOrEqual(s.TimeMs, lastSnap); lastSnap = s.TimeMs; }
+                }
+            }
+            Assert.AreEqual(DuelMsg.Hello, kinds[0]);
+            Assert.AreEqual(DuelMsg.Start, kinds[1]);
+            Assert.That(fellAt, Is.EqualTo(28f).Within(0.05f));
+            Assert.That(finishedAt, Is.EqualTo(30f).Within(0.05f));
+            Assert.AreEqual(1, kinds.Count(k => k == DuelMsg.Fell));
+            Assert.AreEqual(1, kinds.Count(k => k == DuelMsg.Finished));
+            Assert.Greater(kinds.Count(k => k == DuelMsg.Snapshot), 150);
+
+            // Le joueur lâche à 10 s : le fantôme s'arrête à 13 s (fenêtre du dernier poids), debout, avec son score du moment.
+            play = new GhostPlayback(g, 3f);
+            kinds.Clear(); finishedAt = -1; int finishScore = -1;
+            for (int i = 0; i < 20 * 60; i++)
+            {
+                outp.Clear();
+                play.Advance(1f / 60f, outp);
+                if (play.Clock >= 10f) play.PlayerFell();
+                foreach (var m in outp)
+                {
+                    var k = DuelProtocol.Kind(m);
+                    kinds.Add(k);
+                    if (k == DuelMsg.Finished && finishedAt < 0) { finishedAt = play.Clock; DuelProtocol.ReadFinished(m, out finishScore, out _); }
+                }
+            }
+            Assert.That(finishedAt, Is.EqualTo(13f).Within(0.1f));
+            Assert.AreEqual(0, kinds.Count(k => k == DuelMsg.Fell), "le fantôme n'a pas lâché");
+            Assert.That(finishScore, Is.InRange(125, 131));
+        }
+    }
+
     public class HeadTests
     {
         [Test]

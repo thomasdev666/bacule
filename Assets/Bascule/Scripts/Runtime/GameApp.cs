@@ -377,6 +377,7 @@ namespace Bascule
             // version reste « Pas encore classé » tant qu'il n'a pas battu son record (retour TestFlight 1.4).
             if (Profile.bestScore > 0) Leaderboard.Enqueue(Boards.World, Profile.bestScore, Profile.selectedHead, "");
             Leaderboard.Flush(TodayKey);
+            CheckLeagueReward();
             // Amis réciproques : les derniers amis ajoutés sont republiés à chaque lancement (un ajout fait hors ligne,
             // ou avec une ancienne version, finit ainsi par arriver chez l'ami).
             if (Profile.friends.Count > 0) _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
@@ -449,6 +450,8 @@ namespace Bascule
             _prompt = Make<PromptScreen>(t, Palette.Shade);
             _playerMenu = Make<PlayerMenuScreen>(t, Palette.Shade);
             _friendRequest = Make<FriendRequestScreen>(t, Palette.Shade);
+            _league = Make<LeagueScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f));
+            _leagueReward = Make<LeagueRewardScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.9f));
             _missions = Make<MissionsScreen>(t, Palette.Shade);
             _shop = Make<ShopScreen>(t, Palette.Shade);
             _gift = Make<GiftScreen>(t, Palette.Shade);
@@ -534,7 +537,7 @@ namespace Bascule
 
         void Show(UiScreen screen)
         {
-            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _onboard, _friendPicker, _duelInvite, _wheelScreen, _questScreen, _eventScreen, _duelLobby, _duelResult })
+            foreach (var s in new UiScreen[] { _home, _hud, _gameOver, _collection, _leaderboard, _settings, _pause, _missions, _shop, _gift, _confirm, _daily, _welcome, _onboard, _friendPicker, _duelInvite, _wheelScreen, _questScreen, _eventScreen, _duelLobby, _duelResult, _league })
                 if (s != screen) s.Hide();
             // Le HUD du duel accompagne le HUD de jeu, juste au-dessus de lui.
             if (screen == _hud && Duel != null && Duel.InMatch)
@@ -600,6 +603,8 @@ namespace Bascule
                 ShowShop("offre_depart");
                 return;
             }
+            // Ligue : la semaine finie, ma division et mes pièces.
+            if (_leagueRewardPending != null) { ShowLeagueReward(); return; }
             // Mise à jour conseillée : une version plus récente est sur l'App Store (jamais obligatoire).
             if (AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay))
             {
@@ -717,10 +722,12 @@ namespace Bascule
         void InitDuel()
         {
 #if BASCULE_MULTIPLAYER
-            IDuelNetwork net = new UgsDuelNetwork();
+            IDuelNetwork real = new UgsDuelNetwork();
 #else
-            IDuelNetwork net = new OfflineDuelNetwork();
+            IDuelNetwork real = new OfflineDuelNetwork();
 #endif
+            // Le vrai réseau, ou un fantôme rejoué comme un adversaire (duel classé quand personne n'attend).
+            IDuelNetwork net = new DuelLink(real);
             Duel = new DuelController(net, () => Tuning);
             if (net.Available) Duel.AttachView(OpponentView.Create(transform, Art, _font, Tuning));
             Duel.StartRun = seed =>
@@ -739,6 +746,8 @@ namespace Bascule
             Duel.Hosted += OnDuelHosted;
             Duel.Notice += key => _toast?.Say(Loc.Get(key));
             Duel.ResultReady += OnDuelResult;
+            Duel.NoOpponent += OnNoOpponent;
+            Duel.Recorded += PublishGhost;
 
             // Invitation : bascule://duel/CODE ouvre le jeu et rejoint le duel (au lancement ou application déjà ouverte).
             Application.deepLinkActivated += OnDeepLink;
@@ -829,6 +838,152 @@ namespace Bascule
             if (!_openDuelPublished) return;
             _openDuelPublished = false;
             _ = Leaderboard.Service.PublishOpenDuelAsync("");
+        }
+
+        // ------------------------------------------------------------------ Duel classé, ligue et fantômes (1.5)
+
+        LeagueScreen _league;
+        LeagueRewardScreen _leagueReward;
+        /// <summary>Points de ligue gagnés au dernier duel classé (écran de résultat).</summary>
+        public int LastLeaguePoints { get; private set; }
+        /// <summary>Fantôme prêt pour le cas où personne ne viendrait (cherché dès le début de la recherche).</summary>
+        GhostRecording _ghostReady;
+        bool _ghostLoading;
+        (int rank, Division division, int coins)? _leagueRewardPending;
+
+        /// <summary>« Duel classé » : un adversaire trouvé tout seul, sans code. Rapporte des points de ligue.</summary>
+        public void DuelRanked()
+        {
+            if (!DuelAvailable) { _toast.Say(Loc.Get("duel_unavailable")); return; }
+            if (Duel.InDuel) return;
+            if (!Leaderboard.Service.IsOnline) { _toast.Say(Loc.Get("ranked_offline"), 3f); return; }
+            FinalizeRun();
+            if (Session.IsRunning) { SaveRunSnapshot(); Session.SetPaused(false); Session.GoIdle(); }
+            if (_league.Visible) _league.Hide();
+            Show(_duelLobby);
+            Stats.Event("ranked_search", ("points", Profile.league.points));
+            PrepareGhost();
+            Duel.FindMatch(MyHello());
+        }
+
+        /// <summary>Résultat : « Revanche » entre amis, « Nouveau duel classé » en classé (un autre adversaire à chaque fois).</summary>
+        public void DuelRematchOrRanked()
+        {
+            if (!Duel.Ranked) { DuelRematch(); return; }
+            Duel.Leave();
+            Session.InputLocked = false;
+            Session.SetPaused(false);
+            Session.GoIdle();
+            DuelRanked();
+            // Recherche impossible (hors ligne) : on ne reste pas sur un écran de résultat vide.
+            if (!Duel.InDuel) Show(_duelLobby);
+        }
+
+        async void PrepareGhost()
+        {
+            if (_ghostLoading) return;
+            _ghostLoading = true;
+            _ghostReady = null;
+            try
+            {
+                var g = await Leaderboard.Service.FindGhostAsync(Profile.league.recentGhosts, Tuning.league.ghostMaxAgeDays);
+                if (g != null && g.Usable(Tuning.duel, Tuning.league) && !Moderation.IsBlocked(Profile, g.PlayerId)) _ghostReady = g;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Fantôme : " + e.Message); }
+            finally { _ghostLoading = false; }
+        }
+
+        /// <summary>Personne dans la file : on propose le fantôme d'un joueur, clairement annoncé ; sinon on le dit simplement.</summary>
+        void OnNoOpponent()
+        {
+            var g = _ghostReady;
+            Stats.Event("ranked_none", ("ghost", g != null ? 1 : 0));
+            if (!_duelLobby.Visible) return; // le joueur est parti ailleurs entre-temps
+            _duelLobby.Refresh();
+            if (g == null) { _toast.Say(Loc.Get("ranked_none_toast"), 3.5f); return; }
+            string name = DuelRules.CleanName(g.Who.Name, Loc.Get("lb_player"));
+            _confirm.Ask(Loc.Get("ranked_none_title"), Loc.Format("ranked_none_body", name), Art.IconSprite(Icon.Swords),
+                Loc.Get("ranked_none_yes"), () => StartGhostDuel(g), Loc.Get("ranked_none_no"), null);
+        }
+
+        void StartGhostDuel(GhostRecording g)
+        {
+            if (Duel.InDuel || g == null) return;
+            _ghostReady = null;
+            Show(_duelLobby);
+            if (!Duel.StartGhost(MyHello(), g)) { _toast.Say(Loc.Get("ranked_none_toast"), 3f); return; }
+            if (!string.IsNullOrEmpty(g.PlayerId))
+            {
+                Profile.league.recentGhosts.Remove(g.PlayerId);
+                Profile.league.recentGhosts.Add(g.PlayerId);
+                Profile.league.Sanitize();
+                SaveProfile();
+            }
+            Stats.Event("ranked_ghost");
+        }
+
+        /// <summary>Ma partie classée complète devient mon fantôme (remplace le précédent). Compression hors du fil principal.</summary>
+        async void PublishGhost(GhostRecording rec)
+        {
+            try
+            {
+                if (rec == null || !rec.Usable(Tuning.duel, Tuning.league) || !Leaderboard.Service.IsOnline) return;
+                string data = await System.Threading.Tasks.Task.Run(() => rec.ToBase64());
+                bool ok = await Leaderboard.Service.PublishGhostAsync(data);
+                Stats.Event("ghost_published", ("ok", ok ? 1 : 0), ("kb", data.Length / 1024));
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Fantôme : publication : " + e.Message); }
+        }
+
+        public void OpenLeague()
+        {
+            Stats.Event("league_open");
+            _league.Show();
+        }
+
+        public void CloseLeague() => _league.Hide();
+
+        /// <summary>Ma place dans la ligue de la semaine vient d'être lue (envoi des points, ou classement ouvert).</summary>
+        public void SetLeagueRank(int rank)
+        {
+            if (rank <= 0 || Profile.league.rank == rank) return;
+            Profile.league.rank = rank;
+            SaveProfile();
+            if (_duelResult.Visible) _duelResult.Refresh();
+            else if (_duelLobby.Visible && !Duel.InDuel) _duelLobby.Refresh();
+        }
+
+        /// <summary>
+        /// Lundi (ou plus tard) : la semaine où j'ai marqué des points est finie. On lit ma place finale dans l'archive du
+        /// classement, on donne les pièces de ma division une seule fois, et on l'annonce à l'accueil.
+        /// </summary>
+        async void CheckLeagueReward()
+        {
+            try
+            {
+                string week = League.WeekKey(DateTime.UtcNow);
+                if (!League.RewardPending(Profile.league, week)) return;
+                var start = League.WeekStart(Profile.league.lastWeek);
+                int rank = start == null ? 0 : await Leaderboard.Service.GetArchivedRankAsync(League.Board, start.Value);
+                if (rank < 0) return; // réponse impossible pour l'instant : on redemandera au prochain lancement
+                int coins = League.Claim(Profile, rank, Tuning.league, out var division);
+                SaveProfile();
+                Stats.Event("league_week_end", ("rank", rank), ("division", division.ToString()), ("coins", coins));
+                if (rank <= 0) return;
+                _leagueRewardPending = (rank, division, coins);
+                if (_home.Visible && CanShowInvite) { ShowLeagueReward(); _home.Refresh(); }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Ligue : fin de semaine : " + e.Message); }
+        }
+
+        void ShowLeagueReward()
+        {
+            if (_leagueRewardPending == null) return;
+            var (rank, division, coins) = _leagueRewardPending.Value;
+            _leagueRewardPending = null;
+            _haptics.Medium();
+            PlaySfx(Sfx.Chime, 8, 0.9f);
+            _leagueReward.Open(rank, division, coins);
         }
 
         DuelHello MyHello() => new DuelHello
@@ -1080,7 +1235,7 @@ namespace Bascule
 
         /// <summary>Une invitation peut s'afficher : pas de partie, de pub, de coffre ni d'autre fenêtre en cours.</summary>
         bool CanShowInvite => !Duel.InDuel && !AdBusy && !Session.IsRunning && !_confirm.Visible && !_prompt.Visible
-            && !_friendRequest.Visible && !_playerMenu.Visible
+            && !_friendRequest.Visible && !_playerMenu.Visible && !_league.Visible && !_leagueReward.Visible
             && !_chest.Visible && !_headReveal.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
 
         /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
@@ -1167,6 +1322,7 @@ namespace Bascule
                 case DuelController.Phase.Connecting:
                 case DuelController.Phase.Hosting:
                 case DuelController.Phase.Greeting:
+                case DuelController.Phase.Searching:
                     if (Duel.Current == DuelController.Phase.Hosting && !string.IsNullOrEmpty(_challengeAfterHost.id))
                     {
                         var (fid, fname) = _challengeAfterHost;
@@ -1203,7 +1359,23 @@ namespace Bascule
         void OnDuelResult()
         {
             var o = Duel.Outcome;
-            int coins = DuelRules.Record(Profile, o, Tuning.duel);
+            int coins;
+            if (Duel.VsGhost)
+            {
+                // Contre un fantôme : moitié des pièces, et la victoire ne compte pas pour la tête « Challenger ».
+                coins = DuelRules.Coins(o, Tuning.duel) / 2;
+                Wallet.Add(Profile, coins);
+            }
+            else coins = DuelRules.Record(Profile, o, Tuning.duel);
+            LastLeaguePoints = 0;
+            if (Duel.Ranked)
+            {
+                string week = League.WeekKey(DateTime.UtcNow);
+                LastLeaguePoints = League.Award(Profile.league, week, o, Duel.VsGhost, Duel.IForfeited, Duel.ByForfeit && o == DuelOutcome.Win, Duel.MySeconds, Tuning.league);
+                if (Profile.league.points > 0) Leaderboard.Enqueue(League.Board, Profile.league.points, Profile.selectedHead, week);
+                Leaderboard.Flush(TodayKey);
+                Stats.Event("ranked_end", ("outcome", o.ToString()), ("ghost", Duel.VsGhost ? 1 : 0), ("points", LastLeaguePoints), ("week_points", Profile.league.points));
+            }
             Missions.Refresh(Profile, LocalDay);
             coins += DuelRules.ApplyMissions(Profile, o, Tuning.economy, out var duelMissions);
             foreach (var m in duelMissions) _toast.Reward(MetaUi.MissionIcon(m.kind), MetaUi.MissionColor(m.kind), Loc.Get("mission_title"), Loc.MissionText(m), m.reward, 2.6f);
@@ -1582,6 +1754,7 @@ namespace Bascule
 
         void OnRankKnown(string board, int rank)
         {
+            if (board == League.Board) { SetLeagueRank(rank); return; }
             // Places gagnées depuis la dernière fois (mondial, ou du jour pour le jour en cours), affichées en fin de partie.
             bool world = board == Boards.World;
             int previous = world ? Profile.worldRank : (Profile.dailyRankDay == TodayKey ? Profile.dailyRank : 0);
@@ -2475,6 +2648,7 @@ namespace Bascule
             if (_daily.Visible) _daily.Tick(dt);
             if (_duelHud.Visible) _duelHud.Tick(dt);
             if (_duelLobby.Visible) _duelLobby.Tick(dt);
+            if (_league.Visible) _league.Tick(dt);
             if (_duelResult.Visible) _duelResult.Tick(dt);
             if (_home.Visible) _home.Tick(dt);
             // Hors partie : invitations au duel toutes les 4 s, amis réciproques toutes les 30 s.
@@ -2515,6 +2689,8 @@ namespace Bascule
                 else if (_prompt.Visible) _prompt.Hide();
                 else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_friendRequest.Visible) _friendRequest.Hide();
+                else if (_leagueReward.Visible) _leagueReward.Hide();
+                else if (_league.Visible) _league.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
                 else if (_gift.Visible) _gift.Hide();
                 else if (_welcome.Visible) { _welcome.Hide(); AfterWelcome(); }

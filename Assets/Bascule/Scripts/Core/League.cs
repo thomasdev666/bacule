@@ -125,6 +125,7 @@ namespace Bascule.Core
             if (s.week == weekKey) return;
             if (s.points > 0 && !string.IsNullOrEmpty(s.week)) { s.lastWeek = s.week; s.lastPoints = s.points; }
             s.week = weekKey;
+            s.rank = 0;
             s.points = 0;
             s.duels = 0;
             s.wins = 0;

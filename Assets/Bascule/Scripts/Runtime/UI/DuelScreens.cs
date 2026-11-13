@@ -141,9 +141,12 @@ namespace Bascule.UI
     public sealed class DuelLobbyScreen : UiScreen
     {
         RectTransform _choice, _hosting, _busy, _friendsCol, _codeTiles;
-        Text _record, _wins, _busyTitle, _waitText, _theirName, _friendsStatus;
-        Image _challenger, _theirFace, _theirRing, _myFace;
-        RectTransform _winsFill, _theirSlot;
+        Text _busyTitle, _busySub, _waitText, _theirName, _friendsStatus, _leagueDivision, _leagueLine, _leagueReset;
+        Image _theirFace, _theirRing, _myFace;
+        RectTransform _theirSlot, _searchFill;
+        GameObject _searchBar;
+        LeagueUi.Badge _leagueBadge;
+        float _leagueClock;
         GameObject _question, _invitedTag;
         Text _invitedText;
         int _request;
@@ -212,39 +215,42 @@ namespace Bascule.UI
             // De haut en bas (1.4) : la carte VS, la progression vers la tête Challenger juste dessous, les trois
             // règles, les amis à défier, puis le code tout en bas. La progression était collée aux boutons du code.
 
-            // Victoires et tête Challenger, en bandeau compact sous la carte VS.
-            var card = Ui.Glass(_choice, "Challenger");
-            Ui.Place(card.rectTransform, 0.5f, 1, 0, -722, 1000, 140, 0.5f, 1);
-            _challenger = DuelUi.Portrait(card.transform, Palette.Primary, 116);
-            Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 84, 0, 116, 116);
-            _wins = Ui.Title(card.transform, "", 42, Color.white, "Victoires");
-            Ui.Place(_wins.rectTransform, 0, 0.5f, 170, 36, 790, 54, 0, 0.5f);
-            _wins.alignment = TextAnchor.MiddleLeft;
-            var bar = Ui.Rect("Jauge", card.transform);
-            Ui.Place(bar, 0, 0.5f, 170, -6, 780, 30, 0, 0.5f);
-            _winsFill = MetaUi.Bar(bar, Art, Palette.Primary);
-            Ui.Stretch((RectTransform)_winsFill.parent);
-            _record = Ui.Title(card.transform, "", 32, ArtCache.Hex("#BFE0FF"), "Bilan");
-            Ui.Place(_record.rectTransform, 0, 0.5f, 170, -44, 790, 44, 0, 0.5f);
-            _record.alignment = TextAnchor.MiddleLeft;
+            // ---- Ma ligue (1.5) : écusson de ma division, ma place, mes points, et le classement.
+            var league = Ui.Image(_choice, Art.Panel, ArtCache.Hex("#2B1B54"), "Ligue", true);
+            Ui.Place(league.rectTransform, 0.5f, 1, 0, -722, 1000, 190, 0.5f, 1);
+            _leagueBadge = LeagueUi.MakeBadge(league.transform, 140);
+            Ui.Place(_leagueBadge.Root, 0, 0.5f, 106, 0, 140, 140);
+            _leagueDivision = Ui.Title(league.transform, "", 50, Color.white, "Division");
+            Ui.Place(_leagueDivision.rectTransform, 0, 0.5f, 200, 46, 500, 64, 0, 0.5f);
+            _leagueDivision.alignment = TextAnchor.MiddleLeft;
+            _leagueLine = Ui.Title(league.transform, "", 36, ArtCache.Hex("#FFE9A8"), "Place");
+            Ui.Place(_leagueLine.rectTransform, 0, 0.5f, 200, -8, 500, 50, 0, 0.5f);
+            _leagueLine.alignment = TextAnchor.MiddleLeft;
+            _leagueReset = Ui.Title(league.transform, "", 28, ArtCache.Hex("#BFE0FF"), "Fin");
+            Ui.Place(_leagueReset.rectTransform, 0, 0.5f, 200, -56, 500, 40, 0, 0.5f);
+            _leagueReset.alignment = TextAnchor.MiddleLeft;
+            var open = Ui.Button(league.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 38, "Classement");
+            Ui.Place((RectTransform)open.transform, 1, 0.5f, -24, 0, 270, 124, 1, 0.5f);
 
-            // Les trois règles.
-            Rule(_choice, -1, Icon.Swords, Palette.Accent, Loc.Get("duel_rule_1"));
-            Rule(_choice, 0, Icon.Film, Palette.Secondary, Loc.Get("duel_rule_2"));
-            Rule(_choice, 1, Icon.Flag, Palette.Primary, Loc.Get("duel_rule_3"));
+            // ---- Duel classé : le gros bouton, un adversaire trouvé tout seul.
+            var ranked = Ui.Button(_choice, Loc.Get("ranked_button"), Palette.Play, App.DuelRanked, Icon.Swords, 70, "DuelClasse");
+            Ui.Place((RectTransform)ranked.transform, 0.5f, 1, 0, -936, 1000, 180, 0.5f, 1);
+            ranked.gameObject.AddComponent<Pulse>().Amount = 0.02f;
+            var rankedSub = Ui.Title(_choice, Loc.Format("ranked_sub", App.Tuning.league.winPoints), 34, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(rankedSub.rectTransform, 0.5f, 1, 0, -1150, 980, 50);
 
             // Amis à défier en un geste.
             var ft = Ui.Title(_choice, Loc.Get("duel_friends_section"), 52, Palette.Accent);
-            Ui.Place(ft.rectTransform, 0, 1, 50, -1094, 700, 70, 0, 0.5f);
+            Ui.Place(ft.rectTransform, 0, 1, 50, -1236, 700, 70, 0, 0.5f);
             ft.alignment = TextAnchor.MiddleLeft;
             var add = Ui.Button(_choice, "", Palette.Play, App.AskFriendCode, Icon.Plus, 44, "AjouterAmi");
-            Ui.Place((RectTransform)add.transform, 1, 1, -40, -1094, 110, 110, 1, 0.5f);
+            Ui.Place((RectTransform)add.transform, 1, 1, -40, -1236, 104, 104, 1, 0.5f);
             var area = Ui.Rect("Amis", _choice);
-            Ui.Stretch(area, 40, 1158, 40, 400);
+            Ui.Stretch(area, 40, 1296, 40, 400);
             _friendsCol = Ui.Scroll(area, out _);
             Ui.Column(_friendsCol, 14);
             _friendsStatus = Ui.Label(_choice, "", 40, ArtCache.Hex("#D8E9FF"));
-            Ui.Stretch(_friendsStatus.rectTransform, 70, 1170, 70, 440);
+            Ui.Stretch(_friendsStatus.rectTransform, 70, 1300, 70, 410);
 
             // Avec un code, tout en bas, avec de l'air autour.
             var or = Ui.Title(_choice, Loc.Get("duel_or_code"), 42, ArtCache.Hex("#BFE0FF"));
@@ -253,18 +259,6 @@ namespace Bascule.UI
             Ui.Place((RectTransform)host.transform, 0.5f, 0, -245, 200, 470, 150);
             var join = Ui.Button(_choice, Loc.Get("duel_enter_code"), Palette.Secondary, App.DuelJoinPrompt, Icon.Play, 50, "JaiUnCode");
             Ui.Place((RectTransform)join.transform, 0.5f, 0, 245, 200, 470, 150);
-        }
-
-        void Rule(RectTransform parent, int i, Icon icon, Color tint, string text)
-        {
-            var chip = Ui.Glass(parent, "Regle");
-            Ui.Place(chip.rectTransform, 0.5f, 1, i * 336, -957, 322, 150);
-            var dot = Ui.Image(chip.transform, Art.Circle, tint, "Pastille");
-            Ui.Place(dot.rectTransform, 0.5f, 1, 0, -38, 64, 64);
-            var ic = Ui.Icon(dot.transform, Art.IconSprite(icon), "Icone");
-            Ui.Stretch(ic.rectTransform, 12, 12, 12, 12);
-            var t = Ui.Title(chip.transform, text, 32, Color.white);
-            Ui.Place(t.rectTransform, 0.5f, 0, 0, 12, 300, 72, 0.5f, 0);
         }
 
         // ------------------------------------------------------------------ Attente (hôte)
@@ -307,8 +301,14 @@ namespace Bascule.UI
             _busy = Ui.Stretch(Ui.Rect("Connexion", Safe));
             _busyTitle = Ui.Title(_busy, Loc.Get("duel_connecting"), 64, Color.white);
             Ui.Place(_busyTitle.rectTransform, 0.5f, 1, 0, -830, 960, 100);
-            var sub = Ui.Label(_busy, Loc.Get("duel_connecting_sub"), 40, ArtCache.Hex("#D8E9FF"));
-            Ui.Place(sub.rectTransform, 0.5f, 1, 0, -920, 900, 70);
+            _busySub = Ui.Label(_busy, Loc.Get("duel_connecting_sub"), 40, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(_busySub.rectTransform, 0.5f, 1, 0, -920, 900, 70);
+            // Duel classé : la recherche avance (au bout, on propose un fantôme).
+            var bar = Ui.Rect("Recherche", _busy);
+            Ui.Place(bar, 0.5f, 1, 0, -1010, 760, 34);
+            _searchFill = MetaUi.Bar(bar, Art, Palette.Accent);
+            Ui.Stretch((RectTransform)_searchFill.parent);
+            _searchBar = bar.gameObject;
             var cancel = Ui.Button(_busy, Loc.Get("duel_cancel"), Palette.Muted, App.DuelCancel, Icon.Close, 46, "Annuler");
             Ui.Place((RectTransform)cancel.transform, 0.5f, 0, 0, 90, 520, 130, 0.5f, 0);
         }
@@ -319,7 +319,8 @@ namespace Bascule.UI
             var d = App.Duel;
             var phase = d.Current;
             bool choice = phase == DuelController.Phase.None, hosting = phase == DuelController.Phase.Hosting;
-            bool busy = phase == DuelController.Phase.Connecting || phase == DuelController.Phase.Greeting;
+            bool searching = phase == DuelController.Phase.Searching;
+            bool busy = phase == DuelController.Phase.Connecting || phase == DuelController.Phase.Greeting || searching;
             _choice.gameObject.SetActive(choice);
             _hosting.gameObject.SetActive(hosting);
             _busy.gameObject.SetActive(busy);
@@ -332,9 +333,11 @@ namespace Bascule.UI
             _question.SetActive(!arrived && !invited);
             _theirFace.sprite = arrived ? Art.Portrait(HeadCatalog.Get(d.TheirHead)) : invited ? Art.Portrait(HeadCatalog.Get(App.InvitedHead)) : null;
             _theirFace.color = _theirFace.sprite != null ? Color.white : new Color(1, 1, 1, 0);
-            _theirName.text = arrived ? d.TheirName : invited ? App.InvitedName : Loc.Get("duel_friend");
+            _theirName.text = arrived ? (d.VsGhost ? Loc.Format("ghost_of", d.TheirName) : d.TheirName) : invited ? App.InvitedName : Loc.Get(d.Ranked ? "ranked_opponent" : "duel_friend");
             _theirRing.gameObject.SetActive(!choice && !arrived);
-            _busyTitle.text = arrived ? Loc.Format("duel_found", d.TheirName) : Loc.Get("duel_connecting");
+            _busyTitle.text = arrived ? Loc.Format(d.Ranked ? "ranked_found" : "duel_found", d.TheirName) : Loc.Get(d.Ranked ? "ranked_searching" : "duel_connecting");
+            _busySub.text = d.VsGhost ? Loc.Format("ghost_sub", d.TheirName) : Loc.Get(d.Ranked ? "ranked_searching_sub" : "duel_connecting_sub");
+            _searchBar.SetActive(searching);
 
             if (hosting)
             {
@@ -346,16 +349,25 @@ namespace Bascule.UI
 
             if (choice)
             {
-                var head = DuelUi.ChallengerHead();
-                int need = head != null ? head.UnlockValue : App.Tuning.duel.challengerWins;
-                bool done = head != null && p.unlockedHeads.Contains(head.Id);
-                if (head != null) _challenger.sprite = done ? Art.Portrait(head) : Art.Locked(head);
-                _wins.text = done ? Loc.Get("duel_challenger_done") : Loc.Format("duel_challenger", Mathf.Min(p.duelWins, need), need);
-                _record.text = Loc.Format("duel_record", p.duelWins, p.duelsPlayed);
-                Canvas.ForceUpdateCanvases();
-                MetaUi.SetFill(_winsFill, need > 0 ? p.duelWins / (float)need : 1f);
+                RefreshLeague();
                 LoadFriends();
             }
+        }
+
+        /// <summary>Ma ligue : division (d'après ma dernière place connue), points de la semaine, temps avant le lundi.</summary>
+        void RefreshLeague()
+        {
+            var t = App.Tuning.league;
+            var s = App.Profile.league;
+            League.Roll(s, League.WeekKey(System.DateTime.UtcNow));
+            var div = League.DivisionOf(s.points > 0 ? s.rank : 0, t);
+            _leagueBadge.Set(div);
+            _leagueDivision.text = Loc.Format("league_division", LeagueUi.Name(div));
+            _leagueDivision.color = LeagueUi.Tint(div);
+            _leagueLine.text = s.points <= 0 ? Loc.Get("league_no_points")
+                : s.rank > 0 ? Loc.Format("league_my_line", Loc.Rank(s.rank), Loc.FormatScore(s.points)) : Loc.Format("league_points_long", Loc.FormatScore(s.points));
+            var now = System.DateTime.UtcNow;
+            _leagueReset.text = Loc.Format("league_reset", LeagueUi.TimeLeft((League.NextReset(now) - now).TotalSeconds));
         }
 
         async void LoadFriends()
@@ -399,6 +411,17 @@ namespace Bascule.UI
         public override void Tick(float dt)
         {
             if (_theirRing.gameObject.activeInHierarchy) _theirRing.rectTransform.Rotate(0, 0, -240f * dt);
+            if (_searchBar.activeInHierarchy) MetaUi.SetFill(_searchFill, Mathf.Clamp01(App.Duel.SearchElapsed / Mathf.Max(1f, App.Duel.SearchLimit)));
+            if (_choice.gameObject.activeInHierarchy)
+            {
+                _leagueClock -= dt;
+                if (_leagueClock <= 0f)
+                {
+                    _leagueClock = 30f;
+                    var now = System.DateTime.UtcNow;
+                    _leagueReset.text = Loc.Format("league_reset", LeagueUi.TimeLeft((League.NextReset(now) - now).TotalSeconds));
+                }
+            }
             if (_hosting.gameObject.activeSelf && _waitText.gameObject.activeSelf)
             {
                 int dots = 1 + (int)(Time.unscaledTime * 2.5f) % 3;
@@ -702,7 +725,8 @@ namespace Bascule.UI
             _danger.color = new Color(1f, 0.25f, 0.25f, danger * 0.8f * beat);
             _danger.enabled = danger > 0.01f;
             bool live = d.Live;
-            _status.text = live ? Loc.Format("duel_live", d.TheirName.ToUpperInvariant()) : Loc.Get("duel_live_wait");
+            _status.text = d.VsGhost ? Loc.Format("ghost_of", d.TheirName).ToUpperInvariant()
+                : live ? Loc.Format("duel_live", d.TheirName.ToUpperInvariant()) : Loc.Get("duel_live_wait");
             _dot.color = live ? new Color(1f, 0.3f, 0.3f, Mathf.PingPong(Time.unscaledTime * 1.6f, 1f) > 0.35f ? 1f : 0.25f) : Palette.Muted;
             bool leanOn = danger > 0.35f && phase == DuelController.Phase.Playing;
             _lean.gameObject.SetActive(leanOn);
@@ -799,7 +823,9 @@ namespace Bascule.UI
             public Text Name, Score, Time;
         }
 
-        Text _title, _sub, _coins, _wins, _record, _timeTag;
+        Text _title, _sub, _coins, _wins, _record, _timeTag, _leagueGain, _leagueTotal;
+        GameObject _leagueBand, _challengerBand;
+        LeagueUi.Badge _leagueBadge;
         Image _rays, _challenger, _coinPile;
         RectTransform _winsFill, _tagRt, _confettiRoot, _coinRow;
         Side _me, _them;
@@ -863,7 +889,23 @@ namespace Bascule.UI
             _coins.horizontalOverflow = HorizontalWrapMode.Overflow;
 
             // ---- Vers la tête Challenger (même bandeau que l'entrée du duel).
+            // ---- Duel classé : les points de ligue gagnés, le total de la semaine, ma place et ma division.
+            var lg = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Ligue", true);
+            Ui.Place(lg.rectTransform, 0.5f, 1, 0, CardTop - CardHeight - 184, 1000, 150, 0.5f, 1);
+            _leagueBand = lg.gameObject;
+            _leagueBadge = LeagueUi.MakeBadge(lg.transform, 116);
+            Ui.Place(_leagueBadge.Root, 0, 0.5f, 88, 0, 116, 116);
+            _leagueGain = Ui.Title(lg.transform, "", 50, Palette.Accent, "Gain");
+            Ui.Place(_leagueGain.rectTransform, 0, 0.5f, 172, 30, 560, 64, 0, 0.5f);
+            _leagueGain.alignment = TextAnchor.MiddleLeft;
+            _leagueTotal = Ui.Title(lg.transform, "", 32, ArtCache.Hex("#D8E9FF"), "Total");
+            Ui.Place(_leagueTotal.rectTransform, 0, 0.5f, 172, -32, 560, 46, 0, 0.5f);
+            _leagueTotal.alignment = TextAnchor.MiddleLeft;
+            var board = Ui.Button(lg.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 34, "Classement");
+            Ui.Place((RectTransform)board.transform, 1, 0.5f, -20, 0, 240, 110, 1, 0.5f);
+
             var ch = Ui.Glass(Safe, "Challenger");
+            _challengerBand = ch.gameObject;
             Ui.Place(ch.rectTransform, 0.5f, 1, 0, CardTop - CardHeight - 184, 1000, 140, 0.5f, 1);
             _challenger = DuelUi.Portrait(ch.transform, Palette.Primary, 116);
             Ui.Place((RectTransform)_challenger.transform.parent, 0, 0.5f, 84, 0, 116, 116);
@@ -878,7 +920,7 @@ namespace Bascule.UI
             Ui.Place(_record.rectTransform, 0, 0.5f, 170, -44, 790, 44, 0, 0.5f);
             _record.alignment = TextAnchor.MiddleLeft;
 
-            _rematch = Ui.Button(Safe, Loc.Get("duel_rematch"), Palette.Play, App.DuelRematch, Icon.Replay, 60, "Revanche");
+            _rematch = Ui.Button(Safe, Loc.Get("duel_rematch"), Palette.Play, App.DuelRematchOrRanked, Icon.Replay, 60, "Revanche");
             Ui.Place((RectTransform)_rematch.transform, 0.5f, 0, 0, 300, 860, 180, 0.5f, 0);
             _rematch.gameObject.AddComponent<Pulse>().Amount = 0.02f;
             var home = Ui.Button(Safe, Loc.Get("home"), Palette.Muted, App.DuelHome, Icon.Home, 50, "Accueil");
@@ -948,11 +990,12 @@ namespace Bascule.UI
             else if (byTime) sub = Loc.Format(o == DuelOutcome.Win ? "duel_time_win_sub" : o == DuelOutcome.Lose ? "duel_time_lose_sub" : "duel_time_draw_sub", d.TheirName);
             else sub = Loc.Format(o == DuelOutcome.Win ? "duel_win_sub" : o == DuelOutcome.Lose ? "duel_lose_sub" : "duel_draw_sub", d.TheirName);
             _sub.text = sub;
+            string theirLabel = d.VsGhost ? Loc.Format("ghost_of", d.TheirName) : d.TheirName;
             _tagRt.gameObject.SetActive(byTime);
             if (byTime) _timeTag.text = Loc.Format("duel_time_tag", DuelUi.Clock(App.Tuning.duel.timeLimitSeconds));
 
             Fill(_me, HeadCatalog.Get(App.Profile.selectedHead), Loc.Get("duel_you"), d.MyScore, d.MySeconds, o == DuelOutcome.Win, o == DuelOutcome.Lose);
-            Fill(_them, HeadCatalog.Get(d.Them != null ? d.Them.Head : 0), d.TheirName, d.TheirScore, d.TheirSeconds, o == DuelOutcome.Lose, o == DuelOutcome.Win);
+            Fill(_them, HeadCatalog.Get(d.Them != null ? d.Them.Head : 0), theirLabel, d.TheirScore, d.TheirSeconds, o == DuelOutcome.Lose, o == DuelOutcome.Win);
 
             _coinsTarget = d.CoinsWon;
             _coinPile.sprite = Art.CoinPile(d.CoinsWon);
@@ -968,11 +1011,27 @@ namespace Bascule.UI
             Canvas.ForceUpdateCanvases();
             MetaUi.SetFill(_winsFill, need > 0 ? p.duelWins / (float)need : 1f);
 
+            // Duel classé : la bande de la ligue remplace celle de la tête Challenger.
+            _leagueBand.SetActive(d.Ranked);
+            _challengerBand.SetActive(!d.Ranked);
+            if (d.Ranked)
+            {
+                var lt = App.Tuning.league;
+                var ls = p.league;
+                var div = League.DivisionOf(ls.points > 0 ? ls.rank : 0, lt);
+                _leagueBadge.Set(div);
+                _leagueGain.text = d.IForfeited ? Loc.Get("league_gain_none") : Loc.Format("league_gain", App.LastLeaguePoints);
+                _leagueGain.color = d.IForfeited ? ArtCache.Hex("#BFE0FF") : Palette.Accent;
+                _leagueTotal.text = Loc.Format("league_week_total", Loc.FormatScore(ls.points))
+                    + (ls.rank > 0 && ls.points > 0 ? "  ·  " + Loc.Format("league_rank_line", Loc.Rank(ls.rank), LeagueUi.Name(div)) : "");
+            }
+
             var label = Ui.ButtonLabel(_rematch);
             if (label != null)
-                label.text = d.IWantRematch ? Loc.Format("duel_rematch_wait", d.TheirName)
+                label.text = d.Ranked ? Loc.Get("ranked_again")
+                    : d.IWantRematch ? Loc.Format("duel_rematch_wait", d.TheirName)
                     : d.TheyWantRematch ? Loc.Format("duel_rematch_asked", d.TheirName) : Loc.Get("duel_rematch");
-            _rematch.interactable = !d.IWantRematch;
+            _rematch.interactable = d.Ranked || !d.IWantRematch;
         }
 
         void Fill(Side s, HeadDef head, string name, int score, float seconds, bool winner, bool loser)

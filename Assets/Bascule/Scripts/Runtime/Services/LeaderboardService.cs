@@ -74,6 +74,15 @@ namespace Bascule.Services
         Task<string> GetPlayerNameAsync(string playerId);
         /// <summary>Pseudo et tête publics d'un joueur (publiés avec son code ami) ; ("", 0) s'ils sont inconnus.</summary>
         Task<(string name, int head)> GetPublicProfileAsync(string playerId);
+        /// <summary>
+        /// Ligue : ma place finale (1 = premier) dans la semaine archivée qui a commencé le <paramref name="weekStartUtc"/>.
+        /// 0 : pas classé cette semaine-là (ou au-delà des 100 premiers) ; -1 : réponse impossible pour l'instant (on redemandera).
+        /// </summary>
+        Task<int> GetArchivedRankAsync(string board, DateTime weekStartUtc);
+        /// <summary>Fantôme : publie ma dernière partie classée complète (remplace la précédente).</summary>
+        Task<bool> PublishGhostAsync(string data);
+        /// <summary>Fantôme d'un autre joueur, tiré au hasard (jamais le mien ni ceux de <paramref name="avoid"/>) ; null s'il n'y en a pas.</summary>
+        Task<GhostRecording> FindGhostAsync(ICollection<string> avoid, int maxAgeDays);
         /// <summary>Retrouve un joueur par son code court ; null s'il est introuvable (ou ambigu).</summary>
         Task<string> FindPlayerByCodeAsync(string code);
         /// <summary>
@@ -118,6 +127,9 @@ namespace Bascule.Services
         public Task<string> PublishFriendCodeAsync(string pseudo = "", int head = 0) => Task.FromResult<string>(null);
         public Task<string> GetPlayerNameAsync(string playerId) => Task.FromResult("");
         public Task<(string name, int head)> GetPublicProfileAsync(string playerId) => Task.FromResult(("", 0));
+        public Task<int> GetArchivedRankAsync(string board, DateTime weekStartUtc) => Task.FromResult(-1);
+        public Task<bool> PublishGhostAsync(string data) => Task.FromResult(false);
+        public Task<GhostRecording> FindGhostAsync(ICollection<string> avoid, int maxAgeDays) => Task.FromResult<GhostRecording>(null);
         public Task<string> FindPlayerByCodeAsync(string code) => Task.FromResult<string>(null);
         public Task<bool> PublishFriendLinkAsync(string friendId, int slot) => Task.FromResult(false);
         public Task<bool> PublishFriendLinksAsync(IList<string> friendIds) => Task.FromResult(false);
@@ -184,6 +196,9 @@ namespace Bascule.Services
                     else if (p.board == "bascule_jour_s2") p.board = Boards.Daily;
                 }
                 _profile.pendingScores.RemoveAll(p => p.board == Boards.Daily && p.date != todayKey);
+                // Points de ligue d'une semaine finie : le classement en ligne est reparti de zéro, ils n'y vont plus.
+                string week = League.WeekKey(DateTime.UtcNow);
+                _profile.pendingScores.RemoveAll(p => p.board == League.Board && p.date != week);
                 foreach (var p in _profile.pendingScores.ToArray())
                 {
                     int rank = await _service.SubmitAsync(p.board, p.score, p.head);
