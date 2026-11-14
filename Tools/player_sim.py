@@ -45,7 +45,7 @@ HYP = {
     "ecpm_rewarded": 8.0,
     "fill_rate": 0.92,              # part des demandes de pub réellement servies
     "ecpm_banner": 0.30,            # bannière 320 x 50 (1.5), rafraîchie toutes les banner_refresh secondes
-    "banner_refresh": 60,
+    "banner_refresh": 30,
     "banner_fill": 0.85,
     # Achats : prix TTC -> net développeur (TVA 20 %, commission store 15 %).
     "iap_net": 0.85 / 1.2,

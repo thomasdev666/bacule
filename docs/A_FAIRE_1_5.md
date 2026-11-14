@@ -5,7 +5,7 @@ Tout le code est sur la branche `v1.1-poids-pubs-achats`. Voici, dans l'ordre, c
 ## 1. Une seule fois, dans les tableaux de bord (avant la sortie)
 
 1. **Classement de la ligue** (10 min) : Unity Cloud → projet Bascule → **production** → Leaderboards → Create leaderboard, avec les réglages de `docs/LIGUES.md` (`bascule_ligue`, Descending, Keep best, remise à zéro tous les 7 jours le lundi 00:00 UTC, **archive cochée**). Sans lui, les ligues restent vides et pas de récompense du lundi.
-2. **Bannière** (facultatif, 15 min) : LevelPlay → Setup → Ad units → unité **Banner** pour Bascule iOS (rafraîchissement 60 s si proposé), puis un emplacement bannière chez chaque réseau (`docs/PUBS.md`). **Envoie-moi son identifiant** : sans lui, pas de bannière (le reste marche normalement).
+2. **Bannière** (facultatif, 15 min) : LevelPlay → Setup → Ad units → unité **Banner** pour Bascule iOS (rafraîchissement 30 s), puis un emplacement bannière chez chaque réseau (`docs/PUBS.md`). **Envoie-moi son identifiant** : sans lui, pas de bannière (le reste marche normalement).
 3. **Clé Unity exposée** : supprime la clé du compte de service `bascule-classement` qui était visible sur une capture (Unity Cloud → Administration → Service accounts).
 4. **Site** : mets `docs/site/bascule/confidentialite.html` et `docs/site/bascule/duel.html` sur orpheex.fr (ligues, fantômes, liens d'invitation).
 
