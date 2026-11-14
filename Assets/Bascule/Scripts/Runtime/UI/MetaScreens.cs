@@ -1059,10 +1059,11 @@ namespace Bascule.UI
 namespace Bascule.UI
 {
     /// <summary>
-    /// Coffre de fin de partie (toutes les 3 parties) : un vrai coffre posé devant le joueur. Il sautille ; on le
-    /// touche, il tremble, le couvercle s'envole, une lumière d'or jaillit avec des pièces, et son contenu apparaît
-    /// (pièces, parfois une tête). Les autres récompenses de la partie (objectif, missions, niveau) sont listées
-    /// dessous, toutes ensemble : plus de file de notifications l'une après l'autre.
+    /// Coffre de fin de partie (toutes les 3 parties), du cadeau du jour, de la roue ou d'une vidéo : un vrai coffre posé
+    /// devant le joueur. 1.5 : il a une rareté (Commun, Rare, Épique, Légendaire, tirée avant : Core.Chest), dévoilée
+    /// tape après tape : le 1er coup le charge, chaque coup suivant la fait monter d'un cran jusqu'à la vraie, puis le
+    /// coup d'après l'ouvre (2 coups pour un commun, 5 pour un légendaire). Lumière, rayons et étiquette prennent la
+    /// couleur de la rareté ; les chances sont écrites en bas. Pas de faux « presque » : la rareté ne fait que monter.
     /// </summary>
     public sealed class ChestScreen : UiScreen
     {
@@ -1081,6 +1082,13 @@ namespace Bascule.UI
         Image _leakImg, _flashImg;
         int _taps;
         int _lastBurst = -1;
+        /// <summary>Rareté du coffre (tirée avant) et rareté montrée pour l'instant (elle monte à chaque coup).</summary>
+        Rarity _tier, _shown;
+        Text _rank, _odds;
+        RectTransform _rankRt;
+        float _rankPop, _upFlash;
+        Color _upColor;
+        Spin _raysSpin;
         float _kick;
         // Effets : ondes de choc, confettis, compteur de pièces, faisceau de lumière.
         Image _catcher, _beamImg;
@@ -1091,11 +1099,9 @@ namespace Bascule.UI
         /// <summary>Coffre de fin de partie : « Doubler » avec une vidéo (null si on ne peut pas doubler).</summary>
         Action<Action<int>> _doubler;
         Button _double;
-        /// <summary>Couleur de la lumière : elle change à chaque coup (or, orange, rose), puis explose en violet à l'ouverture.</summary>
-        static readonly Color[] TapColors = { new Color(1f, 0.85f, 0.35f), new Color(1f, 0.6f, 0.25f), new Color(1f, 0.38f, 0.62f), new Color(0.72f, 0.45f, 1f) };
+        /// <summary>Couleur de la lumière d'une rareté : celle des cartes de la collection, un peu éclaircie.</summary>
+        static Color TierColor(Rarity r) => Color.Lerp(CollectionScreen.RarityColor(r), Color.white, r == Rarity.Common ? 0.35f : 0.12f);
         static readonly Color[] RingColors = { new Color(1f, 0.83f, 0.28f), new Color(1f, 0.42f, 0.55f), new Color(0.45f, 0.72f, 1f), new Color(0.6f, 1f, 0.6f), new Color(0.78f, 0.5f, 1f) };
-        /// <summary>Comme dans les jeux de coffres : on le tapote plusieurs fois, il s'ouvre au dernier coup.</summary>
-        const int TapsToOpen = 3;
 
         protected override void Build()
         {
@@ -1121,7 +1127,8 @@ namespace Bascule.UI
             _raysImg = Ui.Image(Safe, Art.Rays, new Color(1f, 0.92f, 0.6f, 0f), "Rayons");
             _rays = _raysImg.rectTransform;
             Ui.Place(_rays, 0.5f, 0.5f, 0, 330, 1500, 1500);
-            _rays.gameObject.AddComponent<Spin>().Speed = 14f;
+            _raysSpin = _rays.gameObject.AddComponent<Spin>();
+            _raysSpin.Speed = 14f;
 
             // Contenu du coffre : il monte au-dessus du coffre une fois ouvert.
             _loot = Ui.Rect("Contenu", Safe);
@@ -1165,7 +1172,15 @@ namespace Bascule.UI
             }
             _hint = Ui.Title(Safe, Loc.Get("chest_tap"), 52, Color.white);
             _hintRt = _hint.rectTransform;
-            Ui.Place(_hintRt, 0.5f, 0.5f, 0, -115, 900, 80);
+            Ui.Place(_hintRt, 0.5f, 0.5f, 0, -320, 900, 80);
+
+            // Rareté du coffre, sous lui comme une plaque (au-dessus, le couvercle la cacherait) : elle saute à chaque cran.
+            _rank = Ui.Title(Safe, Loc.Get("chest_rank_Common"), 84, TierColor(Rarity.Common));
+            _rankRt = _rank.rectTransform;
+            Ui.Place(_rankRt, 0.5f, 0.5f, 0, -195, 980, 130);
+            // Chances de chaque rareté, écrites en bas (on sait ce qu'on peut espérer).
+            _odds = Ui.Label(Safe, OddsText(), 36, new Color(1f, 1f, 1f, 0.9f));
+            Ui.Place(_odds.rectTransform, 0.5f, 0, 0, 130, 1000, 70);
 
             // Les autres récompenses de la partie, en lignes compactes.
             _list = Ui.Rect("Recompenses", Safe);
@@ -1189,20 +1204,41 @@ namespace Bascule.UI
             Ui.Stretch(_flashImg.rectTransform, -300, -300, -300, -300);
         }
 
-        /// <summary>Coffre sans autres récompenses (cadeau du jour) : pièces, parfois une tête.</summary>
-        public void PresentLoot(int coins, HeadDef head, string title, Action after)
+        /// <summary>« Commun 60 % · Rare 25 % · Épique 9 % · Légendaire 6 % », chaque rareté dans sa couleur.</summary>
+        static string OddsText()
+        {
+            var parts = new string[Chest.TierOdds.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var r = (Rarity)i;
+                parts[i] = "<color=#" + ColorUtility.ToHtmlStringRGB(TierColor(r)) + ">"
+                    + Loc.Format("chest_odds_item", Loc.Get("chest_name_" + r), Chest.TierOdds[i]) + "</color>";
+            }
+            return string.Join("  ·  ", parts);
+        }
+
+        /// <summary>Coffre sans autres récompenses (cadeau du jour, roue, vidéo) : pièces, parfois une tête.</summary>
+        public void PresentLoot(int coins, HeadDef head, string title, Action after, Rarity tier = Rarity.Common)
         {
             _after = after;
             _doubler = null;
             Show();
-            Reset(coins, head, title);
+            Reset(coins, head, title, tier);
             Ui.Clear(_list);
             _list.gameObject.SetActive(false);
         }
 
-        void Reset(int coins, HeadDef head, string title)
+        void Reset(int coins, HeadDef head, string title, Rarity tier)
         {
             _t = 0; _openAt = -1f; _closing = false; _taps = 0; _kick = 0f; _lastBurst = -1;
+            _tier = tier; _shown = Rarity.Common; _rankPop = 0f; _upFlash = 0f;
+            _rank.text = Loc.Get("chest_rank_Common");
+            _rank.color = TierColor(Rarity.Common);
+            _rankRt.localScale = Vector3.one;
+            _rank.gameObject.SetActive(true);
+            _odds.text = OddsText();
+            _odds.gameObject.SetActive(true);
+            _raysSpin.Speed = 14f;
             _title.text = title;
             _amount.text = "+" + Loc.FormatScore(coins);
             bool hasHead = head != null;
@@ -1255,7 +1291,7 @@ namespace Bascule.UI
             _doubler = doubler;
             Show();
             var loot = gain.Chest;
-            Reset(loot?.Coins ?? 0, loot?.Head, Loc.Get("chest_won"));
+            Reset(loot?.Coins ?? 0, loot?.Head, Loc.Get("chest_won"), loot?.Tier ?? Rarity.Common);
 
             // Le coffre ne montre que ce qu'il contient : les autres gains (niveau, missions, objectif) sont déjà
             // affichés dans le bilan de la partie, les répéter ici embrouillait (« Niveau 6 +120 » sous le coffre).
@@ -1313,23 +1349,59 @@ namespace Bascule.UI
             row0.gameObject.AddComponent<PopIn>().Delay = 0.35f + index * 0.12f;
         }
 
-        /// <summary>Un coup sur le coffre : il saute et tremble, la lumière fuit davantage ; au troisième, il s'ouvre.</summary>
+        /// <summary>
+        /// Un coup sur le coffre : le 1er le charge ; ensuite, tant que la rareté montrée est sous la vraie, elle monte
+        /// d'un cran ; sinon il s'ouvre.
+        /// </summary>
         void Tap()
         {
             if (_openAt >= 0) return;
             _taps++;
             _kick = 1f;
-            App.PlaySfx(Sfx.Pop, _taps == 1 ? 4 : _taps == 2 ? 16 : 64, 0.85f);
             App.HapticMedium();
+            if (_taps == 1)
+            {
+                App.PlaySfx(Sfx.Pop, 4, 0.85f);
+                if (!App.Profile.settings.reducedMotion)
+                {
+                    var col = TierColor(_shown);
+                    Ring(col, 0.5f, 1100f, new Vector2(0, 330));
+                    Confetti(10, new Vector2(0, 330), 900f, false, col);
+                }
+                _hint.text = Loc.Get("chest_tap_more");
+                return;
+            }
+            if (_shown < _tier) { RankUp(); return; }
+            App.PlaySfx(Sfx.Pop, 64, 0.85f);
+            Open();
+        }
+
+        /// <summary>La rareté monte d'un cran : éclair et onde de sa couleur, étiquette qui saute, son plus aigu.</summary>
+        void RankUp()
+        {
+            _shown++;
+            int n = (int)_shown;
+            var col = TierColor(_shown);
+            _rank.text = Loc.Get("chest_rank_" + _shown);
+            _rank.color = col;
+            _rankPop = 1f;
+            _upFlash = 1f;
+            _upColor = col;
+            _raysSpin.Speed = 14f + 22f * n;
+            App.PlaySfx(Sfx.Chime, 4 + 3 * n, 0.95f);
+            if (_shown == Rarity.Legendary) { App.PlaySfx(Sfx.Lift, 0, 0.8f); App.HapticMedium(); }
             if (!App.Profile.settings.reducedMotion)
             {
-                // Onde de choc de la couleur du coup, et quelques étincelles qui jaillissent.
-                var col = TapColors[Mathf.Clamp(_taps - 1, 0, TapColors.Length - 1)];
-                Ring(col, 0.5f, 900f + 200f * _taps, new Vector2(0, 330));
-                Confetti(8 + 4 * _taps, new Vector2(0, 330), 900f, false, col);
+                Ring(col, 0.6f, 1300f + 300f * n, new Vector2(0, 330));
+                Confetti(14 + 10 * n, new Vector2(0, 360), 1000f + 220f * n, false, col);
+                if (_shown == Rarity.Legendary)
+                {
+                    Ring(Color.white, 0.8f, 2100f, new Vector2(0, 330), -0.1f);
+                    Confetti(40, new Vector2(0, 360), 1700f, false, col);
+                }
             }
-            if (_taps >= TapsToOpen) { Open(); return; }
-            _hint.text = Loc.Get(TapsToOpen - _taps == 1 ? "chest_tap_last" : "chest_tap_more");
+            // Au sommet, plus rien à espérer de mieux : on l'ouvre.
+            _hint.text = Loc.Get(_shown == Rarity.Legendary ? "chest_tap_open" : "chest_tap_more");
         }
 
         void Open()
@@ -1338,6 +1410,8 @@ namespace Bascule.UI
             _openAt = _t + (App.Profile.settings.reducedMotion ? 0f : 0.25f); // dernier tremblement, puis il s'ouvre
             _hint.gameObject.SetActive(false);
             _catcher.gameObject.SetActive(false);
+            _rank.gameObject.SetActive(false);
+            _odds.gameObject.SetActive(false);
         }
 
         void Close()
@@ -1385,15 +1459,19 @@ namespace Bascule.UI
             {
                 // En attendant : lumière douce derrière, et le coffre tremble par à-coups, couvercle qui se soulève
                 // un peu avec un éclat de lumière, comme si quelque chose bougeait dedans.
-                float charge = _taps / (float)TapsToOpen; // la lumière monte à chaque coup
+                float charge = Mathf.Clamp01((Mathf.Min(_taps, 1) + (int)_shown) / 4f); // la lumière monte à chaque cran
                 _kick = Mathf.Max(0f, _kick - dt * 3.5f);
-                var tc = TapColors[Mathf.Clamp(_taps, 0, TapColors.Length - 1)];
+                var tc = TierColor(_shown);
+                _rankPop = Mathf.Max(0f, _rankPop - dt * 2.5f);
+                _rankRt.localScale = Vector3.one * (1f + 0.45f * _rankPop * _rankPop + 0.03f * Mathf.Sin(_t * 5f));
+                _upFlash = Mathf.Max(0f, _upFlash - dt * 3f);
+                _flashImg.color = new Color(_upColor.r, _upColor.g, _upColor.b, still ? 0f : 0.5f * _upFlash);
                 _glowImg.color = new Color(tc.r, tc.g, tc.b, 0.32f + 0.3f * charge + 0.1f * Mathf.Sin(_t * 2.4f) + 0.2f * _kick);
                 _raysImg.color = new Color(Mathf.Lerp(1f, tc.r, 0.5f), Mathf.Lerp(0.92f, tc.g, 0.5f), Mathf.Lerp(0.6f, tc.b, 0.5f), 0.16f + 0.18f * charge);
                 TickEffects(dt);
                 _hint.color = new Color(1, 1, 1, 0.75f + 0.25f * Mathf.Sin(_t * 4f));
                 _hintRt.localScale = Vector3.one * (1f + 0.15f * _kick);
-                if (still) { _chest.localScale = Vector3.one * (1f + 0.04f * _taps); return; }
+                if (still) { _chest.localScale = Vector3.one * (1f + 0.04f * Mathf.Min(_taps, 4)); return; }
                 // Secousses de plus en plus rapprochées à chaque coup : le coffre a vraiment envie de s'ouvrir.
                 float period = Mathf.Lerp(1.05f, 0.55f, charge);
                 float c = Mathf.Repeat(_t, period);
@@ -1411,7 +1489,8 @@ namespace Bascule.UI
                 float breathe = 0.035f * Mathf.Sin(_t * 3.2f);
                 _chest.localEulerAngles = new Vector3(0, 0, Mathf.Sin(_t * (42f + 30f * _kick)) * shake * env);
                 _chest.anchoredPosition = new Vector2(Mathf.Sin(_t * 55f) * 10f * env, 180f + Mathf.Abs(Mathf.Sin(c / period * Mathf.PI)) * 46f * env + 40f * _kick * _kick);
-                _chest.localScale = new Vector3(1f + breathe + 0.05f * _taps + 0.1f * _kick + 0.04f * env, 1f + breathe * 0.6f + 0.05f * _taps - 0.06f * _kick - 0.03f * env, 1f);
+                float grow = 0.05f * Mathf.Min(_taps, 4);
+                _chest.localScale = new Vector3(1f + breathe + grow + 0.1f * _kick + 0.04f * env, 1f + breathe * 0.6f + grow - 0.06f * _kick - 0.03f * env, 1f);
                 float peek = Mathf.Max(env * Mathf.Abs(Mathf.Sin(_t * 17f)), _kick);
                 _lid.anchoredPosition = new Vector2(0, ChestW * 0.53f + peek * (16f + 22f * charge));
                 _lid.localEulerAngles = new Vector3(0, 0, -peek * (3f + 4f * charge));
@@ -1491,8 +1570,9 @@ namespace Bascule.UI
             }
             _amount.rectTransform.localScale = Vector3.Lerp(_amount.rectTransform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 8f));
             // Lumière, rayons, contenu.
-            _glowImg.color = new Color(1f, 0.85f, 0.35f, 0.75f * Mathf.Clamp01(s * 3f));
-            _raysImg.color = new Color(1f, 0.92f, 0.6f, 0.4f * Mathf.Clamp01(s * 2f));
+            var fc = Color.Lerp(TierColor(_tier), new Color(1f, 0.85f, 0.35f), _tier == Rarity.Common ? 0.6f : 0.25f);
+            _glowImg.color = new Color(fc.r, fc.g, fc.b, 0.75f * Mathf.Clamp01(s * 3f));
+            _raysImg.color = new Color(Mathf.Lerp(fc.r, 1f, 0.3f), Mathf.Lerp(fc.g, 1f, 0.3f), Mathf.Lerp(fc.b, 1f, 0.3f), 0.4f * Mathf.Clamp01(s * 2f));
             float p = Mathf.Clamp01(s / 0.35f);
             float pop = p < 1f ? Mathf.Lerp(0.2f, 1.15f, p) : Mathf.Lerp(1.15f, 1f, Mathf.Clamp01((s - 0.35f) / 0.15f));
             _loot.localScale = Vector3.one * pop;

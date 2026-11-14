@@ -14,8 +14,20 @@ namespace Bascule.Core
         public sealed class Loot
         {
             public int Coins;
-            public HeadDef Head; // tête de la boutique offerte (parfois)
+            public HeadDef Head; // tête de la boutique offerte (coffre légendaire)
+            /// <summary>Rareté du coffre (1.5) : l'écran la dévoile tape après tape avant de l'ouvrir.</summary>
+            public Rarity Tier;
         }
+
+        /// <summary>
+        /// Chances de chaque rareté, en % (Commun, Rare, Épique, Légendaire), affichées sous le coffre.
+        /// Légendaire = une tête de la boutique : environ 1 coffre sur 17 (avant la 1.5 : 1 sur 12), pour que les
+        /// têtes restent à découvrir longtemps.
+        /// </summary>
+        public static readonly int[] TierOdds = { 60, 25, 9, 6 };
+
+        /// <summary>Pièces de chaque rareté : de min à max, par pas (Légendaire : en plus de la tête).</summary>
+        static readonly int[,] TierCoins = { { 60, 110, 10 }, { 150, 230, 10 }, { 280, 400, 20 }, { 100, 150, 10 } };
 
         /// <summary>Une partie terminée fait avancer le coffre ; renvoie le contenu s'il s'ouvre.</summary>
         /// <summary>Parties pour remplir le coffre : le tout premier s'ouvre dès la première partie (rapport 1.3).</summary>
@@ -29,22 +41,45 @@ namespace Bascule.Core
             return Roll(p, seed);
         }
 
-        /// <summary>Contenu d'un coffre (fin de partie ou cadeau du jour) : 60 à 200 pièces, parfois une tête.</summary>
+        /// <summary>Rareté pour un tirage entre 0 et 1.</summary>
+        public static Rarity TierFor(float roll)
+        {
+            float acc = 0f;
+            for (int i = 0; i < TierOdds.Length; i++)
+            {
+                acc += TierOdds[i] / 100f;
+                if (roll < acc) return (Rarity)i;
+            }
+            return Rarity.Common;
+        }
+
+        /// <summary>
+        /// Contenu d'un coffre (fin de partie, cadeau du jour, roue, vidéo, événement). La rareté est tirée d'abord et
+        /// décide du contenu. Le tout premier coffre est au moins rare (on découvre que la rareté peut monter).
+        /// Légendaire sans tête restante dans la boutique : épique.
+        /// </summary>
         public static Loot Roll(Profile p, uint seed)
         {
             p.chestsOpened++;
             var rng = new GameRng(seed ^ (uint)(p.chestsOpened * 2654435761u));
-            var loot = new Loot { Coins = 60 + 10 * (int)(rng.NextFloat() * 15) };
-            // Une tête de la boutique, c'est rare : environ un coffre sur 12 (V18 : les têtes doivent se mériter).
-            bool head = rng.NextFloat() < 0.08f;
-            if (head)
+            var tier = TierFor(rng.NextFloat());
+            if (p.chestsOpened == 1 && tier == Rarity.Common) tier = Rarity.Rare;
+            var loot = new Loot { Tier = tier };
+            if (tier == Rarity.Legendary)
             {
                 var h = HeadCatalog.NextShopHead(p.unlockedHeads);
                 if (h != null) { p.unlockedHeads.Add(h.Id); loot.Head = h; }
+                else loot.Tier = Rarity.Epic;
             }
+            int t = (int)loot.Tier;
+            int steps = (TierCoins[t, 1] - TierCoins[t, 0]) / TierCoins[t, 2] + 1;
+            loot.Coins = TierCoins[t, 0] + TierCoins[t, 2] * Math.Min(steps - 1, (int)(rng.NextFloat() * steps));
             Wallet.Add(p, loot.Coins);
             return loot;
         }
+
+        /// <summary>Pièces possibles pour une rareté (tests, aperçus).</summary>
+        public static (int min, int max) CoinsRange(Rarity tier) => (TierCoins[(int)tier, 0], TierCoins[(int)tier, 1]);
     }
 
     /// <summary>Objectif de la partie : environ 60 % du record, arrondi ; l'atteindre rapporte des pièces.</summary>

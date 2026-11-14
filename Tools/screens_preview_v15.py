@@ -3,7 +3,8 @@ Aperçus des écrans de la 1.5 (sans Unity), avec les mêmes positions que le co
 (UI/DuelScreens.cs, UI/LeagueScreens.cs, UI/Screens.cs) :
 - duel : entrée avec la carte de ligue et « Duel classé », recherche d'un adversaire, fantôme proposé ;
 - ligue : classement par division, fin de semaine, résultat d'un duel classé ;
-- amis : profil d'un joueur du classement, demande d'ami.
+- amis : profil d'un joueur du classement, demande d'ami ;
+- coffre à rareté (UI/MetaScreens.cs ChestScreen) : la rareté monte tape après tape, puis il s'ouvre.
 
   dotnet run --project Tools/ArtPreview -c Release -- Exports/art
   python3 Tools/screens_preview_v15.py Exports/art docs/apercu
@@ -309,6 +310,74 @@ def friend_request():
     return s
 
 
+# Coffre à rareté (ChestScreen, 1.5) : couleurs de CollectionScreen.RarityColor, éclaircies comme TierColor.
+HEAD_PIRATE = 45  # tête « Pirate » (Exports/art/heads.tsv)
+TIERS = [("#8D99AE", 0.35, "COMMUN", "Commun"), ("#4A9BFF", 0.12, "RARE !", "Rare"), ("#A66CFF", 0.12, "ÉPIQUE !", "Épique"),
+         ("#FFB627", 0.12, "LÉGENDAIRE !", "Légendaire")]
+ODDS = (60, 25, 9, 6)
+
+
+def tier_color(t):
+    r, g, b = sp.rgb(TIERS[t][0])
+    k = TIERS[t][1]
+    return (int(r + (255 - r) * k), int(g + (255 - g) * k), int(b + (255 - b) * k))
+
+
+def chest_rarity(shown, opened=False, head=None, coins=125):
+    """ChestScreen : coffre fermé avec sa rareté montrée (étiquette, lumière, rayons de sa couleur), ou ouvert."""
+    s = sp.gameover_screen()
+    img = s.img
+    img.alpha_composite(Image.new("RGBA", (W, H), (20, 13, 46, 247)))
+    col = tier_color(shown)
+    charge = min(1.0, (1 + shown) / 4)
+    glow(img, at(0.5, 0.5, 0, 330, 640, 640), col + (int(95 + 120 * charge) if not opened else 200,), 110)
+    rays(img, at(0.5, 0.5, 0, 330, 1500, 1500), tuple(int(v + (255 - v) * 0.3) for v in col) + (int(255 * (0.16 + 0.18 * charge) * 2.2) if not opened else 230,))
+    d = ImageDraw.Draw(img)
+    for k, (sx, sy) in enumerate([(-390, 420), (380, 470), (-300, 80), (330, 120), (0, 640), (-420, 260), (430, 300)]):
+        sz = [40, 60, 34, 52, 46, 30, 56][k]
+        q = at(0.5, 0.5, sx, sy, sz, sz); cx, cy = (q[0] + q[2]) / 2, (q[1] + q[3]) / 2
+        d.polygon([(cx, cy - sz / 2), (cx + sz * 0.12, cy - sz * 0.12), (cx + sz / 2, cy), (cx + sz * 0.12, cy + sz * 0.12), (cx, cy + sz / 2),
+                   (cx - sz * 0.12, cy + sz * 0.12), (cx - sz / 2, cy), (cx - sz * 0.12, cy - sz * 0.12)], fill=(255, 242, 178, 230))
+    sp.title(img, "Coffre gagné !", sp.place(0.5, 1, 0, -150, 980, 130), 84, color=sp.rgb(sp.COL["Accent"]))
+    cw = 700
+    grow = 1.0 if opened else 1 + 0.05 * min(4, 1 + shown)
+    w2, h2 = int(cw * grow), int(cw * 0.66 * grow)
+    cb = at(0.5, 0.5, 0, 180, w2, h2)
+    img.alpha_composite(sp.load("ui/chest_base.png").resize((w2, h2), Image.LANCZOS), (int(cb[0]), int(cb[1])))
+    if not opened:
+        lid = sp.load("ui/chest_lid.png").resize((w2, int(cw * 0.42 * grow)), Image.LANCZOS)
+        hinge = cb[3] - cw * 0.53 * grow
+        img.alpha_composite(lid, (int(cb[0]), int(hinge - cw * 0.42 * grow + cw * 0.03 * grow) - (14 if shown else 0)))
+        sp.title(img, TIERS[shown][2], at(0.5, 0.5, 0, -195, 980, 130), int(84 * (1.12 if shown else 1)), color=col)
+        sp.title(img, "Touche pour l'ouvrir !" if shown == 3 else "Encore ! Il bouge…", at(0.5, 0.5, 0, -320, 900, 80), 52)
+        # Chances, chaque rareté dans sa couleur (Ui.Label, sans contour), centrées sur une ligne de 1000 px.
+        box = sp.place(0.5, 0, 0, 130, 1000, 70)
+        f = sp.font(36)
+        parts = [(f"{TIERS[i][3]} {ODDS[i]} %", tier_color(i)) for i in range(4)]
+        sep = "  ·  "
+        total = sum(d.textlength(t, font=f) for t, _ in parts) + 3 * d.textlength(sep, font=f)
+        if total > (box[2] - box[0]) * 0.97:
+            sp.TIGHT.append(f"chances du coffre : {int(total)} px pour {int(box[2] - box[0])} px")
+        x = (box[0] + box[2]) / 2 - total / 2
+        y = (box[1] + box[3]) / 2
+        for i, (t, cc) in enumerate(parts):
+            d.text((x, y), t, font=f, fill=cc, anchor="lm"); x += d.textlength(t, font=f)
+            if i < 3:
+                d.text((x, y), sep, font=f, fill=(255, 255, 255, 230), anchor="lm"); x += d.textlength(sep, font=f)
+        return s
+    # Ouvert : la tête (légendaire) puis les pièces, comme Reset() quand il y a une tête.
+    loot = at(0.5, 0.5, 0, 560, 900, 330)
+    if head is not None:
+        portrait(img, child(loot, 0.5, 0.5, -170, 30, 250, 250), sp.rgb(TIERS[3][0]), head)
+        sp.title(img, "Pirate", child(loot, 0.5, 0.5, -170, -125, 420, 60), 44)
+    shift = 150 if head is not None else 0
+    sp.tinted_icon(img, "Coin", child(loot, 0.5, 0.5, -95 + shift, 30, 130, 130), "Accent")
+    sp.title(img, f"+{coins}", child(loot, 0.5, 0.5, 90 + shift, 30, 360, 140), 110, color=sp.rgb(sp.COL["Accent"]))
+    sp.button(img, sp.place(0.5, 0, -232, 170, 410, 160), "Play", "Super !", None, 64)
+    sp.button(img, sp.place(0.5, 0, 232, 170, 410, 160), "Purple", "Doubler", "Film", 58)
+    return s
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     sp.TIGHT.clear()
@@ -316,6 +385,8 @@ if __name__ == "__main__":
         "duel_classe_entree": duel_choice(), "duel_classe_recherche": duel_search(), "duel_classe_fantome": duel_ghost_offer(),
         "duel_classe_resultat": duel_result_ranked(), "ligue_classement": league_screen(), "ligue_fin_semaine": league_reward(),
         "profil_joueur": player_profile(), "profil_ami": player_profile(True), "demande_ami": friend_request(),
+        "coffre_rarete_1_commun": chest_rarity(0), "coffre_rarete_2_rare": chest_rarity(1), "coffre_rarete_3_epique": chest_rarity(2),
+        "coffre_rarete_4_legendaire": chest_rarity(3), "coffre_rarete_5_ouvert": chest_rarity(3, opened=True, head=HEAD_PIRATE),
     }
     for name, s in shots.items():
         s.img.convert("RGB").save(os.path.join(OUT, f"ecran_{name}.png"))
@@ -325,7 +396,8 @@ if __name__ == "__main__":
         print("  SERRÉ : " + t)
     print(f"{len(tight)} élément(s) trop serré(s)")
     keys = list(shots)
-    for part, names in (("ecrans_duel_classe_1_5", keys[:4]), ("ecrans_ligue_1_5", keys[4:6]), ("ecrans_amis_1_5", keys[6:])):
+    for part, names in (("ecrans_duel_classe_1_5", keys[:4]), ("ecrans_ligue_1_5", keys[4:6]), ("ecrans_amis_1_5", keys[6:9]),
+                        ("ecrans_coffre_rarete_1_5", keys[9:])):
         strip = Image.new("RGB", (W * len(names) + 20 * (len(names) + 1), H + 40), (24, 22, 40))
         for i, k in enumerate(names):
             strip.paste(shots[k].img.convert("RGB"), (20 + i * (W + 20), 20))

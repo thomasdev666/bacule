@@ -22,7 +22,7 @@ Choix de Bascule pour la machine :
 | Objectif de partie atteint | +25 |
 | Missions du jour | 50 à 90 chacune, +150 si les trois sont faites |
 | Cadeau du jour (V20) | jour 1 : 50 ; jour 2 : coffre ; jour 3 : 120 ; jour 4 : surprise gratuite ; jour 5 : 200 ; jour 6 : coffre ; jour 7 : planche + 300 (ou 600 pièces). Pièces ×2 en vidéo |
-| Coffre (toutes les 3 parties) | 60 à 200 pièces, et une tête de la boutique dans 8 % des coffres |
+| Coffre (toutes les 3 parties, cadeau du jour, roue, vidéo, événement) | 1.5 : rareté tirée d'abord, chances écrites sous le coffre : **Commun 60 %** (60 à 110 pièces), **Rare 25 %** (150 à 230), **Épique 9 %** (280 à 400), **Légendaire 6 %** (une tête de la boutique + 100 à 150 pièces ; s'il n'en reste plus : épique). Le tout premier coffre est au moins rare. Moyenne 137 pièces (avant : 130) ; une tête dans 6 % des coffres (avant : 8 %). `Core/Engagement.cs` (`Chest`) |
 | Passage de niveau | 50 + 10 × niveau |
 | Pièces gratuites en vidéo | 60, 5 fois par jour |
 | Paquets payants | 600 (0,99 €), 2 200 (2,99 €), 6 000 (6,99 €) |

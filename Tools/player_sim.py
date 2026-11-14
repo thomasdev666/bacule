@@ -108,6 +108,8 @@ DESIGNS["v18"]["themes"] = OLD_THEMES
 # planche exclusives (8 vidéos chacune), duels entre amis, places gagnées au classement, décors bien plus tôt,
 # 30 vidéos par jour au plus, et 3 questions au premier lancement.
 DESIGNS["v13"] = dict(DESIGNS["v18"], v13=True, themes=NEW_THEMES, rewarded=DESIGNS["v18"]["rewarded"] | {"chest_double", "video_chest", "exclusive"})
+# 1.5 : coffres à rareté (Commun / Rare / Épique / Légendaire), une tête dans 6 % des coffres au lieu de 8 %.
+DESIGNS["v13"]["chest_tiers"] = True
 
 
 def xp_for_level(n):
@@ -259,12 +261,29 @@ class Player:
                 self.chest_games = 0
                 self.chests += 1
                 ev["chest"] = True
-                loot = 60 + 10 * int(self.rng.random() * 15)
+                tier = None
+                if self.d.get("chest_tiers"):
+                    # 1.5 (Core/Engagement.cs Chest) : rareté d'abord (60/25/9/6 %), le 1er coffre au moins rare ;
+                    # légendaire = une tête de la boutique, s'il en reste (sinon épique).
+                    r = self.rng.random()
+                    tier = 0 if r < 0.60 else 1 if r < 0.85 else 2 if r < 0.94 else 3
+                    if self.chests == 1 and tier == 0:
+                        tier = 1
+                    if tier == 3 and self.shop_owned >= len(self.shop_prices):
+                        tier = 2
+                    lo, hi, step = ((60, 110, 10), (150, 230, 10), (280, 400, 20), (100, 150, 10))[tier]
+                    loot = lo + step * min((hi - lo) // step, int(self.rng.random() * ((hi - lo) // step + 1)))
+                else:
+                    loot = 60 + 10 * int(self.rng.random() * 15)
                 self.coins += loot
                 # 1.3 : « Doubler » le coffre avec une vidéo.
                 if "chest_double" in self.d["rewarded"] and self.rng.random() < 0.34 - 0.08 * self.aversion and self.watch_rewarded():
                     self.coins += loot
-                if ((self.chests == 2 and not self.d.get("rare")) or self.rng.random() < self.chest_head) and self.shop_owned < len(self.shop_prices):
+                if tier is not None:
+                    got_head = tier == 3
+                else:
+                    got_head = ((self.chests == 2 and not self.d.get("rare")) or self.rng.random() < self.chest_head) and self.shop_owned < len(self.shop_prices)
+                if got_head:
                     self.shop_owned += 1
                     ev["head"] += 1
         if self.d["levels"]:

@@ -598,7 +598,7 @@ namespace Bascule
             if (_bonusChests.Count > 0)
             {
                 var (loot, title) = _bonusChests.Dequeue();
-                _chest.PresentLoot(loot.Coins, loot.Head, title, () => { _home.Refresh(); HomePopups(); });
+                _chest.PresentLoot(loot.Coins, loot.Head, title, () => { _home.Refresh(); HomePopups(); }, loot.Tier);
                 return;
             }
             // Un tout nouveau joueur joue d'abord : le cadeau arrive après sa première partie.
@@ -2024,7 +2024,7 @@ namespace Bascule
                 {
                     case GiftItem.Chest:
                         // Le coffre du jour s'ouvre devant le joueur, comme celui des parties (on le tapote).
-                        _chest.PresentLoot(r.Chest.Coins * (twice ? 2 : 1), r.Chest.Head, Loc.Get("gift_chest_title"), () => _home.Refresh());
+                        _chest.PresentLoot(r.Chest.Coins * (twice ? 2 : 1), r.Chest.Head, Loc.Get("gift_chest_title"), () => _home.Refresh(), r.Chest.Tier);
                         break;
                     case GiftItem.Ticket:
                         _toast.Reward(Icon.Gift, Palette.Purple, Loc.Get("gift_ticket_title"), null, coins);
@@ -2135,7 +2135,7 @@ namespace Bascule
         {
             if (r == null) return;
             if (r.Head != null) { SelectHead(r.Head.Id); _toast.Reward(Icon.Crown, Palette.Purple, Loc.Format("new_head", r.Head.Name(Loc.Language)), Loc.Get("wheel_detail_Jackpot"), 0); }
-            if (r.Chest != null) _chest.PresentLoot(r.Chest.Coins, r.Chest.Head, Loc.Get("wheel_chest_title"), () => { if (_wheelScreen.Visible) _wheelScreen.Refresh(); });
+            if (r.Chest != null) _chest.PresentLoot(r.Chest.Coins, r.Chest.Head, Loc.Get("wheel_chest_title"), () => { if (_wheelScreen.Visible) _wheelScreen.Refresh(); }, r.Chest.Tier);
         }
 
         // ------------------------------------------------------------------ Vidéos de la boutique (Core/AdRewards.cs)
@@ -2201,7 +2201,7 @@ namespace Bascule
                 if (loot == null) return;
                 SaveProfile();
                 Stats.Event("video_chest", ("coins", loot.Coins), ("head", loot.Head != null ? 1 : 0));
-                _chest.PresentLoot(loot.Coins, loot.Head, Loc.Get("video_chest_won"), () => { if (_shop.Visible) _shop.Refresh(); });
+                _chest.PresentLoot(loot.Coins, loot.Head, Loc.Get("video_chest_won"), () => { if (_shop.Visible) _shop.Refresh(); }, loot.Tier);
             });
         }
 

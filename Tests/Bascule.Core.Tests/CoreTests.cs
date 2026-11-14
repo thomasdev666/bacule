@@ -2337,6 +2337,48 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void ChestTiersMatchTheirOddsAndContent()
+        {
+            Assert.AreEqual(100, Chest.TierOdds.Sum(), "les chances affichées font 100 %");
+            var count = new int[4];
+            double coins = 0;
+            const int N = 4000;
+            for (int i = 0; i < N; i++)
+            {
+                var p = NewProfile();
+                p.chestsOpened = 5;
+                var loot = Chest.Roll(p, (uint)(i * 7919 + 13));
+                count[(int)loot.Tier]++;
+                coins += loot.Coins;
+                var (min, max) = Chest.CoinsRange(loot.Tier);
+                Assert.That(loot.Coins, Is.InRange(min, max));
+                Assert.AreEqual(loot.Tier == Rarity.Legendary, loot.Head != null, "légendaire = une tête, et seulement lui");
+            }
+            for (int t = 0; t < 4; t++)
+                Assert.That(count[t] * 100.0 / N, Is.EqualTo(Chest.TierOdds[t]).Within(2.0), $"rareté {(Rarity)t}");
+            Assert.That(coins / N, Is.InRange(120, 150), "autant de pièces en moyenne qu'avant la 1.5 (130)");
+        }
+
+        [Test]
+        public void FirstChestIsAtLeastRareAndLegendaryFallsBackWhenNoHeadLeft()
+        {
+            for (uint seed = 0; seed < 200; seed++)
+            {
+                var p = NewProfile();
+                Assert.AreNotEqual(Rarity.Common, Chest.Roll(p, seed).Tier, "le tout premier coffre montre que la rareté peut monter");
+            }
+            var full = NewProfile();
+            foreach (var h in HeadCatalog.All) full.unlockedHeads.Add(h.Id);
+            full.chestsOpened = 5;
+            for (uint seed = 0; seed < 300; seed++)
+            {
+                var loot = Chest.Roll(full, seed);
+                Assert.AreNotEqual(Rarity.Legendary, loot.Tier, "plus de tête à gagner : pas de faux légendaire");
+                Assert.Null(loot.Head);
+            }
+        }
+
+        [Test]
         public void SpecialRunChestBoostCountsTwice()
         {
             var p = NewProfile();
