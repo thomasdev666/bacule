@@ -77,9 +77,15 @@ namespace Bascule.Core
         /// <summary>
         /// Amis confirmés (1.5) : ceux qui m'ont aussi ajouté (ils ont accepté ma demande, ou j'ai accepté la leur).
         /// Les autres de <see cref="friends"/> sont des demandes envoyées, en attente : pas dans le classement Amis,
-        /// pas dans les duels. null dans une ancienne sauvegarde : tous ses amis étaient réciproques (copiés à l'ouverture).
+        /// pas dans les duels. Ancienne sauvegarde (friendsConfirmedInit faux) : tous ses amis, ajoutés avant les
+        /// demandes, l'étaient des deux côtés : copiés une fois à l'ouverture.
         /// </summary>
-        public List<string> friendsConfirmed;
+        public List<string> friendsConfirmed = new List<string>();
+        /// <summary>
+        /// friendsConfirmed a été rempli une première fois. Un drapeau et non « liste null » : JsonUtility crée une liste
+        /// vide pour un champ absent d'une ancienne sauvegarde (même principe que seenHeadsInit).
+        /// </summary>
+        public bool friendsConfirmedInit;
         /// <summary>Amis retirés : ils ne reviennent pas tout seuls par l'ajout réciproque.</summary>
         public List<string> friendsRemoved = new List<string>();
         /// <summary>Joueurs bloqués ou signalés : leurs pseudos ne s'affichent plus dans le classement.</summary>
@@ -164,8 +170,13 @@ namespace Bascule.Core
             if (duelsPlayed < duelWins) duelsPlayed = duelWins;
             settings.textScale = settings.textScale < 1f ? 1f : (settings.textScale > 1.6f ? 1.6f : settings.textScale);
             if (friends == null) friends = new List<string>();
-            // Avant la 1.5, un ami ajouté l'était des deux côtés : tous comptent comme confirmés.
-            if (friendsConfirmed == null) friendsConfirmed = new List<string>(friends);
+            // Avant la 1.5, un ami ajouté l'était des deux côtés : tous comptent comme confirmés (une seule fois).
+            if (friendsConfirmed == null) friendsConfirmed = new List<string>();
+            if (!friendsConfirmedInit)
+            {
+                foreach (var id in friends) if (!friendsConfirmed.Contains(id)) friendsConfirmed.Add(id);
+                friendsConfirmedInit = true;
+            }
             if (friendsRemoved == null) friendsRemoved = new List<string>();
             if (blocked == null) blocked = new List<string>();
             if (missions == null) missions = new MissionState();
@@ -265,7 +276,8 @@ namespace Bascule.Core
             fresh.pseudo = old.pseudo;
             fresh.friendCode = old.friendCode;
             fresh.friends = old.friends ?? new List<string>();
-            fresh.friendsConfirmed = old.friendsConfirmed ?? new List<string>(fresh.friends);
+            fresh.friendsConfirmed = old.friendsConfirmedInit && old.friendsConfirmed != null ? old.friendsConfirmed : new List<string>(fresh.friends);
+            fresh.friendsConfirmedInit = true;
             fresh.friendsRemoved = old.friendsRemoved ?? new List<string>();
             fresh.blocked = old.blocked ?? new List<string>();
             fresh.settings = old.settings ?? new Settings();

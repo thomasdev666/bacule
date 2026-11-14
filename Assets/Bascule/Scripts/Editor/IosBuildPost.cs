@@ -98,10 +98,16 @@ namespace Bascule.EditorTools
         /// en arrière-plan elle s'arrête comme avant (iOS interdit d'y dessiner).
         /// Si le texte attendu n'est pas trouvé (autre version de Unity), on ne touche à rien et on le dit.
         /// </summary>
+        /// <summary>
+        /// En mode « Custom » sans cette retouche, le jeu ne tourne plus du tout quand l'appli devient inactive : les
+        /// sorties ne seraient plus enregistrées à temps. Erreur bien visible : ne pas envoyer ce build, prévenir Claude.
+        /// </summary>
+        const string NotPatched = "BASCULE : NE PAS ENVOYER CE BUILD. La retouche de la boucle d'affichage n'a pas pu être appliquée (autre version de Unity ?) : envoyer une capture à Claude";
+
         static void KeepRunningWhenInactive(string path)
         {
             var file = Path.Combine(path, "Classes", "UnityAppController+Rendering.mm");
-            if (!File.Exists(file)) { UnityEngine.Debug.LogWarning("Bascule : UnityAppController+Rendering.mm introuvable, le duel se figera avec le Centre de contrôle"); return; }
+            if (!File.Exists(file)) { UnityEngine.Debug.LogError(NotPatched + " (UnityAppController+Rendering.mm introuvable)"); return; }
             var text = File.ReadAllText(file);
             const string Done = "UIApplicationStateInactive /* Bascule */";
             if (text.Contains(Done)) return;
@@ -110,7 +116,7 @@ namespace Bascule.EditorTools
             int at = method < 0 ? -1 : text.IndexOf(Guard, method, System.StringComparison.Ordinal);
             if (at < 0 || at - method > 200)
             {
-                UnityEngine.Debug.LogWarning("Bascule : boucle d'affichage de Unity non reconnue, le duel se figera avec le Centre de contrôle");
+                UnityEngine.Debug.LogError(NotPatched + " (boucle d'affichage de Unity non reconnue)");
                 return;
             }
             text = text.Remove(at, Guard.Length).Insert(at,

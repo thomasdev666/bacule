@@ -710,6 +710,7 @@ namespace Bascule
             Session.Special = mode == GameMode.Infinite ? SpecialRun.Next(Profile) : SpecialKind.None;
             // Bannière : pas à chaque partie (Core.BannerPolicy), et seulement si elle est déjà chargée.
             _bannerRun = BannerPolicy.ShouldShow(Tuning.ads, Profile, mode, _gamesThisSession + 1) && _ads != null && _ads.BannerReady;
+            _bannerShownThisRun = false;
             Session.BannerLift = _bannerRun ? BannerLift() : 0f;
             Session.StartRun(mode, seed, mode == GameMode.Daily ? TodayKey : "");
             Show(_hud);
@@ -1364,6 +1365,8 @@ namespace Bascule
 
         void OnDuelChanged()
         {
+            // Ma partie est finie (j'ai lâché : j'attends son score) ou le duel est terminé : plus rien à abandonner.
+            if (_duelQuit.Visible && (!Duel.InMatch || Duel.Current == DuelController.Phase.Waiting)) _duelQuit.Hide();
             switch (Duel.Current)
             {
                 case DuelController.Phase.None:
@@ -1602,8 +1605,13 @@ namespace Bascule
             p.totalBalloons += r.Balloons;
             p.totalSeconds += r.Seconds;
             AdPolicy.OnRunEnded(p.ads);
-            _lastRunHadBanner = _bannerRun;
-            _gamesThisSession++; // aucune pub imposée pendant les premières parties de chaque lancement
+            // Seulement pour le vrai profil : la copie sauvegardée en sortant de l'appli (SaveProfileWithPendingRun)
+            // passait aussi ici, et chaque Centre de contrôle sur l'écran de fin comptait une partie de plus.
+            if (p == Profile)
+            {
+                _lastRunHadBanner = _bannerShownThisRun; // la bannière a vraiment été montrée (pas seulement prévue)
+                _gamesThisSession++; // aucune pub imposée pendant les premières parties de chaque lancement
+            }
             starterStarted = Offers.CheckStarter(Tuning.ads, p, Now);
             p.tutorialDone = true;
             // Quête du débutant et événement de la semaine (récompenses données ici ; affichées par FinalizeRun).
@@ -1729,7 +1737,7 @@ namespace Bascule
             _leavingGameOver = false;
         }
 
-        bool _bannerRun, _lastRunHadBanner, _bannerOn;
+        bool _bannerRun, _lastRunHadBanner, _bannerOn, _bannerShownThisRun;
 
         /// <summary>
         /// De combien remonter le monde pendant une partie avec bannière. Points en pixels : largeur de l'écran / 375
@@ -1748,6 +1756,7 @@ namespace Bascule
             if (want == _bannerOn || _ads == null) return;
             _bannerOn = want;
             _ads.SetBanner(want);
+            if (want) _bannerShownThisRun = true;
         }
 
         /// <summary>Une pub est à l'écran (ou va l'être). Garde-fou de 5 minutes si la régie ne répond jamais.</summary>
@@ -2731,7 +2740,9 @@ namespace Bascule
 
         void Update()
         {
-            _lastFrameRealtime = Time.realtimeSinceStartup;
+            var frameUtc = DateTime.UtcNow;
+            if (_appAway && _lastFrameUtc != default) _awayFrozen = Math.Max(_awayFrozen, (frameUtc - _lastFrameUtc).TotalSeconds);
+            _lastFrameUtc = frameUtc;
             float dt = Time.unscaledDeltaTime;
             if (_screenSize.x != Screen.width || _screenSize.y != Screen.height)
             {
@@ -2846,8 +2857,14 @@ namespace Bascule
         }
 
         bool _appAway;
-        /// <summary>Heure (temps réel) de la dernière image : sert à savoir combien de temps le jeu a vraiment été figé.</summary>
-        float _lastFrameRealtime;
+        /// <summary>
+        /// Heure (horloge murale) de la dernière image, et plus long trou entre deux images depuis la sortie : le temps
+        /// où le jeu a vraiment été figé. L'horloge murale, parce que le temps de Unity peut s'arrêter téléphone
+        /// verrouillé ; le plus long trou, parce que des images peuvent tourner (appli « inactive » au retour) avant
+        /// que le retour soit annoncé.
+        /// </summary>
+        DateTime _lastFrameUtc;
+        double _awayFrozen;
 
         void AppBack()
         {
@@ -2857,7 +2874,9 @@ namespace Bascule
             if (!Leaderboard.Service.IsOnline) InitLeaderboard(); else CheckLeagueReward();
             // Duel : seul le temps où le jeu était vraiment figé compte (iOS endort l'appli en arrière-plan, Snap,
             // Messages) ; Centre de contrôle ou notification : le jeu a continué, 0 s, rien à refaire.
-            float frozen = Mathf.Max(0f, Time.realtimeSinceStartup - _lastFrameRealtime);
+            double sinceFrame = _lastFrameUtc == default ? 0 : (DateTime.UtcNow - _lastFrameUtc).TotalSeconds;
+            float frozen = (float)Math.Max(_awayFrozen, sinceFrame);
+            _awayFrozen = 0;
             Duel.OnAppResumed(frozen < 0.5f ? 0f : frozen);
             if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
             _backgroundSince = DateTime.MinValue;
@@ -2873,6 +2892,7 @@ namespace Bascule
         {
             if (_appAway) return;
             _appAway = true;
+            _awayFrozen = 0;
             _backgroundSince = DateTime.UtcNow;
             if (Duel.InDuel) Duel.OnAppPaused();
             if (Duel.InMatch) { }

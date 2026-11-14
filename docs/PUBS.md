@@ -107,6 +107,8 @@ La plus petite (320 × 50 points), en bas de l'écran, **seulement pendant une p
 2. Pour chaque réseau déjà branché (ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost) : créer un emplacement **bannière** dans son tableau de bord (AdMob : nouveau bloc de type « Bannière » dans l'app Bascule iOS ; Unity Ads : placement Banner), le saisir dans LevelPlay → **Setup → SDK Networks**, puis l'ajouter au groupe de médiation de la bannière (enchères, All Countries).
 3. Rien à ajouter dans `app-ads.txt` : mêmes régies.
 
+**À surveiller : les clics par erreur.** On vise en touchant n'importe où, et la bannière est là où le pouce se pose parfois : une touche qui commence dessus ouvre la pub. Dans LevelPlay → Reports, regarder le **taux de clic (CTR) de la bannière** les premiers jours : normal sous 1 à 2 % ; nettement au-dessus, ce sont des clics par erreur (les régies peuvent couper le compte) : prévenir Claude pour éloigner la bannière (marge plus grande, ou en haut).
+
 Calcul (14/11/2026, `Tools/player_sim.py`, réglages de la 1.5) : environ 1,3 affichage de bannière par jour de jeu, pubs imposées divisées par deux environ (0,11 → 0,06 par jour), revenu pub à peu près égal ou un peu plus haut selon le prix réel des bannières ; mêmes chiffres de joueurs qui reviennent.
 
 ## Régies à bibliothèque dynamique (plantage au lancement de la 1.4 build 21)

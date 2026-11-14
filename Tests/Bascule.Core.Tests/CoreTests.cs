@@ -1392,9 +1392,15 @@ namespace Bascule.Core.Tests
         [Test]
         public void OldSavesKeepTheirFriendsConfirmed()
         {
-            var p = new Profile { friends = new List<string> { "X", "Y" }, friendsConfirmed = null };
+            // Ancienne sauvegarde : pas de champ friendsConfirmed. JsonUtility y met une liste vide (pas null) ; même cas ici.
+            var p = new Profile { friends = new List<string> { "X", "Y" } };
+            Assert.IsFalse(p.friendsConfirmedInit);
             p.Sanitize();
             CollectionAssert.AreEqual(new[] { "X", "Y" }, Friendship.ConfirmedFriends(p), "avant la 1.5, tout ami était réciproque");
+            // Une fois migré, une demande envoyée ensuite n'est pas confirmée au prochain chargement.
+            FriendCode.Add(p, "Z", "A");
+            p.Sanitize();
+            Assert.IsTrue(Friendship.IsSent(p, "Z"));
         }
 
         [Test]
