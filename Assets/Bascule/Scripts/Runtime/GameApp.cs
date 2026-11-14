@@ -42,8 +42,8 @@ namespace Bascule
             public const string Game = "800428080", Rewarded = "BP_Rewarded_iOS", Interstitial = "BP_Interstitial_iOS";
             /// <summary>LevelPlay (tableau de bord Unity → Monetization) : clé de l'app iOS et identifiants des blocs.</summary>
             public const string LevelPlayAppKey = "2959b19e5", LevelPlayRewarded = "xvinq3655r2dltpx", LevelPlayInterstitial = "7lj35rsgj2famh1w";
-            /// <summary>Bloc « Banner » (1.5) : à créer dans LevelPlay (docs/PUBS.md). « A_REMPLIR » : pas de bannière.</summary>
-            public const string LevelPlayBanner = "A_REMPLIR";
+            /// <summary>Bloc « Banner » (1.5, LevelPlay → Ad units, rafraîchissement 30 s). « A_REMPLIR » : pas de bannière.</summary>
+            public const string LevelPlayBanner = "358ljy0tx574p6cx";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
             public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR", LevelPlayBanner = "A_REMPLIR";
