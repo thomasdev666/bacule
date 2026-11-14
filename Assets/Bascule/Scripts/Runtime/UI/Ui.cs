@@ -209,6 +209,13 @@ namespace Bascule.UI
             var v = rt.gameObject.AddComponent<VerticalLayoutGroup>();
             v.spacing = spacing;
             v.padding = new RectOffset(padding, padding, padding, padding);
+            // Liste qui défile (Scroll) : un peu d'air en haut et en bas, pour que la première et la dernière ligne
+            // sortent du fondu des bords une fois arrivées au bout.
+            if (rt.parent != null && rt.parent.GetComponent<ScrollRect>() != null)
+            {
+                v.padding.top = Mathf.Max(padding, ScrollFade - 6);
+                v.padding.bottom = Mathf.Max(padding, ScrollFade);
+            }
             v.childAlignment = TextAnchor.UpperCenter;
             v.childControlWidth = true;
             v.childControlHeight = true;
@@ -227,11 +234,15 @@ namespace Bascule.UI
             return le;
         }
 
+        /// <summary>Hauteur du fondu en haut et en bas des listes qui défilent (px, référence 1080 × 1920).</summary>
+        public const int ScrollFade = 30;
+
         /// <summary>Zone de défilement verticale ; renvoie le conteneur où ajouter les lignes.</summary>
         public static RectTransform Scroll(Transform parent, out ScrollRect scroll)
         {
             var viewport = Stretch(Rect("Scroll", parent)); // remplit la zone (sinon 100 × 100 px : menus vides)
-            viewport.gameObject.AddComponent<RectMask2D>();
+            // Bords en fondu (1.5) : une ligne qui dépasse en haut ou en bas s'efface doucement au lieu d'être coupée net.
+            viewport.gameObject.AddComponent<RectMask2D>().softness = new Vector2Int(0, ScrollFade);
             var bg = viewport.gameObject.AddComponent<Image>();
             bg.color = new Color(1, 1, 1, 0.001f);
             scroll = viewport.gameObject.AddComponent<ScrollRect>();
