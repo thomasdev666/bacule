@@ -264,7 +264,7 @@ namespace Bascule.Core
         /// dans la main devient un gros poids (au plus rescueMax fois) pour rééquilibrer vite. 0 = pas de renfort.
         /// </summary>
         public int rescueChecks = 4;
-        public int rescueMax = 3;
+        public int rescueMax = 2;
         public float rescueFromRatio = 0.35f;
         /// <summary>Le renfort est le plus petit de rescueValues qui compense le déséquilibre posé à rescueReach du bout (le plus gros sinon).</summary>
         public float rescueReach = 0.6f;

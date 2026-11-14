@@ -52,9 +52,9 @@
       { "fromDrop": 40, "values": [1, 2, 4, 8, 16],  "chances": [25, 30, 28, 14, 3] },
       { "fromDrop": 90, "values": [1, 2, 4, 8, 16],  "chances": [18, 26, 30, 19, 7] }
     ],
-    "_aide_renfort": "1.5 : renfort après un 128. Quand il s'envole, puis aux rescueChecks - 1 lâchers suivants, si la planche reste déséquilibrée (couple sans le 128 / couple de défaite >= rescueFromRatio), le poids qui arrive dans la main devient un gros poids : le plus petit de rescueValues qui compense le déséquilibre posé à rescueReach du bout (le plus gros sinon), au plus rescueMax fois. Chaque renfort redonne rescueCalmSeconds de souffle (le temps de le poser). La suite tirée n'est pas décalée (même suite que l'adversaire en duel). rescueChecks 0 = pas de renfort.",
+    "_aide_renfort": "1.5 : renfort après un 128. Quand il s'envole, puis aux rescueChecks - 1 lâchers suivants, si la planche reste déséquilibrée (couple sans le 128 / couple de défaite >= rescueFromRatio), le poids qui arrive dans la main devient un gros poids : le plus petit de rescueValues qui compense le déséquilibre posé à rescueReach du bout (le plus gros sinon), au plus rescueMax fois (2 : au-delà, c'était trop facile). Chaque renfort redonne rescueCalmSeconds de souffle (le temps de le poser). La suite tirée n'est pas décalée (même suite que l'adversaire en duel). rescueChecks 0 = pas de renfort.",
     "rescueChecks": 4,
-    "rescueMax": 3,
+    "rescueMax": 2,
     "rescueFromRatio": 0.35,
     "rescueReach": 0.6,
     "rescueValues": [8, 16, 32],
