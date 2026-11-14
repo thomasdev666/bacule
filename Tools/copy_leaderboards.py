@@ -5,6 +5,9 @@ Ne supprime rien : le classement garde le meilleur score, et un joueur déjà mi
 
 Clé de compte de service Unity Cloud (rôle « Leaderboards Admin ») dans l'environnement, jamais dans le dépôt :
   UNITY_KEY_ID=… UNITY_KEY_SECRET=… python3 Tools/copy_leaderboards.py
+Dans une session Claude Code dans le cloud, la clé peut aussi être un « network secret » de l'environnement
+(hôte services.api.unity.com, type Basic : identifiant = Key ID, mot de passe = Secret) : le proxy l'ajoute
+lui-même à la demande de jeton et le script n'a besoin d'aucune variable.
 """
 import base64
 import json
@@ -29,21 +32,38 @@ def call(url, method="GET", token=None, basic=None, body=None):
         return json.loads(r.read() or b"{}")
 
 
+def read_all(board, token):
+    """Tout le classement, par pages de 1000."""
+    out, offset = [], 0
+    while True:
+        page = call(f"{LB}/{board}/scores?offset={offset}&limit=1000&includeMetadata=true", token=token)["results"]
+        out += page
+        if len(page) < 1000:
+            return out
+        offset += 1000
+
+
 def main():
-    basic = base64.b64encode(f"{os.environ['UNITY_KEY_ID']}:{os.environ['UNITY_KEY_SECRET']}".encode()).decode()
+    key_id, secret = os.environ.get("UNITY_KEY_ID"), os.environ.get("UNITY_KEY_SECRET")
+    # Sans variables : valeur factice, remplacée par le proxy qui détient la vraie clé (network secret).
+    basic = base64.b64encode(f"{key_id}:{secret}".encode() if key_id and secret else b"proxy:proxy").decode()
     token = call(f"https://services.api.unity.com/auth/v1/token-exchange?projectId={PROJECT}&environmentId={ENV_ID}",
                  "POST", basic=basic)["accessToken"]
     for src, dst in PAIRS:
-        read = lambda b: call(f"{LB}/{b}/scores?offset=0&limit=1000&includeMetadata=true", token=token)["results"]
-        have = {x["playerId"]: x["score"] for x in read(dst)}
-        copied = 0
-        for x in read(src):
+        have = {x["playerId"]: x["score"] for x in read_all(dst, token)}
+        copied = []
+        for x in read_all(src, token):
             if have.get(x["playerId"], -1) >= x["score"]:
                 continue
             call(f"{LB}/{dst}/scores/players/{x['playerId']}", "POST", token=token,
                  body={"score": x["score"], "metadata": x.get("metadata") or {}})
-            copied += 1
-        print(f"{src} -> {dst} : {copied} record(s) copié(s)")
+            copied.append(x)
+        print(f"{src} -> {dst} : {len(copied)} record(s) copié(s)")
+        if copied:
+            # Place obtenue dans le classement de la 1.4 (pseudos : pour l'éditeur seulement, ne pas publier).
+            ranks = {x["playerId"]: x["rank"] + 1 for x in read_all(dst, token)}
+            for x in sorted(copied, key=lambda e: -e["score"]):
+                print(f"   {int(x['score']):>7}  {x.get('playerName', '?')}  -> place {ranks.get(x['playerId'], '?')}")
 
 
 main()
