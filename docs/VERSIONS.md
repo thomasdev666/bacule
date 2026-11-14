@@ -36,6 +36,7 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
     - score de l'adversaire en direct = le dernier reçu, figé dès qu'il a fini ; erreur de jointure arrivée après le départ ignorée.
   - Page `docs/site/bascule/duel.html` mise à jour (transmet les deux codes) : **à remettre sur orpheex.fr** (sans elle, les liens marchent quand même avec le code de partie).
   - Réglages : `duel.connectSeconds` (25), `duel.joinRetries` (6).
+- **Un tout petit peu plus facile** (retour de test : on plafonnait vers 3 000 – 4 000) : la planche peut pencher jusqu'à 31° au lieu de 30° avant la défaite (la place d'un mini poids en plus) et on a 0,9 s au lieu de 0,7 s pour se rattraper au-delà de la limite. Simulation (`Tools/balance_sim.py 100`, joueur appliqué) : médiane 3 223 → 3 823 points, 86 → 92 poids lâchés. Réglages `plank.maxAngle` et `plank.loseGraceSeconds`.
 - **Tête Samb'bach retirée** (partenariat annulé) : le code ne marche plus, la tête, sa coiffe, sa tenue et le logo du BDE sont supprimés. Un joueur qui l'avait la perd et reprend Basile s'il la portait. Numéro 66 réservé à vie (`HeadCatalog.RetiredIds`). 66 têtes.
 - **Têtes de partenaires cachées** : à l'avenir, une tête offerte par un code n'apparaît dans la collection (ni dans le total) qu'une fois le code entré (`HeadCatalog.IsVisible`, `docs/PARTENAIRES.md`).
 - Version 1.5, build iOS 9, version Android 50.

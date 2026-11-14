@@ -1,7 +1,7 @@
 {
   "_aide": "Réglages de Bascule. Modifier, sauvegarder, puis dans le jeu : Réglages > Prototype > Recharger (ou relancer). Les clés qui commencent par _ sont des commentaires.",
   "plank": {
-    "_aide": "tiltDirection 1 = penche vers le côté lourd, -1 = vers le léger. maxAngle en degrés. degreesPerTorque : inclinaison par unité de couple. Couple = (valeur^torqueExponent) x position (-1 bout gauche, +1 bout droit). Couple de défaite = maxAngle / degreesPerTorque (ici environ 11,5 : un 16 aux trois quarts de la planche). torqueExponent 1 = réaliste ; 0,85 = les gros poids écrasent un peu moins le reste.",
+    "_aide": "tiltDirection 1 = penche vers le côté lourd, -1 = vers le léger. maxAngle en degrés. degreesPerTorque : inclinaison par unité de couple. Couple = (valeur^torqueExponent) x position (-1 bout gauche, +1 bout droit). Couple de défaite = maxAngle / degreesPerTorque (ici environ 11,9 : un 16 aux trois quarts de la planche). 1.5 : maxAngle 30 → 31 et loseGraceSeconds 0,7 → 0,9, un tout petit peu plus facile (la place d'un mini poids en plus, et 0,2 s de plus pour se rattraper quand ça penche fort). torqueExponent 1 = réaliste ; 0,85 = les gros poids écrasent un peu moins le reste.",
     "tiltDirection": 1,
     "degreesPerTorque": 2.6,
     "_aide_rebords": "Petits rebords aux bouts de la planche : ils retiennent les poids qui glissent (simulation : 18 % de poids tombés au lieu de 22 %, parties plus longues). 0 = sans rebord.",
@@ -11,8 +11,8 @@
     "frequency": 0.55,
     "loadSlowdown": 0.012,
     "dampingRatio": 0.5,
-    "maxAngle": 30,
-    "loseGraceSeconds": 0.7,
+    "maxAngle": 31,
+    "loseGraceSeconds": 0.9,
     "overshootAngle": 6,
     "startLength": 6.6,
     "minLength": 4.2,
