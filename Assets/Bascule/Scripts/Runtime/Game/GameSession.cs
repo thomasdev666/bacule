@@ -144,8 +144,6 @@ namespace Bascule
         public event Action<int> Merged;
         /// <summary>Un 128 vient de s'envoler : points gagnés d'un coup (fusion + bonus), pour la grande bannière.</summary>
         public event Action<int> Ballooned;
-        /// <summary>Renfort après un 128 : le poids qui arrive dans la main vient d'être remplacé par ce gros poids.</summary>
-        public event Action<int> Reinforced;
         /// <summary>Éclair de couleur plein écran (gros combo, gros poids, 128) : intensité, couleur.</summary>
         public event Action<float, Color> ScreenFlash;
         /// <summary>Combo de N fusions enchaînées (N ≥ 2) : néon sur le contour de l'écran.</summary>
@@ -998,7 +996,6 @@ namespace Bascule
             _fx.Text(at, Loc.Get("rescue_fx"), Palette.Accent, 1.1f, 1.4f);
             _audio.Play(Sfx.Pop, value);
             _haptics.Light();
-            Reinforced?.Invoke(value);
         }
 
         /// <summary>Couple à venir : poids posés et poids encore en l'air au-dessus de la planche, sans le 128 qui s'envole.</summary>

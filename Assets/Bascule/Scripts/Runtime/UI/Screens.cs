@@ -548,16 +548,6 @@ namespace Bascule.UI
         }
         bool _firstBalloonSaid;
 
-        /// <summary>Renfort après un 128 : expliqué les 3 premières fois (sans couvrir un conseil plus important).</summary>
-        public void OnReinforced(int value)
-        {
-            var p = App.Profile;
-            if (p.rescueTips >= 3 || _tuto != Tuto.Off) return;
-            if (_hintTimer > 0.3f && _hintPriority >= 2) return;
-            p.rescueTips++;
-            Say("tip_rescue", 4.5f, 2);
-        }
-
         public void OnWeightLost(int value)
         {
             // Expliqué la première fois qu'un poids tombe, pendant les premières parties.

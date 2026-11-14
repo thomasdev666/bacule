@@ -572,7 +572,6 @@ namespace Bascule.Core
             ["decor_3"] = new[] { "le couchant", "sunset" },
             ["decor_4"] = new[] { "la nuit étoilée", "starry night" },
             ["tip_128"] = new[] { "Un 64 ! Fusionne-le avec un autre 64 :\nle 128 s'envole et rapporte +{0} points", "A 64! Merge it with another 64:\nthe 128 lifts off for +{0} points" },
-            ["tip_rescue"] = new[] { "Renfort : un gros poids pour toi !\nPose-le côté léger pour rééquilibrer", "Backup: a big weight for you!\nDrop it on the light side to rebalance" },
             ["tip_128_done"] = new[] { "Le 128 est le plus gros coup du jeu :\nrefais-en pour exploser ton record !", "The 128 is the biggest move in the game:\nmake more to smash your record!" },
 
             // Statistiques
