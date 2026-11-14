@@ -37,7 +37,8 @@ namespace Bascule.EditorTools
         static bool NeedsSetup() =>
             !File.Exists(ScenePath) || EditorBuildSettings.scenes.Length == 0 || PlayerSettings.bundleVersion != Version || PlayerSettings.iOS.buildNumber != BuildNumber || PlayerSettings.companyName != Company ||
             PlayerSettings.defaultInterfaceOrientation != UIOrientation.Portrait || PlayerSettings.SplashScreen.show ||
-            System.Array.IndexOf(PlayerSettings.iOS.iOSUrlSchemes ?? new string[0], DuelRules.AppScheme) < 0;
+            System.Array.IndexOf(PlayerSettings.iOS.iOSUrlSchemes ?? new string[0], DuelRules.AppScheme) < 0 ||
+            PlayerSettings.iOS.appInBackgroundBehavior != iOSAppInBackgroundBehavior.Custom;
 
         [MenuItem("Bascule/Configurer le projet", priority = 0)]
         public static void ConfigureMenu() => Configure(true);
@@ -56,6 +57,12 @@ namespace Bascule.EditorTools
             PlayerSettings.iOS.targetDevice = iOSTargetDevice.iPhoneOnly;
             // Lien d'invitation au duel : bascule://duel/CODE ouvre le jeu (la page web duel.html y renvoie).
             PlayerSettings.iOS.iOSUrlSchemes = new[] { DuelRules.AppScheme };
+            // 1.5 : le jeu continue quand le Centre de contrôle ou une notification passe devant (sinon un duel en
+            // direct était perdu en lançant l'enregistrement de l'écran). Avec « Custom », Unity ne se met plus en
+            // pause quand l'appli devient inactive ; IosBuildPost garde aussi sa boucle d'affichage. Aucun mode
+            // d'arrière-plan : dans une autre appli, iOS endort le jeu comme avant (GameApp.AppAway / AppBack).
+            PlayerSettings.iOS.appInBackgroundBehavior = iOSAppInBackgroundBehavior.Custom;
+            PlayerSettings.iOS.backgroundModes = iOSBackgroundMode.None;
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(PlayerSettings.Android.bundleVersionCode, VersionCode);
             // Google Play exige Android 7.0 (API 24) minimum pour la protection automatique.
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;

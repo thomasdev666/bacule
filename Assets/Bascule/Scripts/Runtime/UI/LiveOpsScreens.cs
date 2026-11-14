@@ -325,7 +325,7 @@ namespace Bascule.UI
             card.raycastTarget = true;
             card.gameObject.AddComponent<PopIn>();
             card.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.4f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.4f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 1, 0, -300, 1100, 1100);
             rays.gameObject.AddComponent<Spin>().Speed = 20f;
             Ui.Isolate(rays.gameObject);
@@ -596,7 +596,7 @@ namespace Bascule.UI
             Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 20, 980, 1300);
             card.gameObject.AddComponent<PopIn>();
             card.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.25f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.25f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 1, 0, -260, 1300, 1300);
             rays.gameObject.AddComponent<Spin>().Speed = 10f;
             Ui.Isolate(rays.gameObject);
@@ -673,7 +673,7 @@ namespace Bascule.UI
             // Bandeau à la couleur du monde de la semaine.
             _banner = Ui.Image(card.transform, Art.Panel, Palette.Secondary, "Bandeau", true);
             Ui.Place(_banner.rectTransform, 0.5f, 1, 0, -30, 920, 300, 0.5f, 1);
-            var rays = Ui.Image(_banner.transform, Art.Rays, new Color(1f, 1f, 1f, 0.22f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(_banner.transform), Art.Rays, new Color(1f, 1f, 1f, 0.22f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, 0, 1100, 1100);
             rays.gameObject.AddComponent<Spin>().Speed = 9f;
             _banner.gameObject.AddComponent<RectMask2D>();

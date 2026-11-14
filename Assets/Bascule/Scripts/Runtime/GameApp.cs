@@ -459,6 +459,7 @@ namespace Bascule
             _prompt = Make<PromptScreen>(t, Palette.Shade);
             _playerMenu = Make<PlayerMenuScreen>(t, Palette.Shade);
             _friendRequest = Make<FriendRequestScreen>(t, Palette.Shade);
+            _duelQuit = Make<DuelQuitScreen>(t, Palette.Shade);
             _league = Make<LeagueScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f));
             _leagueReward = Make<LeagueRewardScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.9f));
             _missions = Make<MissionsScreen>(t, Palette.Shade);
@@ -1144,6 +1145,19 @@ namespace Bascule
                 foreach (var id in addedMe) if (Profile.friends.Contains(id)) mutual = true;
                 if (mutual) GrantDuo();
 
+                // Mes demandes acceptées (ils m'ont ajouté à leur tour) : amis confirmés, annoncés une fois.
+                var accepted = Friendship.Confirm(Profile, addedMe);
+                if (accepted.Count > 0)
+                {
+                    SaveProfile();
+                    foreach (var id in accepted)
+                        if (!PlayerInfo.ContainsKey(id)) PlayerInfo[id] = await Leaderboard.Service.GetPublicProfileAsync(id);
+                    _toast.Say(Loc.Format("freq_accepted_toast", RequestName(accepted[0])), Icon.Heart, Palette.Secondary, 4f);
+                    Stats.Event("friend_request_accepted_by_other", ("n", accepted.Count));
+                }
+                // Pseudo et tête des demandes envoyées (lignes « en attente » du classement Amis).
+                foreach (var id in Friendship.SentRequests(Profile))
+                    if (!PlayerInfo.ContainsKey(id)) PlayerInfo[id] = await Leaderboard.Service.GetPublicProfileAsync(id);
                 var pending = Core.FriendRequests.Pending(Profile, addedMe, me);
                 bool changed = pending.Count != PendingFriends.Count || pending.Exists(id => !PendingFriends.Contains(id));
                 PendingFriends.Clear();
@@ -1163,7 +1177,8 @@ namespace Bascule
                     if (CanShowInvite) { _haptics.Light(); _friendRequest.Open(firstNew, who, head); }
                     else _toast.Say(Loc.Format("freq_toast", who), Icon.Heart, Palette.Secondary, 5f);
                 }
-                if (changed && _leaderboard.Visible) _leaderboard.Refresh();
+                if ((changed || accepted.Count > 0) && _leaderboard.Visible) _leaderboard.Refresh();
+                if (accepted.Count > 0 && _duelLobby.Visible) _duelLobby.Refresh();
             }
             catch (Exception e) { Debug.LogWarning("[Bascule] Demandes d'ami : " + e.Message); }
             finally { _socialBusy = false; }
@@ -1176,6 +1191,7 @@ namespace Bascule
         /// <summary>Demandes déjà annoncées pendant cette session (la fenêtre ne revient pas toutes les 30 s).</summary>
         readonly HashSet<string> _seenRequests = new HashSet<string>();
         FriendRequestScreen _friendRequest;
+        DuelQuitScreen _duelQuit;
 
         /// <summary>Parrainage « Duo » : la tête se gagne dès qu'un ami et toi êtes amis tous les deux.</summary>
         void GrantDuo()
@@ -1248,7 +1264,7 @@ namespace Bascule
                 DuelInvite best = null;
                 foreach (var inv in await Leaderboard.Service.FindDuelInvitesAsync())
                 {
-                    if (!Profile.friends.Contains(inv.FromId) || Moderation.IsBlocked(Profile, inv.FromId)) continue;
+                    if (!Friendship.IsConfirmed(Profile, inv.FromId) || Moderation.IsBlocked(Profile, inv.FromId)) continue;
                     if (Math.Abs(now - inv.At) > InviteMaxAge || _seenInvites.Contains(inv.FromId + inv.Code)) continue;
                     if (best == null || inv.At > best.At) best = inv;
                 }
@@ -1310,8 +1326,7 @@ namespace Bascule
             if (!Duel.InMatch) { DuelHome(); return; }
             // Ma partie est finie (j'attends son score) : partir ne change plus le résultat, pas besoin de confirmer.
             if (Duel.Current == DuelController.Phase.Waiting) { Duel.Forfeit(); return; }
-            _confirm.Ask(Loc.Get("duel_quit_title"), Loc.Format("duel_quit_body", Duel.TheirName), Art.IconSprite(Icon.Flag),
-                Loc.Get("duel_quit_ok"), () => Duel.Forfeit(), Loc.Get("duel_quit_no"), null);
+            _duelQuit.Open(Duel.TheirName, Duel.TheirHead, Duel.Ranked && !Duel.VsGhost, () => { if (Duel.InMatch) Duel.Forfeit(); });
         }
 
         /// <summary>Après une victoire : inviter un autre ami à venir jouer (code ami et lien du jeu).</summary>
@@ -1398,6 +1413,7 @@ namespace Bascule
 
         void OnDuelResult()
         {
+            if (_duelQuit.Visible) _duelQuit.Hide(); // le duel s'est fini pendant qu'on hésitait
             var o = Duel.Outcome;
             int coins;
             // Victoire « creuse » en classé : l'adversaire est parti dès le début. Ni points, ni victoire comptée.
@@ -2396,6 +2412,17 @@ namespace Bascule
             _playerMenu.Open(playerId, name, head, rank, score);
         }
 
+        /// <summary>J'annule une demande d'ami envoyée (pas encore acceptée).</summary>
+        public void CancelFriendRequest(string playerId)
+        {
+            if (!FriendCode.CancelRequest(Profile, playerId)) return;
+            SaveProfile();
+            _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
+            Stats.Event("friend_request_cancel");
+            _toast.Say(Loc.Get("freq_cancelled"), 2.5f);
+            if (_leaderboard.Visible) _leaderboard.Refresh();
+        }
+
         public void RemoveFriend(string playerId)
         {
             if (!FriendCode.Remove(Profile, playerId)) return;
@@ -2459,13 +2486,14 @@ namespace Bascule
                 if (shortCode != null) id = await Leaderboard.Service.FindPlayerByCodeAsync(shortCode);
                 if (id == null) id = FriendCode.Parse(text);
                 if (id == null) { _toast.Say(Loc.Get("friend_invalid")); return; }
+                // Il m'avait déjà demandé : c'est une acceptation (amis confirmés tout de suite).
+                if (PendingFriends.Contains(id)) { AcceptFriendRequest(id); return; }
                 if (!FriendCode.Add(Profile, id, Leaderboard.Service.PlayerId)) { _toast.Say(Loc.Get("friend_already")); return; }
-                PendingFriends.Remove(id); // il m'avait déjà demandé : nous voilà amis
                 SaveProfile();
-                // Amitié réciproque : l'ami nous retrouvera et nous ajoutera à son tour (dès qu'il ouvre le jeu).
+                // Demande envoyée : il la verra dès qu'il ouvre le jeu ; il entre dans mes amis quand il accepte.
                 _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
                 Stats.Event("friend_add", ("friends", Profile.friends.Count));
-                _toast.Say(Loc.Get("friend_added"), Icon.Check, Palette.Play);
+                _toast.Say(Loc.Get("friend_request_sent_code"), Icon.Check, Palette.Play);
                 if (_leaderboard.Visible) _leaderboard.Refresh();
             }, 120);
         }
@@ -2703,6 +2731,7 @@ namespace Bascule
 
         void Update()
         {
+            _lastFrameRealtime = Time.realtimeSinceStartup;
             float dt = Time.unscaledDeltaTime;
             if (_screenSize.x != Screen.width || _screenSize.y != Screen.height)
             {
@@ -2758,6 +2787,7 @@ namespace Bascule
                 else if (_prompt.Visible) _prompt.Hide();
                 else if (_playerMenu.Visible) _playerMenu.Hide();
                 else if (_friendRequest.Visible) _friendRequest.Hide();
+                else if (_duelQuit.Visible) _duelQuit.Hide(); // retour : on continue le duel
                 else if (_leagueReward.Visible) _leagueReward.Hide();
                 else if (_league.Visible) _league.Hide();
                 else if (_confirm.Visible) _confirm.Hide();
@@ -2800,24 +2830,49 @@ namespace Bascule
 #endif
         }
 
-        /// <summary>Le joueur quitte l'application : on sauvegarde la partie pour la reprendre au même endroit.</summary>
-        void OnApplicationPause(bool paused)
+        /// <summary>
+        /// Sorties et retours dans l'appli. 1.5 : sur iPhone, Unity ne met plus le jeu en pause quand le Centre de
+        /// contrôle ou une notification passe devant (mode « Custom » de BasculeSetup, boucle gardée par IosBuildPost) :
+        /// un duel continue pendant qu'on lance l'enregistrement de l'écran. OnApplicationPause n'arrive alors plus sur
+        /// iPhone, OnApplicationFocus si : les deux mènent à AppAway / AppBack, une seule fois chacun.
+        /// </summary>
+        void OnApplicationPause(bool paused) { if (paused) AppAway(); else AppBack(); }
+
+        void OnApplicationFocus(bool focus)
         {
-            if (!paused)
-            {
-                // Réseau revenu, ou lundi passé pendant que l'appli dormait : connexion et récompense de la ligue.
-                if (!Leaderboard.Service.IsOnline) InitLeaderboard(); else CheckLeagueReward();
-                // Duel : après un passage par Snap ou Messages, la liaison avec le relais est à refaire.
-                if (_backgroundSince != DateTime.MinValue) Duel.OnAppResumed((float)(DateTime.UtcNow - _backgroundSince).TotalSeconds);
-                if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
-                _backgroundSince = DateTime.MinValue;
-                _music?.OnResume();
-                // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
-                NewDayCheck();
-                _notifications.CancelAll();
-                if (_home.Visible) { _home.Refresh(); HomePopups(); }
-                return;
-            }
+            // Dans l'éditeur, cliquer hors de la vue du jeu enlève le focus : ce n'est pas une sortie.
+            if (Application.isEditor) return;
+            if (focus) AppBack(); else AppAway();
+        }
+
+        bool _appAway;
+        /// <summary>Heure (temps réel) de la dernière image : sert à savoir combien de temps le jeu a vraiment été figé.</summary>
+        float _lastFrameRealtime;
+
+        void AppBack()
+        {
+            if (!_appAway) return;
+            _appAway = false;
+            // Réseau revenu, ou lundi passé pendant que l'appli dormait : connexion et récompense de la ligue.
+            if (!Leaderboard.Service.IsOnline) InitLeaderboard(); else CheckLeagueReward();
+            // Duel : seul le temps où le jeu était vraiment figé compte (iOS endort l'appli en arrière-plan, Snap,
+            // Messages) ; Centre de contrôle ou notification : le jeu a continué, 0 s, rien à refaire.
+            float frozen = Mathf.Max(0f, Time.realtimeSinceStartup - _lastFrameRealtime);
+            Duel.OnAppResumed(frozen < 0.5f ? 0f : frozen);
+            if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
+            _backgroundSince = DateTime.MinValue;
+            _music?.OnResume();
+            // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
+            NewDayCheck();
+            _notifications.CancelAll();
+            if (_home.Visible) { _home.Refresh(); HomePopups(); }
+        }
+
+        /// <summary>Le joueur quitte l'application : on sauvegarde la partie pour la reprendre au même endroit.</summary>
+        void AppAway()
+        {
+            if (_appAway) return;
+            _appAway = true;
             _backgroundSince = DateTime.UtcNow;
             if (Duel.InDuel) Duel.OnAppPaused();
             if (Duel.InMatch) { }

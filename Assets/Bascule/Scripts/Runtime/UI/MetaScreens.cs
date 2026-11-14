@@ -327,7 +327,7 @@ namespace Bascule.UI
             var hero = Ui.Image(card.transform, Art.Panel, Palette.Purple, "Bandeau", true);
             Ui.Place(hero.rectTransform, 0.5f, 1, 0, -236, 860, 380, 0.5f, 1);
             hero.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(hero.transform, Art.Rays, new Color(1f, 0.9f, 0.5f, 0.35f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(hero.transform), Art.Rays, new Color(1f, 0.9f, 0.5f, 0.35f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, -10, 900, 900);
             rays.gameObject.AddComponent<Spin>().Speed = 12f;
             var glow = Ui.Image(hero.transform, Art.SoftDisc, new Color(1f, 0.85f, 0.4f, 0.55f), "Halo");
@@ -804,7 +804,7 @@ namespace Bascule.UI
             card.gameObject.AddComponent<RectMask2D>();
             var glow = Ui.Image(card.transform, Art.SoftDisc, new Color(1f, 0.55f, 0.85f, 0.45f), "Halo");
             Ui.Place(glow.rectTransform, 0, 0.5f, wide ? 230 : 180, 10, 520, 520);
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.28f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.28f), "Rayons");
             Ui.Place(rays.rectTransform, 0, 0.5f, wide ? 230 : 180, 10, 720, 720);
             rays.gameObject.AddComponent<Spin>().Speed = 9f;
             Ui.Isolate(rays.gameObject);

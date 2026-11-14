@@ -52,9 +52,23 @@ def league_card(img, box, d, line, reset):
     """Carte « ma ligue » de l'entrée du duel (DuelLobbyScreen.BuildChoice)."""
     sp.card(img, box, tint=hexc(NIGHT))
     badge(img, child(box, 0, 0.5, 106, 0, 140, 140), d)
-    sp.title(img, "Division " + DIV[d][3], child(box, 0, 0.5, 200, 46, 440, 64, 0, 0.5), 50, color=sp.rgb(DIV[d][0]), align="lm")
-    sp.title(img, line, child(box, 0, 0.5, 200, -8, 440, 50, 0, 0.5), 36, color=CREAM, align="lm")
-    sp.title(img, reset, child(box, 0, 0.5, 200, -56, 440, 40, 0, 0.5), 28, color=SKY, align="lm")
+    sp.title(img, "Division " + DIV[d][3], child(box, 0, 0.5, 200, 56, 440, 60, 0, 0.5), 50, color=sp.rgb(DIV[d][0]), align="lm")
+    # Ligne sur deux lignes au plus (Text en Wrap), 32 px : coupée comme Unity, au dernier mot qui tient dans 440 px.
+    lb = child(box, 0, 0.5, 200, -4, 440, 74, 0, 0.5)
+    words, lines, cur = line.split(), [], ""
+    for w in words:
+        t = (cur + " " + w).strip()
+        if ImageDraw.Draw(img).textlength(t, font=sp.font(32)) <= lb[2] - lb[0] or not cur:
+            cur = t
+        else:
+            lines.append(cur); cur = w
+    lines.append(cur)
+    if len(lines) > 2:
+        sp.TIGHT.append(f"ligne de la carte de ligue : {len(lines)} lignes")
+    for k, ln in enumerate(lines[:2]):
+        y = (lb[1] + lb[3]) / 2 + (k - (len(lines[:2]) - 1) / 2) * 33
+        sp.title(img, ln, (lb[0], y - 18, lb[2], y + 18), 32, color=CREAM, align="lm")
+    sp.title(img, reset, child(box, 0, 0.5, 200, -64, 440, 40, 0, 0.5), 28, color=SKY, align="lm")
     sp.button(img, child(box, 1, 0.5, -24, 0, 330, 124, 1, 0.5), "Accent", "Classement", "Trophy", 36)
 
 

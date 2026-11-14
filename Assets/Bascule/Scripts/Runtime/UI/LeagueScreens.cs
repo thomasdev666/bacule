@@ -81,7 +81,7 @@ namespace Bascule.UI
             // ---- Ma division.
             var mine = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "MaLigue", true);
             Ui.Place(mine.rectTransform, 0.5f, 1, 0, -250, 1000, 250, 0.5f, 1);
-            var rays = Ui.Image(mine.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.18f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(mine.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.18f), "Rayons");
             Ui.Place(rays.rectTransform, 0, 0.5f, 150, 0, 520, 520);
             rays.gameObject.AddComponent<Spin>().Speed = 10f;
             Ui.Isolate(rays.gameObject);
@@ -308,7 +308,7 @@ namespace Bascule.UI
             Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 960, 1200);
             card.gameObject.AddComponent<PopIn>();
             card.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.3f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.3f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 1, 0, -420, 1300, 1300);
             rays.gameObject.AddComponent<Spin>().Speed = 14f;
             Ui.Isolate(rays.gameObject);

@@ -1360,6 +1360,44 @@ namespace Bascule.Core.Tests
     public class FriendRequestTests
     {
         [Test]
+        public void SentRequestIsNotAFriendUntilAccepted()
+        {
+            var p = new Profile(); p.Sanitize();
+            Assert.IsTrue(FriendCode.Add(p, "B", "A"));
+            Assert.IsTrue(Friendship.IsSent(p, "B"));
+            Assert.IsFalse(Friendship.IsConfirmed(p, "B"), "pas dans le classement Amis avant d'avoir accepté");
+            CollectionAssert.IsEmpty(Friendship.ConfirmedFriends(p));
+            // B m'ajoute à son tour (il accepte) : la réponse en ligne le montre dans « ceux qui m'ont ajouté ».
+            CollectionAssert.AreEqual(new[] { "B" }, Friendship.Confirm(p, new[] { "B", "C" }));
+            Assert.IsTrue(Friendship.IsConfirmed(p, "B"));
+            CollectionAssert.IsEmpty(Friendship.Confirm(p, new[] { "B" }), "annoncé une seule fois");
+            CollectionAssert.DoesNotContain(p.friends, "C", "quelqu'un qui m'a ajouté sans que je le demande reste une demande reçue");
+        }
+
+        [Test]
+        public void AcceptingARequestConfirmsAtOnceAndCancelDoesNotBlock()
+        {
+            var p = new Profile(); p.Sanitize();
+            Assert.IsTrue(FriendRequests.Accept(p, "B", "A"));
+            Assert.IsTrue(Friendship.IsConfirmed(p, "B"), "il m'avait ajouté : amis tout de suite");
+            FriendCode.Add(p, "C", "A");
+            Assert.IsTrue(FriendCode.CancelRequest(p, "C"));
+            CollectionAssert.DoesNotContain(p.friends, "C");
+            CollectionAssert.DoesNotContain(p.friendsRemoved, "C", "annuler ne refuse pas ses futures demandes");
+            Assert.IsFalse(FriendCode.CancelRequest(p, "B"), "un ami confirmé se retire, il ne s'annule pas");
+            FriendCode.Remove(p, "B");
+            Assert.IsFalse(Friendship.IsConfirmed(p, "B"));
+        }
+
+        [Test]
+        public void OldSavesKeepTheirFriendsConfirmed()
+        {
+            var p = new Profile { friends = new List<string> { "X", "Y" }, friendsConfirmed = null };
+            p.Sanitize();
+            CollectionAssert.AreEqual(new[] { "X", "Y" }, Friendship.ConfirmedFriends(p), "avant la 1.5, tout ami était réciproque");
+        }
+
+        [Test]
         public void SomeoneWhoAddedMeIsARequestNotAFriend()
         {
             var p = new Profile(); p.Sanitize();

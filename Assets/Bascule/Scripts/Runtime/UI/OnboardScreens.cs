@@ -44,7 +44,7 @@ namespace Bascule.UI
             Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 20, 980, 1560);
             card.gameObject.AddComponent<PopIn>();
             card.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.26f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.26f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 1, 0, -500, 1400, 1400);
             rays.gameObject.AddComponent<Spin>().Speed = 10f;
             Ui.Isolate(rays.gameObject);

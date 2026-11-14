@@ -987,7 +987,7 @@ def collection_screen():
     cells = [("Tranquille", "Commune", "owned", "01"), ("Pétillante", "Commune", "worn", "02"), ("Le Malin", "Commune", "owned", "03"),
              ("Frisette", "Commune", "owned", "04"), ("Lunettes", "Commune", "next", "05"), ("???", "Rare", "locked", "06"),
              ("???", "Rare", "locked", "07"), ("???", "Rare", "locked", "08"), ("???", "Épique", "locked", "09")]
-    conds = {"next": "2 000 points", "locked": "3 000 points"}
+    conds = {"next": "2 000 points", "locked": "Avoir un ami réciproque"}
     gx0, gy0 = 24, 680
     cw, ch = 326, 420
     for k, (nm, rar, st, hid) in enumerate(cells):
@@ -998,13 +998,13 @@ def collection_screen():
         card(img, cb, tint=tint)
         rc = RARITY[rar]
         pill(img, (cx0 + cw / 2 - 120, cy0 + 16, cx0 + cw / 2 + 120, cy0 + 28), color=rgb(rc) + (255,))
-        halo((cx0 + cw / 2 - 135, cy0 + 26, cx0 + cw / 2 + 135, cy0 + 296), rc, 0.42 if st in ("owned", "worn") else 0.18)
-        hp = load(f"heads/{hid}.png").resize((236, 236), Image.LANCZOS)
+        halo((cx0 + cw / 2 - 125, cy0 + 18, cx0 + cw / 2 + 125, cy0 + 268), rc, 0.42 if st in ("owned", "worn") else 0.18)
+        hp = load(f"heads/{hid}.png").resize((206, 206), Image.LANCZOS)
         if st == "locked":
             sil = Image.new("RGBA", hp.size, (43, 45, 66, 0)); sil.putalpha(hp.split()[3].point(lambda a: int(a * 0.32))); hp = sil
-        img.alpha_composite(hp, (int(cx0 + cw / 2 - 118), int(cy0 + 36)))
+        img.alpha_composite(hp, (int(cx0 + cw / 2 - 103), int(cy0 + 24)))
         if st == "locked":
-            icon(img, "Lock", (cx0 + cw / 2 - 42, cy0 + 140 - 42, cx0 + cw / 2 + 42, cy0 + 140 + 42))
+            icon(img, "Lock", (cx0 + cw / 2 - 40, cy0 + 127 - 40, cx0 + cw / 2 + 40, cy0 + 127 + 40))
         if st in ("worn", "next"):
             tg = Image.new("RGBA", (260, 150), (0, 0, 0, 0))
             pill(tg, (40, 46, 216, 104), color=rgb(COL["Primary" if st == "worn" else "Play"]) + (255,))
@@ -1012,10 +1012,25 @@ def collection_screen():
             tg = tg.rotate(-8, resample=Image.BICUBIC)
             img.alpha_composite(tg, (int(cb[2] - 6 - 176 - 40), int(cy0 + 6 - 46)))
         shown = nm if st != "locked" else "???"
-        title(img, shown, (cx0, cb[3] - 112 - 27, cb[2], cb[3] - 112 + 27), 42, color=rgb(COL["Ink"]), outline=False)
-        title(img, rar, (cx0, cb[3] - 78 - 18, cb[2], cb[3] - 78 + 18), 30, color=rgb(rc), outline=False)
+        mid = cx0 + cw / 2
+        title(img, shown, (mid - 150, cb[3] - 158 - 25, mid + 150, cb[3] - 158 + 25), 40, color=rgb(COL["Ink"]), outline=False)
+        title(img, rar, (mid - 150, cb[3] - 116 - 17, mid + 150, cb[3] - 116 + 17), 28, color=rgb(rc), outline=False)
         if st in conds:
-            title(img, conds[st], (cx0, cb[3] - 36 - 24, cb[2], cb[3] - 36 + 24), 36, color=rgb(COL["Dark"]), outline=False)
+            # Condition sur deux lignes au plus (Text en Wrap, 296 px) : coupée au dernier mot qui tient.
+            d = ImageDraw.Draw(img)
+            words, lines, cur = conds[st].split(), [], ""
+            for w in words:
+                t = (cur + " " + w).strip()
+                if d.textlength(t, font=font(30)) <= 296 or not cur:
+                    cur = t
+                else:
+                    lines.append(cur); cur = w
+            lines.append(cur)
+            if len(lines) > 2:
+                TIGHT.append(f"condition « {conds[st]} » : {len(lines)} lignes")
+            for i, ln in enumerate(lines[:2]):
+                y = cb[3] - 58 + (i - (len(lines[:2]) - 1) / 2) * 32
+                title(img, ln, (mid - 148, y - 17, mid + 148, y + 17), 30, color=rgb(COL["Dark"]), outline=False)
     return c
 
 

@@ -28,6 +28,21 @@ namespace Bascule.UI
             return img;
         }
 
+        /// <summary>
+        /// Calque où poser des rayons qui tournent : découpé aux coins arrondis de la carte (Art.Panel, bord de 10, rayon
+        /// 52). Un RectMask2D ne suffit pas : il coupe en rectangle et laisse dépasser les rayons isolés dans leur
+        /// propre sous-canvas (Ui.Isolate).
+        /// </summary>
+        public static Transform RaysClip(Transform card, float inset = 10f, float radius = 52f)
+        {
+            var clip = Rounded(card, Color.white, radius, "Decoupe");
+            Ui.Stretch(clip.rectTransform, inset, inset, inset, inset);
+            clip.raycastTarget = false;
+            clip.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            clip.transform.SetAsFirstSibling();
+            return clip.transform;
+        }
+
         /// <summary>Tête gagnée par les victoires en duel (la « Challenger »).</summary>
         public static HeadDef ChallengerHead()
         {
@@ -39,7 +54,7 @@ namespace Bascule.UI
         public static async System.Threading.Tasks.Task<System.Collections.Generic.List<(string id, string name, int head)>> LoadFriends(GameApp app)
         {
             var list = new System.Collections.Generic.List<(string, string, int)>();
-            var friends = app.Profile.friends;
+            var friends = Friendship.ConfirmedFriends(app.Profile); // pas les demandes encore en attente
             var page = await app.Leaderboard.Service.GetFriendsAsync(Boards.World, friends);
             // Les plus récents d'abord : c'est souvent celui qu'on vient d'ajouter qu'on veut défier.
             for (int i = friends.Count - 1; i >= 0; i--)
@@ -112,7 +127,7 @@ namespace Bascule.UI
         public override async void Refresh()
         {
             Ui.Clear(_col);
-            var friends = App.Profile.friends;
+            var friends = Friendship.ConfirmedFriends(App.Profile);
             if (friends.Count == 0) { _status.text = Loc.Get("duel_friends_none"); return; }
             if (!App.Leaderboard.Service.IsOnline) { _status.text = Loc.Get("lb_offline"); return; }
             _status.text = Loc.Get("lb_loading");
@@ -221,13 +236,17 @@ namespace Bascule.UI
             _leagueBadge = LeagueUi.MakeBadge(league.transform, 140);
             Ui.Place(_leagueBadge.Root, 0, 0.5f, 106, 0, 140, 140);
             _leagueDivision = Ui.Title(league.transform, "", 50, Color.white, "Division");
-            Ui.Place(_leagueDivision.rectTransform, 0, 0.5f, 200, 46, 440, 64, 0, 0.5f);
+            Ui.Place(_leagueDivision.rectTransform, 0, 0.5f, 200, 56, 440, 60, 0, 0.5f);
             _leagueDivision.alignment = TextAnchor.MiddleLeft;
-            _leagueLine = Ui.Title(league.transform, "", 36, ArtCache.Hex("#FFE9A8"), "Place");
-            Ui.Place(_leagueLine.rectTransform, 0, 0.5f, 200, -8, 440, 50, 0, 0.5f);
+            // Ma place, ou « Joue un duel classé pour entrer dans la ligue » : sur deux lignes, assez grand pour se lire
+            // (sur une seule, la phrase rétrécissait jusqu'à devenir minuscule).
+            _leagueLine = Ui.Title(league.transform, "", 32, ArtCache.Hex("#FFE9A8"), "Place");
+            Ui.Place(_leagueLine.rectTransform, 0, 0.5f, 200, -4, 440, 74, 0, 0.5f);
             _leagueLine.alignment = TextAnchor.MiddleLeft;
+            _leagueLine.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _leagueLine.lineSpacing = 0.9f;
             _leagueReset = Ui.Title(league.transform, "", 28, ArtCache.Hex("#BFE0FF"), "Fin");
-            Ui.Place(_leagueReset.rectTransform, 0, 0.5f, 200, -56, 440, 40, 0, 0.5f);
+            Ui.Place(_leagueReset.rectTransform, 0, 0.5f, 200, -64, 440, 40, 0, 0.5f);
             _leagueReset.alignment = TextAnchor.MiddleLeft;
             // Assez large pour l'icône et le mot entier, sans rétrécir (contrôlé par Tools/screens_preview_v15.py).
             var open = Ui.Button(league.transform, Loc.Get("league_open"), Palette.Accent, App.OpenLeague, Icon.Trophy, 36, "Classement");
@@ -374,7 +393,7 @@ namespace Bascule.UI
         async void LoadFriends()
         {
             Ui.Clear(_friendsCol);
-            var friends = App.Profile.friends;
+            var friends = Friendship.ConfirmedFriends(App.Profile);
             if (friends.Count == 0) { _friendsStatus.text = Loc.Get("duel_no_friends"); return; }
             if (!App.Leaderboard.Service.IsOnline) { _friendsStatus.text = Loc.Get("friend_offline"); return; }
             _friendsStatus.text = Loc.Get("lb_loading");
@@ -447,7 +466,7 @@ namespace Bascule.UI
             Ui.Place(card.rectTransform, 0.5f, 0.5f, 0, 40, 980, 1180);
             card.gameObject.AddComponent<PopIn>();
             card.gameObject.AddComponent<RectMask2D>();
-            var rays = Ui.Image(card.transform, Art.Rays, new Color(1f, 0.85f, 0.4f, 0.32f), "Rayons");
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.85f, 0.4f, 0.32f), "Rayons");
             Ui.Place(rays.rectTransform, 0.5f, 1, 0, -380, 1300, 1300);
             rays.gameObject.AddComponent<Spin>().Speed = 16f;
             Ui.Isolate(rays.gameObject);
@@ -1132,6 +1151,62 @@ namespace Bascule.UI
         {
             foreach (var c in _confetti) if (c.rt != null) UnityEngine.Object.Destroy(c.rt.gameObject);
             _confetti.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Abandonner le duel ? (1.5, à la place de la fenêtre générique) : dans le style du duel, mon portrait et celui de
+    /// l'adversaire avec un drapeau blanc entre les deux, ce que l'abandon change (il gagne ; en classé, 0 point), et
+    /// le rappel que le duel continue pendant qu'on choisit. Le gros bouton est « Continuer » : on n'abandonne pas
+    /// par erreur.
+    /// </summary>
+    public sealed class DuelQuitScreen : UiScreen
+    {
+        Text _body;
+        Image _mine, _theirs;
+        System.Action _onQuit;
+
+        protected override void Build()
+        {
+            var card = Ui.Image(Safe, Art.Panel, ArtCache.Hex("#2B1B54"), "Fenetre", true);
+            Ui.Place(card.rectTransform, 0.5f, 0.52f, 0, 0, 960, 1080);
+            card.gameObject.AddComponent<PopIn>();
+            var rays = Ui.Image(DuelUi.RaysClip(card.transform), Art.Rays, new Color(1f, 0.45f, 0.45f, 0.22f), "Rayons");
+            Ui.Place(rays.rectTransform, 0.5f, 1, 0, -280, 1300, 1300);
+            rays.gameObject.AddComponent<Spin>().Speed = 10f;
+            Ui.Isolate(rays.gameObject);
+            _mine = DuelUi.Portrait(card.transform, Palette.Secondary, 240, "Moi");
+            Ui.Place((RectTransform)_mine.transform.parent, 0.5f, 1, -215, -270, 240, 240);
+            _theirs = DuelUi.Portrait(card.transform, Palette.Primary, 240, "Adversaire");
+            Ui.Place((RectTransform)_theirs.transform.parent, 0.5f, 1, 215, -270, 240, 240);
+            // Le drapeau blanc entre les deux.
+            var disc = Ui.Image(card.transform, Art.Circle, Color.white, "Pastille");
+            Ui.Place(disc.rectTransform, 0.5f, 1, 0, -290, 132, 132);
+            var flag = Ui.Icon(disc.transform, Art.IconSprite(Icon.Flag), "Drapeau");
+            flag.color = Palette.Dark;
+            Ui.Stretch(flag.rectTransform, 24, 24, 24, 24);
+            disc.gameObject.AddComponent<Rock>().Angle = 6f;
+            Ui.Isolate(disc.gameObject);
+            var title = Ui.Title(card.transform, Loc.Get("duel_quit_title"), 66, Color.white);
+            Ui.Place(title.rectTransform, 0.5f, 1, 0, -480, 880, 110);
+            _body = Ui.Label(card.transform, "", 40, ArtCache.Hex("#D8E9FF"));
+            Ui.Place(_body.rectTransform, 0.5f, 1, 0, -620, 840, 170);
+            var keep = Ui.Button(card.transform, Loc.Get("duel_quit_no"), Palette.Play, Hide, Icon.Play, 62, "Continuer");
+            Ui.Place((RectTransform)keep.transform, 0.5f, 0, 0, 270, 820, 176);
+            keep.gameObject.AddComponent<Pulse>().Amount = 0.025f;
+            var quit = Ui.Button(card.transform, Loc.Get("duel_quit_ok"), Palette.Primary, () => { Hide(); var q = _onQuit; _onQuit = null; q?.Invoke(); }, Icon.Flag, 46, "Abandonner");
+            Ui.Place((RectTransform)quit.transform, 0.5f, 0, 0, 100, 560, 124);
+        }
+
+        public void Open(string theirName, int theirHead, bool ranked, System.Action onQuit)
+        {
+            Show();
+            Root.SetAsLastSibling();
+            _onQuit = onQuit;
+            string who = string.IsNullOrEmpty(theirName) ? Loc.Get("ranked_opponent") : theirName;
+            _body.text = Loc.Format("duel_quit_body", who) + "\n" + Loc.Get(ranked ? "duel_quit_ranked" : "duel_quit_running");
+            _mine.sprite = Art.Portrait(HeadCatalog.Get(App.Profile.selectedHead));
+            _theirs.sprite = Art.Portrait(HeadCatalog.Get(theirHead));
         }
     }
 }

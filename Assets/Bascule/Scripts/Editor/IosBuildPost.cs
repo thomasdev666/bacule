@@ -87,6 +87,36 @@ namespace Bascule.EditorTools
             proj.ReadFromFile(projPath);
             proj.AddFrameworkToProject(proj.GetUnityFrameworkTargetGuid(), "AppTrackingTransparency.framework", true);
             proj.WriteToFile(projPath);
+
+            KeepRunningWhenInactive(path);
+        }
+
+        /// <summary>
+        /// 1.5 : Unity arrête sa boucle d'affichage dès que l'appli n'est plus active (Centre de contrôle, notification
+        /// tirée), même en mode « Custom ». Un duel en direct se figeait alors : plus rien n'était envoyé, et le relais
+        /// coupe au bout de 10 s. On la laisse tourner tant que l'appli est seulement « inactive » (toujours à l'écran) ;
+        /// en arrière-plan elle s'arrête comme avant (iOS interdit d'y dessiner).
+        /// Si le texte attendu n'est pas trouvé (autre version de Unity), on ne touche à rien et on le dit.
+        /// </summary>
+        static void KeepRunningWhenInactive(string path)
+        {
+            var file = Path.Combine(path, "Classes", "UnityAppController+Rendering.mm");
+            if (!File.Exists(file)) { UnityEngine.Debug.LogWarning("Bascule : UnityAppController+Rendering.mm introuvable, le duel se figera avec le Centre de contrôle"); return; }
+            var text = File.ReadAllText(file);
+            const string Done = "UIApplicationStateInactive /* Bascule */";
+            if (text.Contains(Done)) return;
+            int method = text.IndexOf("- (void)repaintDisplayLink", System.StringComparison.Ordinal);
+            const string Guard = "if (!_didResignActive)";
+            int at = method < 0 ? -1 : text.IndexOf(Guard, method, System.StringComparison.Ordinal);
+            if (at < 0 || at - method > 200)
+            {
+                UnityEngine.Debug.LogWarning("Bascule : boucle d'affichage de Unity non reconnue, le duel se figera avec le Centre de contrôle");
+                return;
+            }
+            text = text.Remove(at, Guard.Length).Insert(at,
+                "if (!_didResignActive || UIApplication.sharedApplication.applicationState == " + Done + ")");
+            File.WriteAllText(file, text);
+            UnityEngine.Debug.Log("Bascule : le jeu continue quand le Centre de contrôle est ouvert (UnityAppController+Rendering.mm)");
         }
     }
 }

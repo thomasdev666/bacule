@@ -215,9 +215,21 @@ namespace Bascule.Core
             return true;
         }
 
+        /// <summary>
+        /// J'annule une demande envoyée (pas encore acceptée) : il disparaît de ma liste, sans être mis de côté (s'il
+        /// m'ajoute plus tard, sa demande arrivera normalement).
+        /// </summary>
+        public static bool CancelRequest(Profile p, string playerId)
+        {
+            if (!Friendship.IsSent(p, playerId)) return false;
+            p.friends.Remove(playerId);
+            return true;
+        }
+
         /// <summary>Retire un ami. Il ne revient pas tout seul (même s'il nous a ajouté de son côté) : seulement si on le rajoute.</summary>
         public static bool Remove(Profile p, string playerId)
         {
+            p.friendsConfirmed?.Remove(playerId);
             if (!p.friends.Remove(playerId)) return false;
             if (!p.friendsRemoved.Contains(playerId)) p.friendsRemoved.Add(playerId);
             return true;
@@ -232,7 +244,50 @@ namespace Bascule.Core
             if (string.IsNullOrEmpty(playerId) || p.friendsRemoved.Contains(playerId) || p.blocked.Contains(playerId)) return false;
             if (p.friends.Contains(playerId) || playerId == myId || p.friends.Count >= MaxFriends) return false;
             p.friends.Add(playerId);
+            Friendship.MarkConfirmed(p, playerId);
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Amis confirmés et demandes envoyées (1.5). Ajouter quelqu'un le met dans <see cref="Profile.friends"/> (c'est ce
+    /// qui lui envoie la demande, publiée en ligne) ; il ne devient un ami confirmé qu'une fois qu'il m'a ajouté aussi.
+    /// Avant, il apparaissait tout de suite dans mon classement Amis, avant même d'avoir accepté.
+    /// </summary>
+    public static class Friendship
+    {
+        static List<string> Confirmed(Profile p) => p.friendsConfirmed ?? (p.friendsConfirmed = new List<string>());
+
+        public static bool IsConfirmed(Profile p, string playerId) =>
+            !string.IsNullOrEmpty(playerId) && p.friends.Contains(playerId) && Confirmed(p).Contains(playerId);
+
+        /// <summary>Demande envoyée, pas encore acceptée.</summary>
+        public static bool IsSent(Profile p, string playerId) =>
+            !string.IsNullOrEmpty(playerId) && p.friends.Contains(playerId) && !Confirmed(p).Contains(playerId);
+
+        /// <summary>Amis confirmés, dans l'ordre de la liste (classement Amis, duels, invitations).</summary>
+        public static List<string> ConfirmedFriends(Profile p) => p.friends.FindAll(id => Confirmed(p).Contains(id));
+
+        /// <summary>Demandes envoyées en attente.</summary>
+        public static List<string> SentRequests(Profile p) => p.friends.FindAll(id => !Confirmed(p).Contains(id));
+
+        public static void MarkConfirmed(Profile p, string playerId)
+        {
+            if (!string.IsNullOrEmpty(playerId) && !Confirmed(p).Contains(playerId)) Confirmed(p).Add(playerId);
+        }
+
+        /// <summary>
+        /// Les joueurs qui m'ont ajouté (<paramref name="addedMe"/>) et que j'avais demandés ont accepté : ils deviennent
+        /// confirmés. Renvoie ceux qui viennent de l'être (pour l'annoncer). Jamais de retrait ici : une réponse en ligne
+        /// incomplète ne fait pas disparaître un ami.
+        /// </summary>
+        public static List<string> Confirm(Profile p, IEnumerable<string> addedMe)
+        {
+            var now = new List<string>();
+            if (addedMe == null) return now;
+            foreach (var id in addedMe)
+                if (IsSent(p, id)) { MarkConfirmed(p, id); now.Add(id); }
+            return now;
         }
     }
 
@@ -261,8 +316,15 @@ namespace Bascule.Core
             return list;
         }
 
-        /// <summary>J'accepte : il devient mon ami (amitié réciproque). Faux si la liste est pleine ou s'il y est déjà.</summary>
-        public static bool Accept(Profile p, string playerId, string myId) => FriendCode.Add(p, playerId, myId);
+        /// <summary>
+        /// J'accepte : il devient mon ami confirmé (il m'avait ajouté). Faux si la liste est pleine ou s'il y est déjà.
+        /// </summary>
+        public static bool Accept(Profile p, string playerId, string myId)
+        {
+            bool added = FriendCode.Add(p, playerId, myId);
+            if (p.friends.Contains(playerId)) Friendship.MarkConfirmed(p, playerId);
+            return added;
+        }
 
         /// <summary>Je refuse : sa demande ne reviendra plus.</summary>
         public static bool Decline(Profile p, string playerId)
@@ -291,6 +353,7 @@ namespace Bascule.Core
             if (string.IsNullOrEmpty(playerId) || playerId == myId) return false;
             if (p.blocked == null) p.blocked = new System.Collections.Generic.List<string>();
             if (p.friends != null) p.friends.Remove(playerId);
+            p.friendsConfirmed?.Remove(playerId);
             if (p.blocked.Contains(playerId)) return false;
             if (p.blocked.Count >= MaxBlocked) p.blocked.RemoveAt(0);
             p.blocked.Add(playerId);

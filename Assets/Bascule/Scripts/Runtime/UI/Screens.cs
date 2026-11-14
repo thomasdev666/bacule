@@ -1547,7 +1547,7 @@ namespace Bascule.UI
             var band = Ui.Image(cell.transform, Art.Pill, rc, "Rarete", true);
             Ui.Place(band.rectTransform, 0.5f, 1, 0, -16, 240, 12, 0.5f, 1);
             var halo = Ui.Image(cell.transform, Art.SoftDisc, new Color(rc.r, rc.g, rc.b, owned ? 0.42f : 0.18f), "Halo");
-            Ui.Place(halo.rectTransform, 0.5f, 1, 0, -26, 270, 270, 0.5f, 1);
+            Ui.Place(halo.rectTransform, 0.5f, 1, 0, -18, 250, 250, 0.5f, 1);
             if (rarity == Rarity.Legendary && owned) halo.gameObject.AddComponent<Pulse>().Amount = 0.05f;
 
             // Les têtes à acheter se montrent en couleur : c'est ce qui donne envie.
@@ -1561,11 +1561,12 @@ namespace Bascule.UI
                 icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f);
                 _pending.Add((icon, h, locked));
             }
-            Ui.Place(icon.rectTransform, 0.5f, 1, 0, -36, 236, 236, 0.5f, 1);
+            // Portrait un peu plus petit qu'avant (236) : le nom, la rareté et la condition ont leur place dessous.
+            Ui.Place(icon.rectTransform, 0.5f, 1, 0, -24, 206, 206, 0.5f, 1);
             if (locked)
             {
                 var lockIcon = Ui.Icon(cell.transform, Art.IconSprite(Icon.Lock));
-                Ui.Place(lockIcon.rectTransform, 0.5f, 1, 0, -140, 84, 84);
+                Ui.Place(lockIcon.rectTransform, 0.5f, 1, 0, -127, 80, 80);
             }
             if (affordable || isNext) icon.gameObject.AddComponent<Pulse>().Amount = 0.04f;
             if (_shownNew.Contains(h.Id) && !worn)
@@ -1588,14 +1589,15 @@ namespace Bascule.UI
             }
 
             bool showName = owned || buyable || showcase || isNext;
-            var name = Ui.Label(cell.transform, showName ? h.Name(Loc.Language) : "???", 42, Palette.Ink);
-            Ui.Place(name.rectTransform, 0.5f, 0, 0, 112, 300, 54);
-            var rl = Ui.Label(cell.transform, Loc.Get("rarity_" + rarity), 30, rc);
-            Ui.Place(rl.rectTransform, 0.5f, 0, 0, 78, 300, 36);
+            // Trois lignes sous le portrait, sans se chevaucher : nom, rareté, puis condition (deux lignes possibles).
+            var name = Ui.Label(cell.transform, showName ? h.Name(Loc.Language) : "???", 40, Palette.Ink);
+            Ui.Place(name.rectTransform, 0.5f, 0, 0, 158, 300, 50);
+            var rl = Ui.Label(cell.transform, Loc.Get("rarity_" + rarity), 28, rc);
+            Ui.Place(rl.rectTransform, 0.5f, 0, 0, 116, 300, 34);
             if (buyable)
             {
                 var price = Ui.Rect("Prix", cell.transform);
-                Ui.Place(price, 0.5f, 0, 0, 36, 300, 56);
+                Ui.Place(price, 0.5f, 0, 0, 58, 300, 56);
                 var hl = price.gameObject.AddComponent<HorizontalLayoutGroup>();
                 hl.childAlignment = TextAnchor.MiddleCenter; hl.spacing = 6; hl.childControlWidth = hl.childControlHeight = true; hl.childForceExpandWidth = false;
                 var coin = Ui.Icon(price, Art.IconSprite(Icon.Coin));
@@ -1606,8 +1608,11 @@ namespace Bascule.UI
                 return;
             }
             string sub = owned ? "" : Loc.UnlockText(h);
-            var cond = Ui.Label(cell.transform, sub, 36, Palette.Dark);
-            Ui.Place(cond.rectTransform, 0.5f, 0, 0, 36, 300, 48);
+            // « Avoir un ami réciproque », « Jackpot de la roue » : sur deux lignes dans la carte plutôt que d'en déborder.
+            var cond = Ui.Label(cell.transform, sub, 30, Palette.Dark);
+            Ui.Place(cond.rectTransform, 0.5f, 0, 0, 58, 296, 76);
+            cond.horizontalOverflow = HorizontalWrapMode.Wrap;
+            cond.lineSpacing = 0.9f;
         }
     }
 
@@ -1751,13 +1756,16 @@ namespace Bascule.UI
             LeaderboardPage page;
             if (friends)
             {
-                if (App.Profile.friends.Count == 0)
+                // Seulement les amis confirmés : une demande envoyée n'y entre qu'une fois acceptée (1.5).
+                var confirmed = Friendship.ConfirmedFriends(App.Profile);
+                if (confirmed.Count == 0)
                 {
-                    _status.text = App.PendingFriends.Count == 0 ? Loc.Get("friends_empty") : "";
+                    bool requests = App.PendingFriends.Count > 0 || Friendship.SentRequests(App.Profile).Count > 0;
+                    _status.text = requests ? "" : Loc.Get("friends_empty");
                     RequestRows();
                     return;
                 }
-                page = await service.GetFriendsAsync(Boards.World, App.Profile.friends);
+                page = await service.GetFriendsAsync(Boards.World, confirmed);
             }
             else page = await service.GetTopAsync(_board, PageSize);
             if (request != _request || !Visible) return;
@@ -1807,6 +1815,7 @@ namespace Bascule.UI
         /// <summary>Demandes d'ami en attente, en haut de l'onglet Amis : portrait, pseudo, Accepter (vert) et Refuser.</summary>
         void RequestRows()
         {
+            SentRows();
             var pending = App.PendingFriends;
             if (pending.Count == 0) return;
             var title = Ui.Title(_list, Loc.Format("freq_section", pending.Count), 46, Palette.Accent);
@@ -1830,6 +1839,34 @@ namespace Bascule.UI
                 Ui.Place((RectTransform)yes.transform, 1, 0.5f, -150, 0, 120, 112, 1, 0.5f);
                 var no = Ui.Button(row.transform, "", Palette.Secondary, () => App.DeclineFriendRequest(id), Icon.Close, 40, "Refuser");
                 Ui.Place((RectTransform)no.transform, 1, 0.5f, -18, 0, 120, 112, 1, 0.5f);
+            }
+        }
+
+        /// <summary>Demandes que j'ai envoyées, en attente : une ligne discrète chacune, avec « Annuler ».</summary>
+        void SentRows()
+        {
+            var sent = Friendship.SentRequests(App.Profile);
+            sent.RemoveAll(id => Moderation.IsBlocked(App.Profile, id));
+            if (sent.Count == 0) return;
+            var title = Ui.Title(_list, Loc.Format("freq_sent_section", sent.Count), 40, ArtCache.Hex("#BFE0FF"));
+            title.alignment = TextAnchor.LowerLeft;
+            Ui.Size(title, 76);
+            foreach (var pid in sent.ToArray())
+            {
+                string id = pid, who = App.RequestName(pid);
+                int head = App.RequestHead(pid);
+                var row = Ui.Card(_list, "DemandeEnvoyee");
+                row.color = ArtCache.Hex("#E9EEF8");
+                Ui.Size(row, 130);
+                var icon = Ui.Icon(row.transform, Art.PortraitIfLoaded(HeadCatalog.Get(head), false));
+                if (icon.sprite == null) { icon.sprite = Art.SoftDisc; icon.color = new Color(0.17f, 0.18f, 0.26f, 0.12f); _pending.Add((icon, head)); }
+                Ui.Place(icon.rectTransform, 0, 0.5f, 26, 0, 104, 104, 0, 0.5f);
+                var n = Ui.Plain(Ui.Label(row.transform, who, 42, Palette.Ink, TextAnchor.MiddleLeft));
+                Ui.Place(n.rectTransform, 0, 0.5f, 150, 18, 480, 56, 0, 0.5f);
+                var w = Ui.Plain(Ui.Label(row.transform, Loc.Get("freq_sent_wait"), 30, Palette.Muted, TextAnchor.MiddleLeft));
+                Ui.Place(w.rectTransform, 0, 0.5f, 150, -30, 480, 40, 0, 0.5f);
+                var cancel = Ui.Button(row.transform, Loc.Get("freq_cancel"), Palette.Muted, () => App.CancelFriendRequest(id), null, 36, "Annuler");
+                Ui.Place((RectTransform)cancel.transform, 1, 0.5f, -18, 0, 230, 100, 1, 0.5f);
             }
         }
 
@@ -2281,7 +2318,7 @@ namespace Bascule.UI
     {
         Text _title, _status, _rank, _best;
         string _id, _name;
-        GameObject _unfriend, _duel, _add, _accept, _decline, _statusPill;
+        GameObject _unfriend, _duel, _add, _accept, _decline, _cancel, _statusPill;
         Image _card, _face, _ring, _statusBack;
         const float Top = 760f, Bottom = 190f, RowStep = 160f;
 
@@ -2330,6 +2367,7 @@ namespace Bascule.UI
             _add = Ui.Button(card.transform, Loc.Get("profile_add"), Palette.Play, () => { Hide(); App.AddFriendFromProfile(_id, _name); }, Icon.Plus, 56, "Ajouter").gameObject;
             _accept = Ui.Button(card.transform, Loc.Get("freq_accept"), Palette.Play, () => { Hide(); App.AcceptFriendRequest(_id); }, Icon.Check, 56, "Accepter").gameObject;
             _decline = Ui.Button(card.transform, Loc.Get("freq_decline"), Palette.Muted, () => { Hide(); App.DeclineFriendRequest(_id); }, null, 46, "Refuser").gameObject;
+            _cancel = Ui.Button(card.transform, Loc.Get("freq_cancel_long"), Palette.Muted, () => { Hide(); App.CancelFriendRequest(_id); }, Icon.Close, 46, "AnnulerDemande").gameObject;
         }
 
         /// <summary>Tuile crème : pastille d'icône, petit libellé, grande valeur.</summary>
@@ -2357,18 +2395,20 @@ namespace Bascule.UI
             _face.sprite = Art.Portrait(HeadCatalog.Get(head));
             _rank.text = rank > 0 && score > 0 ? Loc.Rank(rank) : "–";
             _best.text = score > 0 ? Loc.FormatScore(score) : "–";
-            bool friend = App.Profile.friends.Contains(playerId);
-            bool asked = !friend && App.PendingFriends.Contains(playerId);
-            _statusPill.SetActive(friend || asked);
-            _status.text = friend ? Loc.Get("profile_friend") : asked ? Loc.Get("profile_wants") : "";
-            _statusBack.color = friend ? Palette.Secondary : Palette.Primary;
-            _ring.color = friend ? Palette.Secondary : Palette.Primary;
+            bool friend = Friendship.IsConfirmed(App.Profile, playerId);
+            bool sent = Friendship.IsSent(App.Profile, playerId);
+            bool asked = !friend && !sent && App.PendingFriends.Contains(playerId);
+            _statusPill.SetActive(friend || asked || sent);
+            _status.text = friend ? Loc.Get("profile_friend") : asked ? Loc.Get("profile_wants") : sent ? Loc.Get("profile_sent") : "";
+            _statusBack.color = friend ? Palette.Secondary : sent ? Palette.Muted : Palette.Primary;
+            _ring.color = friend ? Palette.Secondary : sent ? Palette.Muted : Palette.Primary;
             // Boutons du cas présent, empilés au-dessus de « Signaler / Bloquer ».
             var rows = new List<GameObject>();
             if (friend) { rows.Add(_unfriend); if (App.DuelAvailable) rows.Add(_duel); }
+            else if (sent) rows.Add(_cancel);
             else if (asked) { rows.Add(_decline); rows.Add(_accept); }
             else rows.Add(_add);
-            foreach (var go in new[] { _unfriend, _duel, _add, _accept, _decline }) go.SetActive(rows.Contains(go));
+            foreach (var go in new[] { _unfriend, _duel, _add, _accept, _decline, _cancel }) go.SetActive(rows.Contains(go));
             for (int i = 0; i < rows.Count; i++)
                 Ui.Place((RectTransform)rows[i].transform, 0.5f, 0, 0, Bottom + 74 + i * RowStep, 800, 146);
             _card.rectTransform.sizeDelta = new Vector2(940, Top + Bottom + rows.Count * RowStep);
