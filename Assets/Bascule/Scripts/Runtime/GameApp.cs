@@ -42,9 +42,11 @@ namespace Bascule
             public const string Game = "800428080", Rewarded = "BP_Rewarded_iOS", Interstitial = "BP_Interstitial_iOS";
             /// <summary>LevelPlay (tableau de bord Unity → Monetization) : clé de l'app iOS et identifiants des blocs.</summary>
             public const string LevelPlayAppKey = "2959b19e5", LevelPlayRewarded = "xvinq3655r2dltpx", LevelPlayInterstitial = "7lj35rsgj2famh1w";
+            /// <summary>Bloc « Banner » (1.5) : à créer dans LevelPlay (docs/PUBS.md). « A_REMPLIR » : pas de bannière.</summary>
+            public const string LevelPlayBanner = "A_REMPLIR";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
-            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR";
+            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR", LevelPlayBanner = "A_REMPLIR";
 #endif
             /// <summary>
             /// Pubs de test dans les builds de développement seulement : la version envoyée à Apple (build normal)
@@ -281,7 +283,7 @@ namespace Bascule
             if (_adsStarted) return;
             _adsStarted = true;
 #if BASCULE_LEVELPLAY && !UNITY_EDITOR
-            _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial, AdPrivacyNow);
+            _ads = new LevelPlayAdService(AdIds.LevelPlayAppKey, AdIds.LevelPlayRewarded, AdIds.LevelPlayInterstitial, AdPrivacyNow, AdIds.LevelPlayBanner);
 #elif BASCULE_UNITYADS && !UNITY_EDITOR
             _ads = new UnityAdsService(AdIds.Game, AdIds.Rewarded, AdIds.Interstitial, AdIds.TestMode, AdPrivacyNow);
 #else
@@ -705,6 +707,9 @@ namespace Bascule
             // Mode infini seulement : objectif de la partie et partie spéciale (récompenses, jamais le score).
             Session.Goal = mode == GameMode.Infinite ? RunGoal.For(Profile) : 0;
             Session.Special = mode == GameMode.Infinite ? SpecialRun.Next(Profile) : SpecialKind.None;
+            // Bannière : pas à chaque partie (Core.BannerPolicy), et seulement si elle est déjà chargée.
+            _bannerRun = BannerPolicy.ShouldShow(Tuning.ads, Profile, mode, _gamesThisSession + 1) && _ads != null && _ads.BannerReady;
+            Session.BannerLift = _bannerRun ? BannerLift() : 0f;
             Session.StartRun(mode, seed, mode == GameMode.Daily ? TodayKey : "");
             Show(_hud);
             if (Session.Special != SpecialKind.None)
@@ -1581,6 +1586,7 @@ namespace Bascule
             p.totalBalloons += r.Balloons;
             p.totalSeconds += r.Seconds;
             AdPolicy.OnRunEnded(p.ads);
+            _lastRunHadBanner = _bannerRun;
             _gamesThisSession++; // aucune pub imposée pendant les premières parties de chaque lancement
             starterStarted = Offers.CheckStarter(Tuning.ads, p, Now);
             p.tutorialDone = true;
@@ -1689,7 +1695,7 @@ namespace Bascule
             _leavingGameOver = true;
             _toast.Clear(); // le bilan de la partie ne suit pas le joueur sur l'écran suivant
             FinalizeRun();
-            if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay, _gamesThisSession))
+            if (_ads.CanShowInterstitial && AdPolicy.ShouldShowInterstitial(Tuning.ads, Profile.ads, Profile, _celebration, _lastRunSeconds, Now, LocalDay, _gamesThisSession, _lastRunHadBanner))
             {
                 Stats.Event("ad_interstitial", ("games", Profile.gamesPlayed), ("today", Profile.ads.interstitialsToday + 1));
                 _adStarted = Time.realtimeSinceStartup;
@@ -1705,6 +1711,27 @@ namespace Bascule
             }
             next();
             _leavingGameOver = false;
+        }
+
+        bool _bannerRun, _lastRunHadBanner, _bannerOn;
+
+        /// <summary>
+        /// De combien remonter le monde pendant une partie avec bannière. Points en pixels : largeur de l'écran / 375
+        /// (le plus étroit des iPhone) ; sur un écran plus large, la bannière est estimée un peu plus haute : marge en plus.
+        /// </summary>
+        float BannerLift()
+        {
+            float ppp = Mathf.Max(1f, Screen.width / 375f);
+            return BannerPolicy.Lift(Screen.height, Screen.safeArea.yMin, ppp, _cam.orthographicSize, WorldLayout.GroundAboveBottom);
+        }
+
+        /// <summary>La bannière ne se montre que pendant le jeu lui-même : ni pendant l'arrivée, ni en pause, ni à la fin.</summary>
+        void UpdateBanner()
+        {
+            bool want = _bannerRun && _current == _hud && Session.IsRunning && !Session.Paused && !Profile.adsRemoved && !AdBusy;
+            if (want == _bannerOn || _ads == null) return;
+            _bannerOn = want;
+            _ads.SetBanner(want);
         }
 
         /// <summary>Une pub est à l'écran (ou va l'être). Garde-fou de 5 minutes si la régie ne répond jamais.</summary>
@@ -2685,6 +2712,7 @@ namespace Bascule
             }
 
             Duel.Tick(Time.deltaTime);
+            UpdateBanner();
             if (_hud.Visible) _hud.Tick(dt);
             if (_daily.Visible) _daily.Tick(dt);
             if (_duelHud.Visible) _duelHud.Tick(dt);

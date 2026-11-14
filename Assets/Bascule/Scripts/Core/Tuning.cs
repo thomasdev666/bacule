@@ -71,6 +71,9 @@ namespace Bascule.Core
             economy.scorePerCoin = Math.Max(1, economy.scorePerCoin);
             economy.scorePerXp = Math.Max(1, economy.scorePerXp);
             ads.interstitialEveryGames = Math.Max(1, ads.interstitialEveryGames);
+            ads.bannerFromSessionGame = Math.Max(1, ads.bannerFromSessionGame);
+            ads.bannerEveryGames = Math.Max(1, ads.bannerEveryGames);
+            ads.bannerFirstAfterGames = Math.Max(0, ads.bannerFirstAfterGames);
 
             plank.tiltDirection = plank.tiltDirection < 0 ? -1 : 1;
             plank.maxAngle = Clamp(plank.maxAngle, 5f, 80f);

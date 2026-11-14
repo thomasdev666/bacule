@@ -44,6 +44,9 @@ HYP = {
     "ecpm_interstitial": 4.0,       # € pour 1000 pubs affichées
     "ecpm_rewarded": 8.0,
     "fill_rate": 0.92,              # part des demandes de pub réellement servies
+    "ecpm_banner": 0.30,            # bannière 320 x 50 (1.5), rafraîchie toutes les banner_refresh secondes
+    "banner_refresh": 60,
+    "banner_fill": 0.85,
     # Achats : prix TTC -> net développeur (TVA 20 %, commission store 15 %).
     "iap_net": 0.85 / 1.2,
     # 1.3 : duels entre amis, vidéos de la boutique, premier lancement (pseudo, âge, pubs).
@@ -77,6 +80,8 @@ DESIGNS = {
         "gift": True, "notifications": True,
         # 1.4 : jamais pendant les 4 premières parties de chaque session, puis au plus une toutes les 4 parties (Core/Economy.cs AdTuning).
         "interstitial": {"first_after_games": 6, "session_grace": 4, "every_games": 4, "min_seconds": 180, "after_rewarded": 120, "skip_on_best": True},
+        # 1.5 : bannière (Core/Economy.cs BannerPolicy) : jamais la 1re partie du lancement, la 2e puis une sur deux ; pas de pub imposée juste après.
+        "banner": {"from_session_game": 2, "every": 2, "first_after": 3, "skip_interstitial": True},
         "rewarded": {"revive", "double", "gift", "reroll", "free_coins"}, "shop": True,
         "iap": {"removeads", "starter", "coins_s", "coins_m", "coins_l", "legends"}, "tutorial": True,
     },
@@ -146,6 +151,7 @@ class Player:
         self.spent = 0.0
         self.purchases = []
         self.inter = 0
+        self.banner_imps = 0.0
         self.rewarded = 0
         self.inter_since = 99
         self.last_inter_t = -1e9
@@ -372,6 +378,12 @@ class Player:
             return False
         self.inter_since += 1
         self.session_games += 1
+        b = self.d.get("banner")
+        if b and self.games >= b["first_after"] and self.session_games >= b["from_session_game"] \
+                and (self.session_games - b["from_session_game"]) % b["every"] == 0:
+            self.banner_imps += ev.get("seconds", 0) / HYP["banner_refresh"] * HYP["banner_fill"]
+            if b["skip_interstitial"]:
+                return False
         if self.session_games < pol.get("session_grace", 0):
             return False
         if self.games < pol["first_after_games"] or self.inter_since < pol["every_games"]:
@@ -672,7 +684,8 @@ def summarize(players, days):
         return sum(1 for p in players if day in p.days_active) / n
 
     dau = sum(len(p.days_active) for p in players)
-    ad_rev = sum(p.inter for p in players) * HYP["ecpm_interstitial"] / 1000 + sum(p.rewarded for p in players) * HYP["ecpm_rewarded"] / 1000
+    ad_rev = sum(p.inter for p in players) * HYP["ecpm_interstitial"] / 1000 + sum(p.rewarded for p in players) * HYP["ecpm_rewarded"] / 1000 \
+        + sum(p.banner_imps for p in players) * HYP["ecpm_banner"] / 1000
     iap_rev = sum(p.spent for p in players) * HYP["iap_net"]
     minutes = [p.minutes for p in players]
     sessions = sum(p.sessions for p in players)
@@ -696,6 +709,7 @@ def summarize(players, days):
         "tetes_joueurs_30j": st.median([p.heads for p in players if (days - 1) in p.days_active or 29 in p.days_active] or [0]),
         "seances_sans_progres": sum(p.dry_sessions for p in players) / max(1, sessions),
         "inter_par_jour_actif": sum(p.inter for p in players) / max(1, dau),
+        "banniere_par_jour_actif": sum(p.banner_imps for p in players) / max(1, dau),
         "recomp_par_jour_actif": sum(p.rewarded for p in players) / max(1, dau),
         "ARPDAU_pub": ad_rev / max(1, dau),
         "ARPDAU": (ad_rev + iap_rev) / max(1, dau),

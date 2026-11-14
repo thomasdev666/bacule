@@ -98,6 +98,17 @@ Instances Rewarded et Interstitial actives et ajoutées aux groupes de médiatio
 
 Ad unit **Interstitial_iOS** (Setup → Ad units → Advanced settings) : **Capping 6 par jour**, **Pacing 1 pub toutes les 10 minutes**. S'applique tout de suite à toutes les versions installées, en plus des règles du jeu (`AdPolicy`). Mis en place après un retour de joueur (« une pub à chaque partie »).
 
+## Bannière (1.5)
+
+La plus petite (320 × 50 points), en bas de l'écran, **seulement pendant une partie solo** : jamais la 1re partie de chaque lancement, la 2e oui, puis une sur deux ; jamais en duel, jamais pour ceux qui ont acheté « sans pubs » (l'achat retire aussi la bannière), pas pendant les 3 premières parties d'un nouveau joueur. Elle disparaît en pause, à la chute et sur l'écran de fin. Pas de pub imposée juste après une partie avec bannière. Le monde remonte d'un rien pendant ces parties pour qu'elle ne touche pas les pieds de Basile. Règles : `Core/Economy.cs` (`BannerPolicy`), réglages `ads.banner*` du tuning.
+
+À faire une fois :
+1. LevelPlay → **Setup → Ad units** → app Bascule iOS → ajouter une unité **Banner** ; si l'option existe, rafraîchissement **60 s**. Copier son identifiant dans `GameApp.AdIds.LevelPlayBanner` (iOS) à la place de `A_REMPLIR` (ou le donner à Claude). Tant qu'il vaut `A_REMPLIR`, il n'y a pas de bannière.
+2. Pour chaque réseau déjà branché (ironSource, Unity Ads, Liftoff, Google AdMob, InMobi, Chartboost) : créer un emplacement **bannière** dans son tableau de bord (AdMob : nouveau bloc de type « Bannière » dans l'app Bascule iOS ; Unity Ads : placement Banner), le saisir dans LevelPlay → **Setup → SDK Networks**, puis l'ajouter au groupe de médiation de la bannière (enchères, All Countries).
+3. Rien à ajouter dans `app-ads.txt` : mêmes régies.
+
+Calcul (14/11/2026, `Tools/player_sim.py`, réglages de la 1.5) : environ 1,3 affichage de bannière par jour de jeu, pubs imposées divisées par deux environ (0,11 → 0,06 par jour), revenu pub à peu près égal ou un peu plus haut selon le prix réel des bannières ; mêmes chiffres de joueurs qui reviennent.
+
 ## Régies à bibliothèque dynamique (plantage au lancement de la 1.4 build 21)
 
 InMobiSDK et AppLovinSDK sont des bibliothèques **dynamiques** : le Podfile d'External Dependency Manager ne les liait qu'à UnityFramework, l'app ne les embarquait pas et iOS la fermait au lancement. `Editor/IosPodfileFix.cs` les ajoute à la cible `Unity-iPhone` du Podfile après chaque build iOS (vérifié sur les binaires le 13/11/2026 ; les autres régies sont statiques). **À chaque nouvelle régie : vérifier si son SDK est dynamique et l'ajouter à la liste.**

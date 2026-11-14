@@ -108,7 +108,13 @@
     "freeCoinsAmount": 60,
     "removeAdsHintAfter": 4,
     "starterOfferAfterGames": 8,
-    "starterOfferHours": 48
+    "starterOfferHours": 48,
+    "_aide_banniere": "1.5 : bannière la plus petite (320 x 50 points) en bas de l'écran, seulement pendant une partie solo (jamais en duel ni pour ceux qui ont retiré les pubs). Jamais la 1re partie de chaque lancement, puis à la partie bannerFromSessionGame et une sur bannerEveryGames ensuite ; pas pendant les bannerFirstAfterGames premières parties d'un nouveau joueur. bannerSkipsInterstitial : pas de pub imposée juste après une partie avec bannière. Le monde remonte un peu pendant ces parties pour qu'elle ne touche pas Basile.",
+    "bannerEnabled": true,
+    "bannerFromSessionGame": 2,
+    "bannerEveryGames": 2,
+    "bannerFirstAfterGames": 3,
+    "bannerSkipsInterstitial": true
   },
   "wind": {
     "_aide": "Rafales de vent (Core/Wind.cs). À chaque palier de milestones, puis tous les milestoneEvery points, et au hasard toutes les gapMin à gapMax secondes (plus tôt si le joueur stagne). Jamais à moins de minGap s d'une autre, ni quand la planche est déjà en danger. Force = part du couple de défaite ; le vent seul ne dépasse jamais maxPeakRatio de l'angle max. Les gentleGusts premières rafales sont douces : jamais au-delà de gentlePeakRatio, et le vent s'efface quand la planche penche (de gentleFadeFrom à gentleFadeTo de danger) : elles ne font jamais perdre.",

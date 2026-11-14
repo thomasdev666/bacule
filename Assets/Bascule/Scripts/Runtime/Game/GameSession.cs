@@ -111,6 +111,8 @@ namespace Bascule
         public bool GoalDone { get; private set; }
         /// <summary>Remontée du monde voulue par l'accueil (unités du monde), appliquée seulement au repos.</summary>
         public float HomeLift { get; set; }
+        /// <summary>Partie avec bannière (1.5) : le monde remonte de cette hauteur pour qu'elle ne touche pas Basile.</summary>
+        public float BannerLift { get; set; }
         /// <summary>Hauteur des pieds de Basile à l'écran (pixels, depuis le bas), sans la remontée de l'accueil.</summary>
         public float FeetScreenY => _cam.WorldToScreenPoint(new Vector3(0, WorldLayout.GroundY(_cam) - _fx.Lift, 0)).y;
         public float PixelsPerUnit => _cam.pixelHeight / (2f * _cam.orthographicSize);
@@ -748,7 +750,7 @@ namespace Bascule
         void Update()
         {
             float dt = Time.deltaTime;
-            _fx.LiftTarget = Current == State.Idle ? HomeLift : 0f;
+            _fx.LiftTarget = Current == State.Idle ? HomeLift : BannerLift;
             _backdrop.SetLift(_fx.Lift);
             UpdateBackground(dt);
             // La tête rougit doucement avec le score (racine : lent au début) et avec la charge portée.
@@ -786,8 +788,8 @@ namespace Bascule
             if (_held != null)
             {
                 float bob = Mathf.Sin(Time.time * 3f) * 0.06f;
-                _held.transform.position = new Vector3(_aimX, WorldLayout.SpawnY(_cam) + bob, 0);
-                float top = WorldLayout.SpawnY(_cam) - _held.Size * 0.5f;
+                _held.transform.position = new Vector3(_aimX, SpawnY() + bob, 0);
+                float top = SpawnY() - _held.Size * 0.5f;
                 float bottom = _mascot.PivotWorld.y + 0.2f;
                 _guide.enabled = top > bottom;
                 _guide.transform.position = new Vector3(_aimX, (top + bottom) * 0.5f, 0);
@@ -818,6 +820,9 @@ namespace Bascule
             }
         }
 
+        /// <summary>Hauteur du poids tenu : sous l'interface du haut, même quand la caméra est décalée (bannière).</summary>
+        float SpawnY() => WorldLayout.SpawnY(_cam) - _fx.Lift;
+
         /// <summary>On ne vise qu'au-dessus de la planche : un poids lâché tombe forcément dessus.</summary>
         float AimLimit(float size)
         {
@@ -834,7 +839,7 @@ namespace Bascule
             _held.PopIn(0.4f);
             float hw = AimLimit(_held.Size);
             _aimX = Mathf.Clamp(_aimX, -hw, hw);
-            _held.transform.position = new Vector3(_aimX, WorldLayout.SpawnY(_cam), 0);
+            _held.transform.position = new Vector3(_aimX, SpawnY(), 0);
             Current = State.Aiming;
         }
 
@@ -843,7 +848,7 @@ namespace Bascule
             if (_held == null) return;
             var w = _held;
             _held = null;
-            w.transform.position = new Vector3(_aimX, WorldLayout.SpawnY(_cam), 0);
+            w.transform.position = new Vector3(_aimX, SpawnY(), 0);
             w.Body.position = w.transform.position;
             Hook(w);
             w.Dropped = true;
@@ -992,7 +997,7 @@ namespace Bascule
             // « Renfort ! » juste sous le poids tenu (au-dessus, c'est le HUD), sans sortir de l'écran.
             float below = (_held != null ? _held.Size : WeightCatalog.Size(value, _t.weights)) * 0.5f + 0.55f;
             float edge = WorldLayout.HalfWidth(_cam) - 1.4f;
-            var at = new Vector2(Mathf.Clamp(_aimX, -edge, edge), WorldLayout.SpawnY(_cam) - below);
+            var at = new Vector2(Mathf.Clamp(_aimX, -edge, edge), SpawnY() - below);
             _fx.Text(at, Loc.Get("rescue_fx"), Palette.Accent, 1.1f, 1.4f);
             _audio.Play(Sfx.Pop, value);
             _haptics.Light();

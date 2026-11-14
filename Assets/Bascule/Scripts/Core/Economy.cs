@@ -67,6 +67,18 @@ namespace Bascule.Core
         /// <summary>Offre de départ : proposée après N parties, valable offerHours heures.</summary>
         public int starterOfferAfterGames = 8;
         public float starterOfferHours = 48f;
+
+        /// <summary>
+        /// Bannière (1.5) : la plus petite (320 × 50 points), en bas de l'écran, seulement pendant une partie solo, et pas
+        /// à chaque partie : jamais la 1re de chaque lancement, puis à la partie bannerFromSessionGame et une sur
+        /// bannerEveryGames ensuite. Pas pendant les bannerFirstAfterGames premières parties d'un nouveau joueur.
+        /// Après une partie avec bannière, pas de pub imposée (bannerSkipsInterstitial).
+        /// </summary>
+        public bool bannerEnabled = true;
+        public int bannerFromSessionGame = 2;
+        public int bannerEveryGames = 2;
+        public int bannerFirstAfterGames = 3;
+        public bool bannerSkipsInterstitial = true;
     }
 
     // =====================================================================================================
@@ -560,10 +572,12 @@ namespace Bascule.Core
         /// celebration = record battu ou tête gagnée : on laisse le joueur savourer.
         /// gamesThisSession = parties finies depuis le lancement du jeu (celle-ci comprise).
         /// </summary>
-        public static bool ShouldShowInterstitial(AdTuning t, AdState s, Profile p, bool celebration, float runSeconds, double now, string today, int gamesThisSession)
+        public static bool ShouldShowInterstitial(AdTuning t, AdState s, Profile p, bool celebration, float runSeconds, double now, string today, int gamesThisSession,
+            bool afterBannerRun = false)
         {
             Roll(s, today);
             if (p.adsRemoved) return false;
+            if (afterBannerRun && t.bannerSkipsInterstitial) return false; // la bannière de cette partie suffit
             if (p.gamesPlayed < t.firstInterstitialAfterGames) return false;
             if (gamesThisSession < t.sessionGraceGames) return false;
             if (s.gamesSinceInterstitial < t.interstitialEveryGames) return false;
@@ -607,6 +621,39 @@ namespace Bascule.Core
         /// <summary>Faut-il suggérer (une seule fois) l'achat « sans pubs » ?</summary>
         public static bool ShouldHintRemoveAds(AdTuning t, AdState s, Profile p) =>
             !p.adsRemoved && !s.removeAdsHintShown && s.interstitialsTotal >= t.removeAdsHintAfter;
+    }
+
+    /// <summary>Bannière en bas de l'écran pendant certaines parties (1.5). Voir AdTuning.banner*.</summary>
+    public static class BannerPolicy
+    {
+        /// <param name="gameInSession">Numéro de la partie qui commence depuis le lancement du jeu (1 = la première).</param>
+        public static bool ShouldShow(AdTuning t, Profile p, GameMode mode, int gameInSession)
+        {
+            if (!t.bannerEnabled || p.adsRemoved || mode == GameMode.Duel) return false;
+            if (p.gamesPlayed < t.bannerFirstAfterGames) return false;
+            if (gameInSession < t.bannerFromSessionGame) return false;
+            return (gameInSession - t.bannerFromSessionGame) % Math.Max(1, t.bannerEveryGames) == 0;
+        }
+
+        /// <summary>Hauteur de la bannière la plus petite (points).</summary>
+        public const float HeightPoints = 50f;
+
+        /// <summary>
+        /// De combien remonter le monde (unités) pour que la bannière ne touche pas les pieds de Basile : elle est
+        /// posée au-dessus de la barre d'accueil, et on garde gapUnits d'herbe entre son haut et le sol.
+        /// </summary>
+        /// <param name="screenHeightPx">Hauteur de l'écran (pixels).</param>
+        /// <param name="safeBottomPx">Marge du bas réservée par le système (barre d'accueil, pixels).</param>
+        /// <param name="pixelsPerPoint">Pixels par point de l'écran.</param>
+        /// <param name="orthoSize">Demi-hauteur visible du monde (unités).</param>
+        /// <param name="groundUnits">Hauteur du sol au-dessus du bas de l'écran (unités).</param>
+        public static float Lift(float screenHeightPx, float safeBottomPx, float pixelsPerPoint, float orthoSize, float groundUnits, float gapUnits = 0.45f)
+        {
+            if (screenHeightPx <= 0f || orthoSize <= 0f) return 0f;
+            float unitsPerPx = 2f * orthoSize / screenHeightPx;
+            float bannerTop = (safeBottomPx + HeightPoints * pixelsPerPoint) * unitsPerPx;
+            return Math.Max(0f, bannerTop + gapUnits - groundUnits);
+        }
     }
 
     public static class Offers

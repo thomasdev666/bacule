@@ -2519,6 +2519,53 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void BannerNeverOnFirstGameThenSecondThenEveryOther()
+        {
+            var t = new AdTuning();
+            var p = NewProfile();
+            p.gamesPlayed = 50;
+            var shown = new List<int>();
+            for (int game = 1; game <= 9; game++)
+                if (BannerPolicy.ShouldShow(t, p, GameMode.Infinite, game)) shown.Add(game);
+            CollectionAssert.AreEqual(new[] { 2, 4, 6, 8 }, shown, "jamais la 1re partie du lancement, la 2e oui, puis une sur deux");
+            Assert.True(BannerPolicy.ShouldShow(t, p, GameMode.Daily, 2), "défi du jour : comme une partie normale");
+            Assert.False(BannerPolicy.ShouldShow(t, p, GameMode.Duel, 2), "jamais en duel");
+            p.gamesPlayed = t.bannerFirstAfterGames - 1;
+            Assert.False(BannerPolicy.ShouldShow(t, p, GameMode.Infinite, 2), "pas pendant les toutes premières parties d'un nouveau joueur");
+            p.gamesPlayed = 50; p.adsRemoved = true;
+            Assert.False(BannerPolicy.ShouldShow(t, p, GameMode.Infinite, 2), "achat « sans pubs » : pas de bannière");
+            p.adsRemoved = false; t.bannerEnabled = false;
+            Assert.False(BannerPolicy.ShouldShow(t, p, GameMode.Infinite, 2));
+        }
+
+        [Test]
+        public void NoInterstitialRightAfterABannerGame()
+        {
+            var t = new AdTuning();
+            var s = new AdState();
+            var p = NewProfile();
+            p.gamesPlayed = 500;
+            for (int i = 0; i < 20; i++) AdPolicy.OnRunEnded(s);
+            const string day = "2026-11-14";
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6));
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true), "la bannière de cette partie suffit");
+            t.bannerSkipsInterstitial = false;
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true));
+        }
+
+        [Test]
+        public void BannerLiftKeepsGrassBetweenBannerAndFeet()
+        {
+            // iPhone 15 : 1179 × 2556 pixels, 3 pixels par point, barre d'accueil 34 points, monde de 19,2 unités de haut.
+            float lift = BannerPolicy.Lift(2556, 34 * 3, 3f, 9.6f, 2.1f);
+            float unitsPerPx = 19.2f / 2556;
+            float bannerTop = (34 + 50) * 3 * unitsPerPx;
+            Assert.That(2.1f + lift - bannerTop, Is.EqualTo(0.45f).Within(1e-3), "0,45 unité d'herbe entre la bannière et les pieds");
+            Assert.That(lift, Is.InRange(0.1f, 0.6f), "le monde remonte à peine");
+            Assert.AreEqual(0f, BannerPolicy.Lift(2556, 0, 1f, 9.6f, 2.1f), "assez de place : on ne bouge rien");
+        }
+
+        [Test]
         public void InterstitialDailyCapResetsNextDay()
         {
             var t = new AdTuning { maxInterstitialsPerDay = 1, interstitialEveryGames = 1, minSecondsBetweenInterstitials = 0, firstInterstitialAfterGames = 0 };

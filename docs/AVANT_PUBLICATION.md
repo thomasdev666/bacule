@@ -59,6 +59,7 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 **Pubs et achats**
 - [ ] Test Suite LevelPlay (7 + 7 touches sur la version) : toutes les régies sans point rouge.
 - [ ] Une vidéo récompensée (coffre ou roue) donne bien la récompense.
+- [ ] Bannière (si le bloc est rempli dans `GameApp.AdIds`) : relancer l'appli, 1re partie sans bannière, 2e partie avec, en bas, sans toucher les pieds de Basile ; elle disparaît en pause, à la chute et sur l'écran de fin ; jamais en duel ; pas de pub imposée juste après cette partie.
 - [ ] Restaurer mes achats.
 
 Si une case ne passe pas : on ne soumet pas, on envoie une capture à Claude.

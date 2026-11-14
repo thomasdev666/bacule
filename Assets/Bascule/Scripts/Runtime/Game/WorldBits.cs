@@ -75,7 +75,9 @@ namespace Bascule
         }
 
         public static float HalfWidth(Camera cam) => cam.orthographicSize * cam.aspect;
-        public static float GroundY(Camera cam) => -cam.orthographicSize + 2.1f;
+        /// <summary>Hauteur du sol au-dessus du bas de l'écran (unités).</summary>
+        public const float GroundAboveBottom = 2.1f;
+        public static float GroundY(Camera cam) => -cam.orthographicSize + GroundAboveBottom;
         /// <summary>
         /// Bas de l'interface du haut (score, niveau, jauge, objectif), en pixels d'écran depuis le bas.
         /// Donné à chaque image par le HUD ; négatif tant qu'il n'est pas connu.

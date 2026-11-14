@@ -205,6 +205,45 @@ namespace Unity.Services.LevelPlay
         public void ShowAd(string placementName = null) { }
         public bool IsAdReady() => false;
     }
+    public class LevelPlayAdSize
+    {
+        public static LevelPlayAdSize BANNER = new LevelPlayAdSize();
+        public static LevelPlayAdSize LARGE = new LevelPlayAdSize();
+    }
+    public class LevelPlayBannerPosition
+    {
+        public static readonly LevelPlayBannerPosition BottomCenter = new LevelPlayBannerPosition();
+        public static readonly LevelPlayBannerPosition TopCenter = new LevelPlayBannerPosition();
+    }
+    // LevelPlay 9.6.0 (Runtime/Api/LevelPlayBannerAd.cs)
+    public sealed class LevelPlayBannerAd
+    {
+        public LevelPlayBannerAd(string adUnitId, Config config = null) { }
+        public event Action<LevelPlayAdInfo> OnAdLoaded { add { } remove { } }
+        public event Action<LevelPlayAdError> OnAdLoadFailed { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdClicked { add { } remove { } }
+        public event Action<LevelPlayAdInfo> OnAdDisplayed { add { } remove { } }
+        public event Action<LevelPlayAdInfo, LevelPlayAdError> OnAdDisplayFailed { add { } remove { } }
+        public void LoadAd() { }
+        public void DestroyAd() { }
+        public void ShowAd() { }
+        public void HideAd() { }
+        public void PauseAutoRefresh() { }
+        public void ResumeAutoRefresh() { }
+        public class Config
+        {
+            public class Builder
+            {
+                public Builder SetBidFloor(double bidFloor) => this;
+                public Builder SetSize(LevelPlayAdSize size) => this;
+                public Builder SetPosition(LevelPlayBannerPosition position) => this;
+                public Builder SetPlacementName(string placementName) => this;
+                public Builder SetDisplayOnLoad(bool displayOnLoad) => this;
+                public Builder SetRespectSafeArea(bool respectSafeArea) => this;
+                public Config Build() => new Config();
+            }
+        }
+    }
     public class LevelPlayInterstitialAd
     {
         public LevelPlayInterstitialAd(string adUnitId) { }

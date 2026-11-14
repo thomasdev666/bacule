@@ -24,6 +24,10 @@ namespace Bascule.Services
         /// <param name="onDone">true si la pub a été vue jusqu'au bout (récompense accordée).</param>
         void ShowRewarded(string placement, Action<bool> onDone);
         void ShowInterstitial(Action onDone);
+        /// <summary>Une bannière est chargée et peut s'afficher tout de suite (1.5).</summary>
+        bool BannerReady { get; }
+        /// <summary>Montre ou cache la bannière du bas (sans effet si la régie n'en a pas).</summary>
+        void SetBanner(bool visible);
     }
 
     public static class Placements
@@ -54,6 +58,9 @@ namespace Bascule.Services
 
         public void ShowRewarded(string placement, Action<bool> onDone) => _host.StartCoroutine(Run(RewardedSeconds, true, () => onDone?.Invoke(true)));
         public void ShowInterstitial(Action onDone) => _host.StartCoroutine(Run(InterstitialSeconds, false, onDone));
+        // Pas de fausse bannière : le monde remonte quand même (on voit la place qu'elle prendra).
+        public bool BannerReady => true;
+        public void SetBanner(bool visible) { }
 
         IEnumerator Run(float seconds, bool rewarded, Action done)
         {
@@ -80,6 +87,8 @@ namespace Bascule.Services
         public bool CanShowInterstitial => false;
         public void ShowRewarded(string placement, Action<bool> onDone) => onDone?.Invoke(false);
         public void ShowInterstitial(Action onDone) => onDone?.Invoke();
+        public bool BannerReady => false;
+        public void SetBanner(bool visible) { }
     }
 
 #if BASCULE_UNITYADS
@@ -124,6 +133,8 @@ namespace Bascule.Services
 
         public bool IsSimulated => false;
         public bool CanShowRewarded => _rewardedReady;
+        public bool BannerReady => false;
+        public void SetBanner(bool visible) { }
         public bool CanShowInterstitial => _interstitialReady;
 
         public void ShowRewarded(string placement, Action<bool> onDone)
@@ -203,9 +214,13 @@ namespace Bascule.Services
     /// </summary>
     public sealed class LevelPlayAdService : IAdService
     {
-        readonly string _rewardedId, _interstitialId;
+        readonly string _rewardedId, _interstitialId, _bannerId;
         global::Unity.Services.LevelPlay.LevelPlayRewardedAd _rewarded;
         global::Unity.Services.LevelPlay.LevelPlayInterstitialAd _interstitial;
+        global::Unity.Services.LevelPlay.LevelPlayBannerAd _banner;
+        bool _bannerLoaded, _bannerWanted, _bannerShown;
+        int _bannerRetries;
+        string _bannerState = "…";
         Action<bool> _rewardedDone;
         Action _interstitialDone;
         bool _earned, _ready;
@@ -219,12 +234,15 @@ namespace Bascule.Services
 
         /// <summary>État lisible de la régie (Réglages : toucher 7 fois la ligne de version).</summary>
         public string Diagnostic => "LevelPlay " + _init + " | Récompensée : " + (_rewarded != null && _rewarded.IsAdReady() ? "prête" : _rewardedState)
-            + " | Entre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState);
+            + " | Entre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState)
+            + " | Bannière : " + (_banner == null ? "aucune" : _bannerLoaded ? "prête" : _bannerState);
 
-        public LevelPlayAdService(string appKey, string rewardedId, string interstitialId, AdPrivacy privacy)
+        /// <param name="bannerId">Bloc « Banner » de LevelPlay ; vide ou « A_REMPLIR » : pas de bannière.</param>
+        public LevelPlayAdService(string appKey, string rewardedId, string interstitialId, AdPrivacy privacy, string bannerId = null)
         {
             _rewardedId = rewardedId;
             _interstitialId = interstitialId;
+            _bannerId = string.IsNullOrEmpty(bannerId) || bannerId == "A_REMPLIR" ? null : bannerId;
             if (GameApp.Instance != null) GameApp.Instance.StartCoroutine(Pump());
             ApplyPrivacy(privacy);
             _testSuite = PlayerPrefs.GetInt(TestSuitePref, 0) == 1;
@@ -303,6 +321,52 @@ namespace Bascule.Services
             _interstitial.OnAdDisplayFailed += (info, error) => Post(FinishInterstitial);
             _interstitial.OnAdClosed += info => Post(FinishInterstitial);
             _interstitial.LoadAd();
+
+            if (_bannerId != null)
+            {
+                // La plus petite (320 × 50), en bas, au-dessus de la barre d'accueil, cachée tant que le jeu ne la demande pas.
+                var config = new global::Unity.Services.LevelPlay.LevelPlayBannerAd.Config.Builder()
+                    .SetSize(global::Unity.Services.LevelPlay.LevelPlayAdSize.BANNER)
+                    .SetPosition(global::Unity.Services.LevelPlay.LevelPlayBannerPosition.BottomCenter)
+                    .SetDisplayOnLoad(false)
+                    .SetRespectSafeArea(true)
+                    .Build();
+                _banner = new global::Unity.Services.LevelPlay.LevelPlayBannerAd(_bannerId, config);
+                _banner.OnAdLoaded += info => Post(() => { _bannerRetries = 0; _bannerLoaded = true; _bannerState = "prête"; ApplyBanner(); });
+                _banner.OnAdLoadFailed += error => Post(() => { _bannerState = Err(error); if (!_bannerLoaded) RetryBanner(); });
+                _banner.LoadAd();
+            }
+        }
+
+        public bool BannerReady => _ready && _banner != null && _bannerLoaded;
+
+        public void SetBanner(bool visible)
+        {
+            _bannerWanted = visible;
+            ApplyBanner();
+        }
+
+        /// <summary>Cachée : plus de rafraîchissement (pas d'affichage compté sans être vu, ni de réseau pour rien).</summary>
+        void ApplyBanner()
+        {
+            if (_banner == null) return;
+            bool show = _bannerWanted && _bannerLoaded;
+            if (show == _bannerShown) return;
+            _bannerShown = show;
+            if (show) { _banner.ShowAd(); _banner.ResumeAutoRefresh(); }
+            else { _banner.HideAd(); _banner.PauseAutoRefresh(); }
+        }
+
+        void RetryBanner()
+        {
+            if (GameApp.Instance == null || _banner == null) return;
+            GameApp.Instance.StartCoroutine(ReloadBanner(Mathf.Min(120f, 15f * ++_bannerRetries)));
+        }
+
+        IEnumerator ReloadBanner(float delay)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            if (_banner != null && !_bannerLoaded) _banner.LoadAd();
         }
 
         public bool IsSimulated => false;
