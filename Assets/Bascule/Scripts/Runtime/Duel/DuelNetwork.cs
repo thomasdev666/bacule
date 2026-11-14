@@ -484,7 +484,8 @@ namespace Bascule.Duel
                 var settings = new Unity.Networking.Transport.NetworkSettings();
                 Unity.Networking.Transport.Relay.RelayParameterExtensions.WithRelayParameters(ref settings, ref relay);
                 // Le relais donne le protocole de CE joueur (WSS ou UDP/DTLS) : le pilote doit utiliser le même.
-                _driver = relay.IsWebSocket
+                // IsWebSocket est un octet dans Unity Transport 2.x (1 = WebSocket), pas un booléen.
+                _driver = relay.IsWebSocket != 0
                     ? Unity.Networking.Transport.NetworkDriver.Create(new Unity.Networking.Transport.WebSocketNetworkInterface(), settings)
                     : Unity.Networking.Transport.NetworkDriver.Create(settings);
                 _reliable = _driver.CreatePipeline(typeof(Unity.Networking.Transport.ReliableSequencedPipelineStage));

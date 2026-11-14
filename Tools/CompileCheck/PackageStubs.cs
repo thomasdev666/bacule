@@ -347,9 +347,10 @@ namespace Unity.Networking.Transport
 
 namespace Unity.Networking.Transport.Relay
 {
-    public struct RelayServerData { public NetworkEndpoint Endpoint; public bool IsWebSocket; }
-    /// <summary>État de la liaison avec le relais (Unity Transport 2.x).</summary>
-    public enum RelayConnectionStatus { NotEstablished = 0, Established, AllocationInvalid }
+    // Unity Transport 2.7.4 (Runtime/Relay/RelayServerData.cs) : IsWebSocket est un octet (0 ou 1).
+    public struct RelayServerData { public NetworkEndpoint Endpoint; public readonly byte IsWebSocket; }
+    /// <summary>État de la liaison avec le relais (Unity Transport 2.7.4).</summary>
+    public enum RelayConnectionStatus { NotEstablished = 0, Established, AllocationInvalid, NotUsingRelay }
     public static class RelayDriverExtensions
     {
         public static RelayConnectionStatus GetRelayConnectionStatus(this NetworkDriver driver) => RelayConnectionStatus.NotEstablished;
@@ -363,7 +364,8 @@ namespace Unity.Networking.Transport.Relay
 namespace Unity.Services.Multiplayer
 {
     public enum NetworkRole { Client = 0, Server = 1, Host = 2 }
-    public enum RelayProtocol : byte { Unknown = 0, Default = 1, UDP = 2, DTLS = 3, WSS = 4 }
+    // Valeurs de com.unity.services.multiplayer 2.4.1 (Unity.Services.Multiplayer.api).
+    public enum RelayProtocol : byte { Unknown = 0, UDP = 1, DTLS = 2, Default = 2, WSS = 3 }
     public class RelayNetworkOptions
     {
         public RelayNetworkOptions(RelayProtocol protocol) { }
