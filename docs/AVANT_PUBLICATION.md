@@ -38,7 +38,8 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 - [ ] En **4G des deux côtés**.
 - [ ] L'hôte envoie le code **par Snap ou Messages**, y reste 30 s, revient dans le jeu ; l'ami touche le lien : le duel part.
 - [ ] Invitation depuis la liste d'amis (l'ami la reçoit sur l'accueil).
-- [ ] Pendant la partie, tirer le Centre de contrôle 2 s puis revenir : **pas de défaite**, la partie continue.
+- [ ] Pendant le duel, ouvrir le Centre de contrôle et **lancer l'enregistrement de l'écran** (10 à 15 s en tout) : le duel continue, l'adversaire voit toujours ta partie bouger, personne ne gagne par abandon.
+- [ ] Toucher « Quitter » pendant le duel : la fenêtre « Abandonner le duel ? » (deux portraits, drapeau blanc) ; « Continuer le duel » la ferme, « Abandonner » donne la victoire à l'autre.
 - [ ] Un joueur quitte l'appli pendant le duel (plus de 10 s) : l'autre gagne, celui qui est parti voit « défaite ».
 
 **Duel classé et ligue (1.5 ; deux iPhone, le classement `bascule_ligue` créé : docs/LIGUES.md)**
@@ -53,6 +54,7 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 
 **Amis**
 - [ ] A ajoute B avec son code : B voit la fenêtre « A veut t'ajouter en ami » avec Accepter / Refuser ; après Accepter, chacun voit l'autre dans ses amis, même sans score.
+- [ ] Avant que B accepte, A voit B dans « Demandes envoyées » (avec Annuler), **pas** dans le classement Amis ; après l'acceptation, A reçoit « B a accepté ta demande d'ami ! » et B passe dans le classement.
 - [ ] B refuse : A ne reçoit rien, la demande ne revient pas chez B.
 - [ ] Toucher un joueur du classement mondial : son profil s'ouvre (tête, place, record), « Ajouter en ami » lui envoie une demande.
 
