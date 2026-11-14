@@ -106,6 +106,16 @@ namespace Bascule.Core
                     tier.values[i] = WeightCatalog.Normalize(tier.values[i]);
             }
             Array.Sort(spawn.tiers, (a, b) => a.fromDrop.CompareTo(b.fromDrop));
+            spawn.rescueChecks = Math.Max(0, Math.Min(10, spawn.rescueChecks));
+            spawn.rescueMax = Math.Max(0, Math.Min(10, spawn.rescueMax));
+            spawn.rescueFromRatio = Clamp(spawn.rescueFromRatio, 0.05f, 3f);
+            spawn.rescueReach = Clamp(spawn.rescueReach, 0.1f, 1f);
+            spawn.rescueCalmSeconds = Clamp(spawn.rescueCalmSeconds, 0f, 5f);
+            // Le 128 ne tombe jamais : il se fabrique. Un renfort reste un poids qu'on peut lâcher (64 au plus), du plus petit au plus gros.
+            if (spawn.rescueValues == null || spawn.rescueValues.Length == 0) spawn.rescueValues = new SpawnTuning().rescueValues;
+            for (int i = 0; i < spawn.rescueValues.Length; i++)
+                spawn.rescueValues[i] = Math.Min(WeightCatalog.MaxValue / 2, WeightCatalog.Normalize(spawn.rescueValues[i]));
+            Array.Sort(spawn.rescueValues);
             score.comboWindow = Clamp(score.comboWindow, 0.05f, 10f);
             score.maxComboMultiplier = Clamp(score.maxComboMultiplier, 1f, 50f);
         }
@@ -244,6 +254,20 @@ namespace Bascule.Core
         /// <summary>Délai entre le lâcher et l'apparition du poids suivant (s).</summary>
         public float dropCooldown = 0.45f;
         public SpawnTier[] tiers = DefaultTiers();
+
+        /// <summary>
+        /// Renfort après un 128 (1.5) : au moment où il s'envole, puis aux rescueChecks − 1 lâchers suivants, si la planche
+        /// reste déséquilibrée (couple sans le 128 qui s'envole / couple de défaite ≥ rescueFromRatio), le poids qui arrive
+        /// dans la main devient un gros poids (au plus rescueMax fois) pour rééquilibrer vite. 0 = pas de renfort.
+        /// </summary>
+        public int rescueChecks = 4;
+        public int rescueMax = 3;
+        public float rescueFromRatio = 0.35f;
+        /// <summary>Le renfort est le plus petit de rescueValues qui compense le déséquilibre posé à rescueReach du bout (le plus gros sinon).</summary>
+        public float rescueReach = 0.6f;
+        public int[] rescueValues = { 8, 16, 32 };
+        /// <summary>Souffle redonné à chaque renfort (s), le temps de le poser.</summary>
+        public float rescueCalmSeconds = 0f;
 
         public static SpawnTier[] DefaultTiers() => new[]
         {

@@ -238,6 +238,74 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void ReinforceReplacesTheWeightInHandAndKeepsTheSequence()
+        {
+            // Duel : après un renfort, le poids suivant et ceux d'après restent ceux de l'adversaire (même graine).
+            var a = new SpawnSequence(2024, new SpawnTuning());
+            var b = new SpawnSequence(2024, new SpawnTuning());
+            for (int i = 0; i < 60; i++) { a.Advance(); b.Advance(); }
+            int drawn = a.Current;
+            Assume.That(drawn, Is.LessThan(32));
+            Assert.IsTrue(a.Reinforce(32));
+            Assert.AreEqual(32, a.Current);
+            Assert.AreEqual(b.Next, a.Next, "le poids suivant affiché ne change pas");
+            Assert.AreEqual(b.RngState, a.RngState, "le renfort ne tire rien");
+            Assert.AreEqual(32, a.Advance());
+            Assert.AreEqual(drawn, b.Advance());
+            for (int i = 0; i < 200; i++) Assert.AreEqual(b.Advance(), a.Advance());
+        }
+
+        [Test]
+        public void ReinforceNeverShrinksNorDropsA128()
+        {
+            var s = new SpawnSequence(3, new SpawnTuning());
+            s.Restore(s.RngState, 50, 16, 2);
+            Assert.IsFalse(s.Reinforce(8), "le poids en main est déjà plus gros");
+            Assert.IsFalse(s.Reinforce(16));
+            Assert.AreEqual(16, s.Current);
+            s.Restore(s.RngState, 50, 1, 2);
+            Assert.IsFalse(s.Reinforce(128), "le 128 ne tombe jamais du ciel");
+            Assert.AreEqual(1, s.Current);
+        }
+
+        [Test]
+        public void RescueIsTheSmallestWeightThatCompensates()
+        {
+            var t = new SpawnTuning();
+            var plank = new PlankTuning();
+            float losing = new PlankModel(plank).LosingTorque;
+            float Cancels(int v) => WeightCatalog.TorqueWeight(v, plank) * t.rescueReach / losing;
+            Assert.AreEqual(0, Rescue.ValueFor(0f, losing, t, plank));
+            Assert.AreEqual(0, Rescue.ValueFor(t.rescueFromRatio - 0.01f, losing, t, plank), "presque d'aplomb : pas de renfort");
+            for (float x = t.rescueFromRatio; x < 3f; x += 0.01f)
+            {
+                int v = Rescue.ValueFor(x, losing, t, plank);
+                Assert.That(t.rescueValues, Does.Contain(v));
+                bool last = v == t.rescueValues[t.rescueValues.Length - 1];
+                Assert.IsTrue(last || Cancels(v) >= x, $"{v} doit compenser {x:0.00}");
+                foreach (int smaller in t.rescueValues)
+                    if (smaller < v) Assert.Less(Cancels(smaller), x, $"{smaller} suffisait pour {x:0.00}");
+            }
+            Assert.AreEqual(32, Rescue.ValueFor(5f, losing, t, plank), "très penché : le plus gros renfort");
+            t.rescueChecks = 0;
+            Assert.AreEqual(0, Rescue.ValueFor(5f, losing, t, plank), "rescueChecks 0 = pas de renfort");
+        }
+
+        [Test]
+        public void RescueSettingsAreSanitized()
+        {
+            var tuning = new Tuning();
+            tuning.spawn.rescueValues = new[] { 128, 5, 16 };
+            tuning.spawn.rescueChecks = -3;
+            tuning.Sanitize();
+            CollectionAssert.AreEqual(new[] { 4, 16, 64 }, tuning.spawn.rescueValues, "triés, puissances de 2, jamais de 128 qui tombe");
+            Assert.AreEqual(0, tuning.spawn.rescueChecks);
+            tuning.spawn.rescueValues = new int[0];
+            tuning.Sanitize();
+            Assert.That(tuning.spawn.rescueValues, Is.Not.Empty);
+        }
+
+        [Test]
         public void DailySeedIsStablePerDay()
         {
             Assert.AreEqual(Daily.Seed("2026-11-02"), Daily.Seed("2026-11-02"));

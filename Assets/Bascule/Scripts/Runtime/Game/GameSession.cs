@@ -144,6 +144,8 @@ namespace Bascule
         public event Action<int> Merged;
         /// <summary>Un 128 vient de s'envoler : points gagnés d'un coup (fusion + bonus), pour la grande bannière.</summary>
         public event Action<int> Ballooned;
+        /// <summary>Renfort après un 128 : le poids qui arrive dans la main vient d'être remplacé par ce gros poids.</summary>
+        public event Action<int> Reinforced;
         /// <summary>Éclair de couleur plein écran (gros combo, gros poids, 128) : intensité, couleur.</summary>
         public event Action<float, Color> ScreenFlash;
         /// <summary>Combo de N fusions enchaînées (N ≥ 2) : néon sur le contour de l'écran.</summary>
@@ -396,6 +398,7 @@ namespace Bascule
                 : new Gusts(_t.wind, seed ^ 0x5A17C3u);
             _gustsSurvived = 0; _lastWind = WindPhase.None;
             _seq = new SpawnSequence(seed, _t.spawn);
+            _rescueChecks = 0; _rescueLeft = 0;
             _score = new ScoreKeeper(_t.score);
             NewNearMiss();
             _runTime = 0;
@@ -456,6 +459,7 @@ namespace Bascule
             _wind.Reset(s.score);
             _seq = new SpawnSequence(s.seed, _t.spawn);
             _seq.Restore(s.rngState, s.dropIndex, s.current, s.next);
+            _rescueChecks = s.rescueChecks; _rescueLeft = s.rescueLeft;
             _score = new ScoreKeeper(_t.score);
             _score.Restore(s.score, s.bestChain, s.merges, s.balloons, s.maxValue, s.lostWeights);
             NewNearMiss();
@@ -487,6 +491,7 @@ namespace Bascule
                 strainTime = _plank.StrainTime, score = _score.Score, bestChain = _score.BestChain, merges = _score.Merges,
                 balloons = _score.Balloons, maxValue = _score.MaxValue, lostWeights = _score.LostWeights, bestSave = _nearMiss.BestSave, saves = _nearMiss.Saves,
                 gusts = _gustsSurvived, revived = Revived, elapsed = _runTime, goal = Goal, special = (int)Special,
+                rescueChecks = _rescueChecks, rescueLeft = _rescueLeft,
             };
             foreach (var w in _weights)
             {
@@ -848,6 +853,7 @@ namespace Bascule
             w.Body.SetVelocity(new Vector2(0, -1f));
             _weights.Add(w);
             _seq.Advance();
+            if (_rescueChecks > 0) TryRescue();
             _score.OnDrop();
             float len = Difficulty.PlankLength(_score.Score, _t.plank);
             if (Mathf.Abs(len - _plankLength) > 0.02f) SetPlankLength(len);
@@ -959,6 +965,60 @@ namespace Bascule
             return _wind.Torque(_plank.LosingTorque, _plank.Danger);
         }
 
+        int _rescueChecks, _rescueLeft;
+
+        /// <summary>
+        /// Renfort après un 128 (Core.Rescue) : selon le déséquilibre qui restera une fois le 128 parti et les poids en
+        /// l'air posés, le poids qui arrive dans la main devient un gros poids, tout de suite (avant que la planche
+        /// penche trop pour qu'il tienne). La suite tirée n'est pas décalée (équité du duel).
+        /// </summary>
+        void TryRescue()
+        {
+            _rescueChecks--;
+            // Partie déjà en train de tomber (deux 64 qui fusionnent pendant la chute) : plus de renfort.
+            if (_rescueLeft <= 0 || !IsRunning) { _rescueChecks = 0; return; }
+            float losing = Mathf.Max(0.01f, _plank.LosingTorque);
+            float imbalance = Mathf.Abs(SettledTorque()) / losing;
+            int value = Rescue.ValueFor(imbalance, losing, _t.spawn, _t.plank);
+            if (value <= 0 || !_seq.Reinforce(value)) return;
+            _rescueLeft--;
+            if (_t.spawn.rescueCalmSeconds > 0f) _plank.GiveCalm(_t.spawn.rescueCalmSeconds);
+            // Poids déjà en main : on le remplace sous les yeux du joueur (pendant l'attente, il apparaîtra tout seul).
+            if (_held != null && Current == State.Aiming)
+            {
+                Destroy(_held.gameObject);
+                _held = null;
+                SpawnHeld();
+                _held.PopIn(0.6f);
+            }
+            // « Renfort ! » juste sous le poids tenu (au-dessus, c'est le HUD), sans sortir de l'écran.
+            float below = (_held != null ? _held.Size : WeightCatalog.Size(value, _t.weights)) * 0.5f + 0.55f;
+            float edge = WorldLayout.HalfWidth(_cam) - 1.4f;
+            var at = new Vector2(Mathf.Clamp(_aimX, -edge, edge), WorldLayout.SpawnY(_cam) - below);
+            _fx.Text(at, Loc.Get("rescue_fx"), Palette.Accent, 1.1f, 1.4f);
+            _audio.Play(Sfx.Pop, value);
+            _haptics.Light();
+            Reinforced?.Invoke(value);
+        }
+
+        /// <summary>Couple à venir : poids posés et poids encore en l'air au-dessus de la planche, sans le 128 qui s'envole.</summary>
+        float SettledTorque()
+        {
+            float torque = 0;
+            var center = PlankCenter(out var along);
+            float half = _plankLength * 0.5f;
+            var normal = new Vector2(-along.y, along.x);
+            foreach (var w in _weights)
+            {
+                if (w == null || w.Merging) continue;
+                var d = w.Body.position - center;
+                float lx = Vector2.Dot(d, along), ly = Vector2.Dot(d, normal);
+                if (Mathf.Abs(lx) > half + w.Size * 0.5f || ly < -0.3f) continue; // tombé ou en train de tomber à côté
+                torque += WeightCatalog.TorqueWeight(w.Value, _t.plank) * lx / _t.plank.referenceHalfLength;
+            }
+            return torque;
+        }
+
         void ComputeTorque(float dt, out float torque, out float load)
         {
             torque = 0; load = 0;
@@ -1042,6 +1102,9 @@ namespace Bascule
                 _mascot.Cheer();
                 _audio.Play(Sfx.Lift);
                 _haptics.Medium();
+                // Renfort : si la planche reste très penchée sans le 128, de gros poids arrivent pour rééquilibrer vite.
+                _rescueChecks = _t.spawn.rescueChecks; _rescueLeft = _t.spawn.rescueMax;
+                if (_rescueChecks > 0) TryRescue();
             }
             else
             {

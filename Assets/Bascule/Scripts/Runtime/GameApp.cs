@@ -209,6 +209,7 @@ namespace Bascule
             Session.Dropped += () => _hud.OnDropped();
             Session.Merged += v => _hud.OnMerged(v);
             Session.Ballooned += pts => _hud.OnBalloon(pts);
+            Session.Reinforced += v => _hud.OnReinforced(v);
             Session.ScreenFlash += (a, c) => _hud.Flash(a, c);
             Session.WeightLost += v => _hud.OnWeightLost(v);
             Session.Combo += c => _hud.OnCombo(c);

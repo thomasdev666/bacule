@@ -57,6 +57,8 @@ namespace Bascule.Core
         public bool balloonTipShown;
         /// <summary>Nombre de parties où le conseil « deux 64 = un 128 » a été montré (jusqu'à 3, tant que le joueur n'en a pas fait).</summary>
         public int balloonTips;
+        /// <summary>Nombre de fois où le conseil du renfort après un 128 a été montré (jusqu'à 3).</summary>
+        public int rescueTips;
         /// <summary>Première rafale : on explique quoi faire (une seule fois).</summary>
         public bool windTipShown;
         /// <summary>Code ami court publié en ligne (vide tant qu'il ne l'est pas : on partage alors le code long).</summary>
@@ -274,6 +276,7 @@ namespace Bascule.Core
             fresh.tutorialDone = old.tutorialDone;
             fresh.balloonTipShown = old.balloonTipShown;
             fresh.balloonTips = old.balloonTips;
+            fresh.rescueTips = old.rescueTips;
             fresh.windTipShown = old.windTipShown;
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
@@ -590,6 +593,9 @@ namespace Bascule.Core
         public int gusts;
         public int goal;
         public int special;
+        /// <summary>Renfort après un 128 (1.5) : vérifications et renforts encore possibles.</summary>
+        public int rescueChecks;
+        public int rescueLeft;
         public List<WeightState> weights = new List<WeightState>();
     }
 

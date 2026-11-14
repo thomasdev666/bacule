@@ -4,6 +4,7 @@ namespace Bascule.Core
     /// Suite des poids à lâcher. Elle ne dépend que de la graine et du numéro du lâcher, pas du score
     /// ni de ce que fait le joueur : avec la même graine, tout le monde reçoit exactement la même suite
     /// (défi du jour, duel). La difficulté monte avec le nombre de poids lâchés (qui suit le score).
+    /// Seule exception : le renfort après un 128 (Reinforce), qui remplace un poids sans décaler la suite tirée.
     /// </summary>
     public sealed class SpawnSequence
     {
@@ -37,6 +38,19 @@ namespace Bascule.Core
             return dropped;
         }
 
+        /// <summary>
+        /// Renfort : remplace le poids qui arrive dans la main par un plus gros (après un 128, planche déséquilibrée).
+        /// Le tirage n'est pas touché : le poids suivant et ceux d'après restent ceux de la graine, la même suite que
+        /// l'adversaire en duel. Renvoie false si le poids en main est déjà assez gros.
+        /// </summary>
+        public bool Reinforce(int value)
+        {
+            value = WeightCatalog.Normalize(value);
+            if (WeightCatalog.IsMax(value) || value <= Current) return false;
+            Current = value;
+            return true;
+        }
+
         public void Restore(uint rngState, int dropIndex, int current, int next)
         {
             _rng.Restore(rngState);
@@ -66,6 +80,24 @@ namespace Bascule.Core
                 roll -= c;
             }
             return tier.values[tier.values.Length - 1];
+        }
+    }
+
+    /// <summary>Renfort après un 128 : quel gros poids donner selon le déséquilibre (voir SpawnTuning.rescue*).</summary>
+    public static class Rescue
+    {
+        /// <param name="imbalance">|couple sans le 128 qui s'envole| / couple de défaite.</param>
+        /// <param name="losingTorque">Couple de défaite (PlankModel.LosingTorque).</param>
+        /// <returns>Le plus petit renfort qui compense le déséquilibre posé à rescueReach du bout (le plus gros sinon),
+        /// 0 si la planche n'en a pas besoin.</returns>
+        public static int ValueFor(float imbalance, float losingTorque, SpawnTuning t, PlankTuning plank)
+        {
+            var values = t.rescueValues;
+            if (t.rescueChecks <= 0 || t.rescueMax <= 0 || values == null || values.Length == 0) return 0;
+            if (imbalance < t.rescueFromRatio || losingTorque <= 0f) return 0;
+            foreach (int v in values)
+                if (WeightCatalog.TorqueWeight(v, plank) * t.rescueReach / losingTorque >= imbalance) return v;
+            return values[values.Length - 1];
         }
     }
 }

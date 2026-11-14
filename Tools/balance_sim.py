@@ -144,6 +144,7 @@ class Plank:
         self.lost = False
         self.peak = 0.0
         self.sens = 1.0
+        self.calm = 0.0  # souffle après un 128 : planche plus amortie, défaite impossible (PlankModel.Calm)
 
     @property
     def losing(self):
@@ -159,19 +160,27 @@ class Plank:
     def step(self, dt, torque, load):
         limit = P["maxAngle"] + P["overshootAngle"]
         target = max(-limit * 1.5, min(limit * 1.5, P["tiltDirection"] * P["degreesPerTorque"] * self.sens * torque))
+        if self.calm > 0 and P.get("balloonGraceMaxRatio", 0) > 0:
+            # Souffle du 128 : la planche penche moins (les poids ne glissent pas), le temps de rééquilibrer.
+            cap = P["maxAngle"] * P["balloonGraceMaxRatio"]
+            target = max(-cap, min(cap, target))
         freq = P["frequency"] / math.sqrt(1 + P["loadSlowdown"] * max(0.0, load))
         w0 = 2 * math.pi * freq
         steps = max(1, math.ceil(dt / (1 / 120)))
         h = dt / steps
         for _ in range(steps):
-            acc = w0 * w0 * (target - self.angle) - 2 * P["dampingRatio"] * w0 * self.vel
+            damping = P["dampingRatio"] * (P.get("balloonGraceDamping", 1.0) if self.calm > 0 else 1.0)
+            acc = w0 * w0 * (target - self.angle) - 2 * damping * w0 * self.vel
             self.vel += acc * h
             self.angle += self.vel * h
             if self.angle > limit:
                 self.angle, self.vel = limit, min(self.vel, 0)
             if self.angle < -limit:
                 self.angle, self.vel = -limit, max(self.vel, 0)
-        if abs(self.angle) > P["maxAngle"]:
+        if self.calm > 0:
+            self.calm = max(0.0, self.calm - dt)
+            self.strain = max(0.0, self.strain - dt * 2)
+        elif abs(self.angle) > P["maxAngle"]:
             self.strain += dt
         else:
             self.strain = max(0.0, self.strain - dt * 2)
@@ -209,6 +218,9 @@ class Game:
         self.score = 0
         self.drops = 0
         self.balloons = 0
+        self.balloon_times = []
+        self.rescue_checks = self.rescue_left = self.rescues = 0
+        self.current_is_rescue = False
         self.lost_weights = 0
         self.chain = 0
         self.last_merge = -99.0
@@ -348,8 +360,40 @@ class Game:
                 self.score += round(SC["balloonBonus"] * mult)
                 if landed:
                     self.phantoms.append({"v": v, "x": self.local(pos)[0], "t": P["balloonLiftSeconds"]})
+                self.plank.calm = max(self.plank.calm, P["balloonLiftSeconds"] + P.get("balloonGraceSeconds", 0))
+                self.balloon_times.append(self.time)
+                self.rescue_checks, self.rescue_left = int(S.get("rescueChecks", 0)), int(S.get("rescueMax", 0))
+                if self.rescue_checks > 0:
+                    self.try_rescue()
             else:
                 self.spawn(v, pos, landed, (0, 0))
+
+    def try_rescue(self):
+        # Renfort après un 128 (GameSession.TryRescue, Core.Rescue) : le poids qui arrive dans la main devient un gros
+        # poids, choisi pour compenser le déséquilibre s'il est posé à rescueReach du bout.
+        self.rescue_checks -= 1
+        if self.rescue_left <= 0:
+            self.rescue_checks = 0
+            return
+        tq, half = 0.0, self.length / 2
+        for w in self.weights.values():
+            if w["merging"]:
+                continue
+            lx, ly = self.local(w["body"].position)
+            if abs(lx) > half + w["size"] / 2 or ly < -0.3:
+                continue
+            tq += eff(w["v"]) * lx / P["referenceHalfLength"]
+        need = abs(tq) / self.plank.losing
+        if need < S["rescueFromRatio"]:
+            return
+        values = sorted(S["rescueValues"])
+        v = next((x for x in values if eff(x) * S["rescueReach"] / self.plank.losing >= need), values[-1])
+        if v > self.current:
+            self.current = v
+            self.current_is_rescue = True
+            self.rescue_left -= 1
+            self.rescues += 1
+            self.plank.calm = max(self.plank.calm, S.get("rescueCalmSeconds", 0))
 
     def choose_x(self):
         half = self.length / 2
@@ -363,9 +407,14 @@ class Game:
             else:
                 x = self.think(half, noise=0.3 + 3.2 * (1 - k))
             x += self.rng.gauss(0, 0.06 + 0.7 * (1 - k))
-            lim = max(0.1, half * math.cos(math.radians(self.plank.angle)) - size(self.current) * 0.45)
-            return max(-lim, min(lim, x))
-        return self.think(half, 1.0)
+            return max(-self.aim_limit(), min(self.aim_limit(), x))
+        x = self.think(half, 1.0)
+        return max(-self.aim_limit(), min(self.aim_limit(), x))
+
+    def aim_limit(self):
+        # Comme GameSession.AimLimit : on ne vise qu'au-dessus de la planche (rebords compris), même quand elle penche.
+        lip = P["endLipWidth"] if P.get("endLipHeight", 0) > 0.01 else 0
+        return max(0.1, (self.length / 2 - lip) * math.cos(math.radians(self.plank.angle)) - size(self.current) * 0.45)
 
     def think(self, half, noise):
         # Malin : prévoit le couple (y compris les poids encore en l'air), contrebalance,
@@ -384,7 +433,8 @@ class Game:
             x = -half * 0.9 + i * (half * 1.8 / 30)
             new_tq = tq + eff(self.current) * x / P["referenceHalfLength"]
             cost = abs(new_tq) * 1.0 + abs(x) * 0.3
-            for w in self.weights.values():
+            # Un renfort se pose côté léger (le conseil du jeu le dit) : on ne cherche pas à le fusionner.
+            for w in ([] if self.current_is_rescue else self.weights.values()):
                 if w["v"] == self.current and abs(w["body"].position.x - x) < w["size"] * 0.5:
                     cost -= min(3.0, 1 + w["v"] * 0.1)
             cost += self.rng.uniform(0, noise)  # imprécision humaine
@@ -406,6 +456,9 @@ class Game:
                 self.drops += 1
                 self.chain = 0
                 self.current, self.next = self.next, self.draw()
+                self.current_is_rescue = False
+                if self.rescue_checks > 0:
+                    self.try_rescue()
                 # Temps de visée humain : un débutant hésite plus.
                 cooldown = S["dropCooldown"] + (0.6 if self.bot != "joueur" else 0.5 + 0.9 * (1 - self.skill) * self.rng.random() + 0.3)
                 until = P.get("shrinkUntilScore", 0)
@@ -464,11 +517,13 @@ def high_score_report(n, max_drops):
         alive = lambda s: sum(1 for g in games if max(g.score_trace + [g.score]) >= s) / n
         gusts = statistics.mean(g.wind.count for g in games)
         reached = [max(g.score_trace + [g.score]) for g in games]
+        lifts = [(g, t) for g in games for t in g.balloon_times]
+        soon = sum(1 for g, t in lifts if g.plank.lost and g.time - t < 12)
         rows.append((bot if bot == "malin" else f"joueur {skill}", statistics.median(reached), [alive(s) for s in (2000, 5000, 8000, 10000, 15000)], gusts,
-                     sum(1 for g in games if not g.over)))
-    print(f"\n{'bot':<12}{'méd. score':>11}  % encore en jeu à   2k    5k    8k   10k   15k   rafales/partie  non perdues")
-    for name, med, al, gu, alive_end in rows:
-        print(f"{name:<12}{med:>11.0f}  {'':>17}" + "".join(f"{a*100:>6.0f}" for a in al) + f"{gu:>16.1f}{alive_end:>12}")
+                     sum(1 for g in games if not g.over), f"{soon}/{len(lifts)}"))
+    print(f"\n{'bot':<12}{'méd. score':>11}  % encore en jeu à   2k    5k    8k   10k   15k   rafales/partie  non perdues  chute<12s après 128")
+    for name, med, al, gu, alive_end, soon in rows:
+        print(f"{name:<12}{med:>11.0f}  {'':>17}" + "".join(f"{a*100:>6.0f}" for a in al) + f"{gu:>16.1f}{alive_end:>12}{soon:>20}")
 
 
 def main():
@@ -487,6 +542,10 @@ def main():
         print(f"  poids lâchés avant la chute : médiane {statistics.median(drops):.0f}  (min {min(drops)}, max {max(drops)})")
         print(f"  score                       : médiane {statistics.median(scores):.0f}  (max {max(scores)})")
         print(f"  128 envolés (total)         : {sum(g.balloons for g in games)}")
+        lifts = [(g, t) for g in games for t in g.balloon_times]
+        if lifts:
+            soon = sum(1 for g, t in lifts if g.plank.lost and g.time - t < 12)
+            print(f"  chute < 12 s après un 128   : {soon} sur {len(lifts)}  (renforts donnés : {sum(g.rescues for g in games)})")
         print(f"  poids perdus par partie     : {statistics.mean(g.lost_weights for g in games):.1f}")
         print(f"  sauvetages de justesse >=90%: {sum(1 for g in games if g.best_save >= 0.9)} parties")
         print(f"  parties non perdues (400 poids) : {survived}")
