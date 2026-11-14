@@ -351,7 +351,8 @@ namespace Unity.Networking.Transport.Relay
     public struct RelayServerData { public NetworkEndpoint Endpoint; public readonly byte IsWebSocket; }
     /// <summary>État de la liaison avec le relais (Unity Transport 2.7.4).</summary>
     public enum RelayConnectionStatus { NotEstablished = 0, Established, AllocationInvalid, NotUsingRelay }
-    public static class RelayDriverExtensions
+    // Unity Transport 2.7.4 : Runtime/Relay/NetworkDriverRelayExtensions.cs
+    public static class NetworkDriverRelayExtensions
     {
         public static RelayConnectionStatus GetRelayConnectionStatus(this NetworkDriver driver) => RelayConnectionStatus.NotEstablished;
     }

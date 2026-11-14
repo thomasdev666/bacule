@@ -471,7 +471,7 @@ namespace Bascule.Duel
             bool _host, _started, _disposed;
             public bool Linked { get; private set; }
             public bool RelayAlive => _started && _driver.IsCreated
-                && Unity.Networking.Transport.Relay.RelayDriverExtensions.GetRelayConnectionStatus(_driver) == Unity.Networking.Transport.Relay.RelayConnectionStatus.Established;
+                && Unity.Networking.Transport.Relay.NetworkDriverRelayExtensions.GetRelayConnectionStatus(_driver) == Unity.Networking.Transport.Relay.RelayConnectionStatus.Established;
             public event Action OnLinked;
             public event Action OnLost;
             public event Action<byte[]> OnReceived;
