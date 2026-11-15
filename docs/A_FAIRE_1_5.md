@@ -20,6 +20,8 @@ robocopy "$env:USERPROFILE\Documents\bacule\Assets\Bascule\Resources" "$env:USER
 
 La 2e copie enlève du projet Unity les fichiers supprimés du dépôt (anciennes images, logo Samb'bach, ancienne musique du duel) : sans elle, ils restaient dans l'appli envoyée à Apple. Elle ne touche qu'au dossier `Resources` du jeu.
 
+**Optionnel, rappels sur le téléphone** : dans Unity, Window → Package Manager → Unity Registry → **Mobile Notifications** → Install. Le jeu a déjà tout le code (au plus un rappel par jour : cadeau du jour, roue prête, série en danger, fin de l'événement, Superstar, retour après 3 jours) ; sans ce paquet, il n'envoie aucune notification. La question « Activer les rappels ? » arrive après le premier coffre (et une fois pour les joueurs déjà installés).
+
 Dans Unity : **Bascule → Configurer le projet** (version 1.5, et nouveau réglage iOS « Behavior in Background : Custom » pour que le duel continue avec le Centre de contrôle), puis build iOS dans `Documents\bacule-ios`. Dans la console, après le build, deux lignes doivent apparaître (sinon, envoie-moi une capture) :
 - **« Bascule : le jeu continue quand le Centre de contrôle est ouvert »** ;
 - **« Bascule : SDK dynamiques ajoutés à la cible Unity-iPhone du Podfile »** (InMobi et AppLovin : sans eux, plantage au lancement).
