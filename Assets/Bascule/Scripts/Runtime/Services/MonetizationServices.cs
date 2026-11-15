@@ -43,13 +43,16 @@ namespace Bascule.Services
     {
         readonly MonoBehaviour _host;
         readonly Action<bool, float, bool> _overlay;
+        readonly Action<bool> _banner;
         public float RewardedSeconds = 2.5f, InterstitialSeconds = 1.6f;
 
         /// <param name="overlay">Affiche/masque l'écran « Publicité… » (visible, secondes restantes, récompensée ?).</param>
-        public SimulatedAdService(MonoBehaviour host, Action<bool, float, bool> overlay)
+        /// <param name="banner">Affiche/masque le cadre gris à la place de la bannière.</param>
+        public SimulatedAdService(MonoBehaviour host, Action<bool, float, bool> overlay, Action<bool> banner = null)
         {
             _host = host;
             _overlay = overlay;
+            _banner = banner;
         }
 
         public bool IsSimulated => true;
@@ -58,9 +61,9 @@ namespace Bascule.Services
 
         public void ShowRewarded(string placement, Action<bool> onDone) => _host.StartCoroutine(Run(RewardedSeconds, true, () => onDone?.Invoke(true)));
         public void ShowInterstitial(Action onDone) => _host.StartCoroutine(Run(InterstitialSeconds, false, onDone));
-        // Pas de fausse bannière : le monde remonte quand même (on voit la place qu'elle prendra).
+        // Fausse bannière : un cadre gris à sa place exacte, quand la vraie s'afficherait (le monde remonte aussi).
         public bool BannerReady => true;
-        public void SetBanner(bool visible) { }
+        public void SetBanner(bool visible) => _banner?.Invoke(visible);
 
         IEnumerator Run(float seconds, bool rewarded, Action done)
         {

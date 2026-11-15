@@ -119,6 +119,7 @@ namespace Bascule
         /// <summary>Duel en temps réel (code, vue en direct, résultat).</summary>
         public DuelController Duel { get; private set; }
         AdOverlay _adOverlay;
+        BannerPlaceholder _bannerFrame;
         Toast _toast;
         UiScreen _current;
 
@@ -289,7 +290,8 @@ namespace Bascule
 #else
             // Pubs simulées seulement dans l'éditeur et les versions de test ; une version publiée sans régie n'en montre aucune.
             if (Application.isEditor || Debug.isDebugBuild)
-                _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded));
+                _ads = new SimulatedAdService(this, (visible, remaining, rewarded) => _adOverlay.Set(visible, remaining, rewarded),
+                    visible => { if (visible) _bannerFrame.Show(); else _bannerFrame.Hide(); });
             else _ads = new NoAdService();
 #endif
         }
@@ -482,6 +484,7 @@ namespace Bascule
             _chest = Make<ChestScreen>(t, new Color(0.08f, 0.05f, 0.18f, 0.97f)); // presque opaque : le bilan derrière ne brouille pas le coffre
             _headReveal = Make<HeadRevealScreen>(t, new Color(0.08f, 0.05f, 0.18f, 1f)); // nouvelle tête en grand (code promo)
             _adOverlay = Make<AdOverlay>(t, new Color(0, 0, 0, 0.92f));
+            _bannerFrame = Make<BannerPlaceholder>(t, null);
             _toast = Make<Toast>(t, null);
         }
 

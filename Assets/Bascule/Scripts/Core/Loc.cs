@@ -74,6 +74,7 @@ namespace Bascule.Core
             ["next_head"] = new[] { "Prochaine tête à {0} points", "Next head at {0} points" },
             ["near_miss"] = new[] { "Sauvetage de justesse : {0} %", "Closest save: {0}%" },
             ["ad_playing"] = new[] { "Publicité…", "Ad playing…" },
+            ["ad_banner_simulated"] = new[] { "Bannière de pub (test Unity)", "Ad banner (Unity test)" },
             ["ad_simulated"] = new[] { "(pub de test dans Unity : les vraies s'affichent sur iPhone)", "(test ad in Unity: real ads show on the phone)" },
             ["ad_unavailable"] = new[] { "Pas de publicité disponible", "No ad available" },
             ["lb_report_btn"] = new[] { "Signaler", "Report" },

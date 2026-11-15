@@ -2603,6 +2603,24 @@ namespace Bascule.UI
         }
     }
 
+    /// <summary>
+    /// Pubs simulées (Unity, versions de développement) : cadre gris à la place exacte de la vraie bannière, en bas,
+    /// au-dessus de la barre d'accueil, pour voir dans quelles parties elle s'afficherait. Ne bloque aucun toucher.
+    /// Taille : 320 × 50 points sur un écran de 375 points de large (comme GameApp.BannerLift).
+    /// </summary>
+    public sealed class BannerPlaceholder : UiScreen
+    {
+        protected override void Build()
+        {
+            var frame = Ui.Image(Safe, null, new Color(0.13f, 0.13f, 0.16f, 0.9f), "Banniere");
+            frame.raycastTarget = false;
+            Ui.Place(frame.rectTransform, 0.5f, 0, 0, 0, 922, 144, 0.5f, 0);
+            var label = Ui.Label(frame.transform, Loc.Get("ad_banner_simulated"), Ui.MinFont, Color.white);
+            label.raycastTarget = false;
+            Ui.Place(label.rectTransform, 0.5f, 0.5f, 0, 0, 880, 120);
+        }
+    }
+
     /// <summary>Message court en bas de l'écran.</summary>
     public sealed class Toast : UiScreen
     {
