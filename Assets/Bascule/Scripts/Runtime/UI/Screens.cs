@@ -342,6 +342,9 @@ namespace Bascule.UI
         BalloonBanner _balloonBanner;
         // Le conseil « deux 64 = un 128 » a été donné pendant cette partie.
         bool _tip128Run;
+        float _lastTease = -999f;
+        /// <summary>Entre deux annonces du 64 dans une même partie (secondes).</summary>
+        const float TeaseGap = 60f;
         readonly Vector3[] _corners = new Vector3[4];
 
         NeonEdge _neon;
@@ -522,17 +525,19 @@ namespace Bascule.UI
         public void OnMerged(int value)
         {
             if (_tuto == Tuto.Merge || _tuto == Tuto.Aim) { _tuto = Tuto.Good; Say("tuto_good", 4.5f, 1); return; }
-            // Le 128 : dès le premier 64 de la partie, on dit ce qui arrive en en fusionnant deux, avec les points en jeu.
-            // Répété sur 3 parties tant que le joueur n'a jamais fait de 128 (une seule fois ne suffit pas à retenir).
+            // Un 64 : grande banderole bleue « UN 64 ! Encore un 64 = +984 points ! » avec la montgolfière du 128 (retour de
+            // Thomas : l'ancien conseil écrit passait inaperçu). Au premier 64 de chaque partie, puis au plus une fois par
+            // minute ; jamais par-dessus la banderole d'une montgolfière qui s'envole.
             var p = App.Profile;
-            if (value == 64 && !_tip128Run && p.balloonTips < 3 && p.totalBalloons == 0)
+            if (value == 64 && (!_tip128Run || Time.unscaledTime - _lastTease >= TeaseGap) && !_balloonBanner.Visible)
             {
                 _tip128Run = true;
-                p.balloonTips++;
+                _lastTease = Time.unscaledTime;
+                if (p.balloonTips < 1000) p.balloonTips++;
                 p.balloonTipShown = true;
                 var t = App.Tuning.score;
                 int worth = 128 * t.pointsPerValue + t.balloonBonus;
-                SayText(Loc.Format("tip_128", Loc.FormatScore(worth)), 6.5f, 2);
+                _balloonBanner.Tease(worth, _gust.Visible, p.settings.reducedMotion);
             }
         }
 

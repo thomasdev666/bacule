@@ -15,10 +15,11 @@ namespace Bascule.UI
     /// </summary>
     public sealed class BalloonBanner
     {
-        const float W = 1000f, H = 230f, LowY = 300f, HighY = 560f, Hold = 2.4f, Leave = 0.55f;
+        const float W = 1000f, H = 230f, LowY = 300f, HighY = 560f, Hold = 2.4f, TeaseHold = 2.6f, Leave = 0.55f;
         const int Stars = 5;
 
         readonly RectTransform _root, _ribbon, _balloon;
+        readonly Image _ribbonImg, _rimImg;
         readonly CanvasGroup _group;
         readonly Text _title, _points;
         readonly RectTransform[] _stars = new RectTransform[Stars];
@@ -27,11 +28,19 @@ namespace Bascule.UI
             new Vector2(-430, 96), new Vector2(392, 104), new Vector2(456, -64), new Vector2(-300, -100), new Vector2(150, 118),
         };
 
-        float _t = -1f, _baseY;
+        float _t = -1f, _baseY, _hold = Hold;
         bool _reduced;
 
         static readonly Color Gold = ArtCache.Hex("#FFB703");
         static readonly Color DeepGold = ArtCache.Hex("#D9480F");
+        static readonly Color Cream = ArtCache.Hex("#FFF4C2");
+        // Annonce du 64 : même banderole en bleu ciel (une promesse, pas encore un gain).
+        static readonly Color Sky = ArtCache.Hex("#3A9BFF");
+        static readonly Color DeepSky = ArtCache.Hex("#1F3FA8");
+        static readonly Color LightSky = ArtCache.Hex("#E2F3FF");
+
+        /// <summary>Une annonce est à l'écran.</summary>
+        public bool Visible => _t >= 0f;
 
         public BalloonBanner(Transform parent, ArtCache art)
         {
@@ -42,9 +51,11 @@ namespace Bascule.UI
 
             // Banderole dorée « bonbon » : bord orangé avec ombre, reflet clair sur le haut.
             var ribbonImg = Ui.Image(_root, art.Pill, Gold, "Banderole", true);
+            _ribbonImg = ribbonImg;
             _ribbon = ribbonImg.rectTransform;
             Ui.Place(_ribbon, 0.5f, 0.5f, 0, 0, W, H);
             var rim = Ui.Image(_ribbon, art.Pill, DeepGold, "Bord", true);
+            _rimImg = rim;
             Ui.Stretch(rim.rectTransform, -10, -10, -10, -10);
             rim.transform.SetAsFirstSibling();
             var shadow = rim.gameObject.AddComponent<Shadow>();
@@ -64,7 +75,7 @@ namespace Bascule.UI
 
             _title = Ui.Title(_ribbon, Loc.Get("balloon_title"), 92);
             Ui.Place(_title.rectTransform, 0.5f, 0.5f, 90, 36, 700, 110);
-            _points = Ui.Title(_ribbon, "", 62, ArtCache.Hex("#FFF4C2"));
+            _points = Ui.Title(_ribbon, "", 62, Cream);
             Ui.Place(_points.rectTransform, 0.5f, 0.5f, 90, -54, 700, 80);
 
             for (int i = 0; i < Stars; i++)
@@ -79,9 +90,24 @@ namespace Bascule.UI
         }
 
         /// <summary>Lance la bannière avec les points gagnés d'un coup. <paramref name="high"/> : une rafale occupe déjà le bas.</summary>
-        public void Show(int points, bool high, bool reducedMotion)
+        public void Show(int points, bool high, bool reducedMotion) =>
+            Play(Loc.Get("balloon_title"), Loc.Format("balloon_points", Loc.FormatScore(points)), Gold, DeepGold, Cream, Hold, high, reducedMotion);
+
+        /// <summary>
+        /// Un 64 vient de se former : la même banderole, en bleu, annonce ce que rapporte le 128 (« UN 64 ! Encore un 64 =
+        /// +984 points ! »), avec la montgolfière « 128 » qui attend à gauche.
+        /// </summary>
+        public void Tease(int worth, bool high, bool reducedMotion) =>
+            Play(Loc.Get("tease_64_title"), Loc.Format("tease_64_line", Loc.FormatScore(worth)), Sky, DeepSky, LightSky, TeaseHold, high, reducedMotion);
+
+        void Play(string title, string line, Color ribbon, Color rim, Color lineColor, float hold, bool high, bool reducedMotion)
         {
-            _points.text = Loc.Format("balloon_points", Loc.FormatScore(points));
+            _title.text = title;
+            _points.text = line;
+            _points.color = lineColor;
+            _ribbonImg.color = ribbon;
+            _rimImg.color = rim;
+            _hold = hold;
             _baseY = high ? HighY : LowY;
             _reduced = reducedMotion;
             _t = 0f;
@@ -99,12 +125,12 @@ namespace Bascule.UI
         {
             if (_t < 0f) return;
             _t += dt;
-            if (_t >= Hold + Leave) { Hide(); return; }
+            if (_t >= _hold + Leave) { Hide(); return; }
 
             // Entrée : grossit avec un rebond (easeOutBack), sortie : monte et s'efface.
             float k = Mathf.Clamp01(_t / 0.38f), c1 = 2.2f, c3 = c1 + 1f;
             float pop = _reduced ? 1f : 1f + c3 * Mathf.Pow(k - 1f, 3) + c1 * Mathf.Pow(k - 1f, 2);
-            float leave = Mathf.Clamp01((_t - Hold) / Leave);
+            float leave = Mathf.Clamp01((_t - _hold) / Leave);
             float alpha = (_reduced ? Mathf.Clamp01(_t / 0.2f) : Mathf.Clamp01(_t / 0.12f)) * (1f - leave);
             _group.alpha = alpha;
             float rise = _reduced ? 0f : leave * leave * 260f;

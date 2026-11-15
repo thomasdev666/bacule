@@ -1181,6 +1181,8 @@ namespace Bascule.UI
             Ui.Place(_rankRt, 0.5f, 0.5f, 0, -195, 980, 130);
             // Chances de chaque rareté, écrites en bas (on sait ce qu'on peut espérer).
             _odds = Ui.Label(Safe, OddsText(), 36, new Color(1f, 1f, 1f, 0.9f));
+            // Chaque rareté dans sa couleur (balises <color>) : sans ça, les balises s'affichaient en toutes lettres.
+            _odds.supportRichText = true;
             Ui.Place(_odds.rectTransform, 0.5f, 0, 0, 130, 1000, 70);
 
             // Les autres récompenses de la partie, en lignes compactes.

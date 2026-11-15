@@ -47,6 +47,9 @@ namespace Bascule.Core
             ["combo"] = new[] { "COMBO ×{0}", "COMBO ×{0}" },
             ["balloon_title"] = new[] { "MONTGOLFIÈRE !", "HOT-AIR BALLOON!" },
             ["balloon_points"] = new[] { "+{0} points d'un coup", "+{0} points at once" },
+            // Un 64 vient de se former : banderole bleue, montgolfière « 128 » à gauche (BalloonBanner.Tease).
+            ["tease_64_title"] = new[] { "UN 64 !", "A 64!" },
+            ["tease_64_line"] = new[] { "Encore un 64 = +{0} points !", "One more 64 = +{0} points!" },
             ["save"] = new[] { "OUF ! Sauvé à {0} %", "PHEW! Saved at {0}%" },
             ["lost_weight"] = new[] { "Perdu !", "Lost!" },
             ["music"] = new[] { "Musique", "Music" },
@@ -586,7 +589,6 @@ namespace Bascule.Core
             ["decor_2"] = new[] { "l'heure dorée", "golden hour" },
             ["decor_3"] = new[] { "le couchant", "sunset" },
             ["decor_4"] = new[] { "la nuit étoilée", "starry night" },
-            ["tip_128"] = new[] { "Un 64 ! Fusionne-le avec un autre 64 :\nle 128 s'envole et rapporte +{0} points", "A 64! Merge it with another 64:\nthe 128 lifts off for +{0} points" },
             ["tip_128_done"] = new[] { "Le 128 est le plus gros coup du jeu :\nrefais-en pour exploser ton record !", "The 128 is the biggest move in the game:\nmake more to smash your record!" },
 
             // Statistiques
