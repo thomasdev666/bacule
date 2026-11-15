@@ -313,8 +313,10 @@ def icon(img, name, box):
 # pour qu'il tienne ; ici on fait pareil ET on le note, pour corriger la mise en page au lieu de livrer un texte minuscule).
 def button(img, box, color, label=None, ic=None, size=60):
     """Ui.Button + ButtonLayout : icône et texte centrés ; s'ils ne tiennent pas, l'icône se resserre puis le texte rétrécit."""
-    nine(img, load("ui/button.png"), box, (64, 64, 64, 66), tint=COL.get(color, color))
-    nine(img, load("ui/gloss.png"), box, (64, 64, 64, 66))  # reflet liquide (Ui.Button)
+    # Bouton rond à icône seule : variante sans point de lumière sur l'icône (Ui.Button, iconOnly).
+    only = ic and not label
+    nine(img, load("ui/button_icon.png" if only else "ui/button.png"), box, (64, 64, 64, 66), tint=COL.get(color, color))
+    nine(img, load("ui/gloss_icon.png" if only else "ui/gloss.png"), box, (64, 64, 64, 66))  # reflet liquide (Ui.Button)
     l, t, r, b = box
     cl, ct, cr, cb = l + 18, t + 6, r - 18, b - 20
     cy = (ct + cb) / 2

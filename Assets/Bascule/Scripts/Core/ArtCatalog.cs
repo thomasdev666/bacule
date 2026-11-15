@@ -65,6 +65,8 @@ namespace Bascule.Core
             yield return new Job("ui_pill", () => UiArtist.Pill(160, 96, k));
             yield return new Job("ui_glass", () => UiArtist.Glass(160, 96, k));
             yield return new Job("ui_gloss", () => UiArtist.ButtonGloss(192, 200, k));
+            yield return new Job("ui_button_icon", () => UiArtist.Button(192, 200, k, iconOnly: true));
+            yield return new Job("ui_gloss_icon", () => UiArtist.ButtonGloss(192, 200, k, iconOnly: true));
             yield return new Job("ui_level", () => UiArtist.LevelTube(640, 96, k));
             yield return new Job("scene_" + BootPlankKey, BootPlank);
             yield return new Job("ui_chest_base", () => UiArtist.ChestBase(512));

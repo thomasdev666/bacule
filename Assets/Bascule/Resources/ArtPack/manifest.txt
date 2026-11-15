@@ -1027,6 +1027,7 @@ spark
 sweat
 ui_bubble
 ui_button
+ui_button_icon
 ui_chest_base
 ui_chest_lid
 ui_coins1
@@ -1039,6 +1040,7 @@ ui_crest2
 ui_crest3
 ui_glass
 ui_gloss
+ui_gloss_icon
 ui_level
 ui_panel
 ui_pill

@@ -29,7 +29,11 @@ namespace Bascule.Core
         /// Texture 192 × 200, 9-slice de 60 px.
         /// </summary>
         /// <param name="k">Finesse : 2 = texture deux fois plus grande (écrans haute densité), même dessin.</param>
-        public static Raster Button(int w = 192, int h = 200, float k = 1f)
+        /// <param name="iconOnly">
+        /// Bouton rond à icône seule (réglages, retour…) : trait de lumière court, gardé dans le coin, car un bouton de
+        /// 124 px n'a pas de partie étirée et le trait long y était coupé net au milieu.
+        /// </param>
+        public static Raster Button(int w = 192, int h = 200, float k = 1f, bool iconOnly = false)
         {
             w = (int)(w * k); h = (int)(h * k);
             var img = new Raster(w, h);
@@ -42,10 +46,11 @@ namespace Bascule.Core
             // Brillance en haut.
             var gloss = Shape.Intersect(face.Grow(-7f * k), Shape.HalfPlane(0, -1, -(h * 0.66f)));
             img.Fill(gloss, Rgba.White.WithAlpha(0.55f), 3f * k);
-            // Trait de lumière en haut à gauche, entièrement dans le coin gauche de l'image (les 64 px jamais étirés en
-            // 9-slice) : avant, son bout droit dépassait dans la partie étirée et s'allongeait en traînée sur les grands
-            // boutons, et faisait un petit décroché au milieu des boutons ronds.
-            img.Fill(Shape.Capsule(w * 0.17f, h - o - 26 * k, w * 0.25f, h - o - 26 * k, 7f * k), Rgba.White.WithAlpha(0.9f));
+            // Trait de lumière en haut à gauche. Sur les boutons à texte, il déborde dans la partie étirée en 9-slice et
+            // devient le long reflet du « verre liquide » (JOUER, Défi du jour…), comme avant les finitions du 15/11 (retour
+            // de Thomas : sans lui, les boutons étaient fades). Sur les boutons ronds à icône, il reste court, dans le coin.
+            if (iconOnly) img.Fill(Shape.Capsule(w * 0.17f, h - o - 26 * k, w * 0.25f, h - o - 26 * k, 7f * k), Rgba.White.WithAlpha(0.9f));
+            else img.Fill(Shape.Capsule(w * 0.24f, h - o - 26 * k, w * 0.34f, h - o - 26 * k, 7f * k), Rgba.White.WithAlpha(0.9f));
             return img;
         }
 
@@ -74,7 +79,7 @@ namespace Bascule.Core
 
         /// <summary>
         /// Verre liquide (pastilles, dock, barre de score, onglets) : verre bleu nuit translucide, liseré lumineux
-        /// (vif en haut, discret en bas) et reflet de lumière en bas.
+        /// (vif en haut, discret en bas), reflet spéculaire en haut à gauche et reflet de lumière en bas.
         /// Dessiné avec ses propres couleurs : à afficher sans teinte (blanc). 9-slice de 46 px.
         /// </summary>
         public static Raster Glass(int w = 160, int h = 96, float k = 1f)
@@ -97,7 +102,10 @@ namespace Bascule.Core
             // Liseré : un anneau fin, lumineux en haut.
             var rim = Shape.Subtract(body, body.Grow(-2.6f * k));
             img.Fill(rim, Paint.Linear(Rgba.White.WithAlpha(0.85f), 0, h, Rgba.White.WithAlpha(0.22f), 0, 0), 1.2f * k);
-            // Pas de petit trait blanc en haut à gauche : posé seul sur le verre, il se lisait comme une trace.
+            // Reflet spéculaire : un petit trait arrondi en haut à gauche, entièrement dans le bout gauche de l'image
+            // (les 46 px qui ne sont jamais étirés en 9-slice). Sinon il s'allonge en traînée sur les éléments larges.
+            float sx = 30f * k, sy = h - m - 15f * k;
+            img.Fill(Shape.Capsule(sx, sy, sx + 10f * k, sy + 3f * k, 3.2f * k), Rgba.White.WithAlpha(0.8f), 1.5f * k);
             // Reflet de lumière en bas.
             img.FillClipped(body.Grow(-4f * k), Shape.HalfPlane(0, 1, m + 12f * k), Rgba.White.WithAlpha(0.1f), 5f * k);
             return img;
@@ -105,10 +113,14 @@ namespace Bascule.Core
 
         /// <summary>
         /// Reflet « liquide » posé sur les boutons (même taille et mêmes bords que <see cref="Button"/>) : un voile
-        /// blanc bombé sur le haut, un liseré lumineux et un reflet en bas, en blanc pur (non teinté), pour que
-        /// les boutons de couleur aient l'air de verre coloré.
+        /// blanc bombé sur le haut, un liseré lumineux, un point de lumière et un reflet en bas, en blanc pur (non
+        /// teinté), pour que les boutons de couleur aient l'air de verre coloré.
         /// </summary>
-        public static Raster ButtonGloss(int w = 192, int h = 200, float k = 1f)
+        /// <param name="iconOnly">
+        /// Bouton rond à icône seule : sans le point de lumière, qui tombait sur l'icône (la tache blanche sur la roue
+        /// crantée des réglages).
+        /// </param>
+        public static Raster ButtonGloss(int w = 192, int h = 200, float k = 1f, bool iconOnly = false)
         {
             w = (int)(w * k); h = (int)(h * k);
             var img = new Raster(w, h);
@@ -120,8 +132,9 @@ namespace Bascule.Core
             // Liseré intérieur lumineux sur le haut de la face.
             var edge = Shape.Intersect(Shape.Subtract(face.Grow(-2f * k), face.Grow(-6f * k)), Shape.HalfPlane(0, -1, -(h * 0.8f)));
             img.Fill(edge, Rgba.White.WithAlpha(0.55f), 1.5f * k);
-            // Reflet de lumière en bas de la face (le verre renvoie la lumière). Plus de point blanc opaque en haut à
-            // gauche : sur les petits boutons ronds (réglages), il se lisait comme une tache.
+            // Point de lumière (pas sur les boutons ronds à icône : il tombait sur l'icône) et reflet de lumière en bas
+            // de la face (le verre renvoie la lumière).
+            if (!iconOnly) img.Fill(Shape.Circle(w * 0.22f, h - o - 30f * k, 6f * k), Rgba.White.WithAlpha(0.95f), 1.5f * k);
             var low = Shape.Intersect(face.Grow(-9f * k), Shape.Ellipse(w * 0.5f, o + d + 10f * k, w * 0.36f, 12f * k));
             img.Fill(low, Rgba.White.WithAlpha(0.22f), 5f * k);
             return img;

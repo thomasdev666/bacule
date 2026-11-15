@@ -38,6 +38,9 @@ namespace Bascule
         /// <summary>Verre liquide (à afficher en blanc) et reflet liquide des boutons.</summary>
         public Sprite Glass { get; private set; }
         public Sprite Gloss { get; private set; }
+        /// <summary>Bouton rond à icône seule : trait de lumière court et pas de point de lumière sur l'icône.</summary>
+        public Sprite ButtonIcon { get; private set; }
+        public Sprite GlossIcon { get; private set; }
         public Sprite LevelTube { get; private set; }
         public Sprite Bubble { get; private set; }
         public Sprite Vignette { get; private set; }
@@ -95,6 +98,8 @@ namespace Bascule
             Pill = Cached("ui_pill", () => UiArtist.Pill(160, 96, k), ppu, new Vector4(46, 46, 46, 46) * k);
             Glass = Cached("ui_glass", () => UiArtist.Glass(160, 96, k), ppu, new Vector4(46, 46, 46, 46) * k);
             Gloss = Cached("ui_gloss", () => UiArtist.ButtonGloss(192, 200, k), ppu, new Vector4(64, 66, 64, 64) * k);
+            ButtonIcon = Cached("ui_button_icon", () => UiArtist.Button(192, 200, k, iconOnly: true), ppu, new Vector4(64, 66, 64, 64) * k);
+            GlossIcon = Cached("ui_gloss_icon", () => UiArtist.ButtonGloss(192, 200, k, iconOnly: true), ppu, new Vector4(64, 66, 64, 64) * k);
             LevelTube = Cached("ui_level", () => UiArtist.LevelTube(640, 96, k), ppu, Vector4.zero);
             Bubble = Cached("ui_bubble", () => UiArtist.Bubble((int)(96 * k)), ppu, Vector4.zero);
             Vignette = Cached("ui_vignette", () => UiArtist.Vignette(), 100, Vector4.zero);
@@ -412,7 +417,7 @@ namespace Bascule
         /// <summary>
         /// À augmenter à chaque modification des dessins (Core/*Art*.cs) : les images en cache sont alors redessinées.
         /// </summary>
-        public const int ArtVersion = 27;
+        public const int ArtVersion = 28;
 
         static string _cacheDir;
 

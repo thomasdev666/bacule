@@ -86,6 +86,8 @@ Png.Save(UiArtist.Panel(), Path.Combine(outDir, "ui", "panel.png"));
 Png.Save(UiArtist.Pill(), Path.Combine(outDir, "ui", "pill.png"));
 Png.Save(UiArtist.Glass(), Path.Combine(outDir, "ui", "glass.png"));
 Png.Save(UiArtist.ButtonGloss(), Path.Combine(outDir, "ui", "gloss.png"));
+Png.Save(UiArtist.Button(iconOnly: true), Path.Combine(outDir, "ui", "button_icon.png"));
+Png.Save(UiArtist.ButtonGloss(iconOnly: true), Path.Combine(outDir, "ui", "gloss_icon.png"));
 Png.Save(UiArtist.Glass(160, 96, 2f), Path.Combine(outDir, "ui", "glass@2x.png"));
 Png.Save(UiArtist.ButtonGloss(192, 200, 2f), Path.Combine(outDir, "ui", "gloss@2x.png"));
 // Icône de l'application (copiée dans Assets/Bascule/Icone par la commande indiquée dans CLAUDE.md).

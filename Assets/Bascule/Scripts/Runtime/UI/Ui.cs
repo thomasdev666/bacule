@@ -175,7 +175,9 @@ namespace Bascule.UI
         /// </summary>
         public static Button Button(Transform parent, string label, Color color, Action onClick, Icon? icon = null, int fontSize = 60, string name = "Bouton")
         {
-            var img = Image(parent, Art.Button, color, name, true);
+            // Bouton rond à icône seule (réglages, retour…) : variante sans point de lumière sur l'icône.
+            bool iconOnly = string.IsNullOrEmpty(label) && icon.HasValue;
+            var img = Image(parent, iconOnly && Art.ButtonIcon != null ? Art.ButtonIcon : Art.Button, color, name, true);
             img.raycastTarget = true;
             var btn = img.gameObject.AddComponent<Button>();
             var colors = btn.colors;
@@ -191,9 +193,10 @@ namespace Bascule.UI
             img.gameObject.AddComponent<PressScale>();
 
             // Reflet liquide (blanc, non teinté) : le bouton de couleur prend l'aspect d'un verre coloré.
-            if (Art.Gloss != null)
+            var glossSprite = iconOnly && Art.GlossIcon != null ? Art.GlossIcon : Art.Gloss;
+            if (glossSprite != null)
             {
-                var gloss = Image(img.transform, Art.Gloss, Color.white, "Reflet", true);
+                var gloss = Image(img.transform, glossSprite, Color.white, "Reflet", true);
                 Stretch(gloss.rectTransform);
             }
             // Contenu au-dessus du relief (14 px de profondeur dans la texture), centré icône + texte.
