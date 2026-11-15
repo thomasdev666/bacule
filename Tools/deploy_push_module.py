@@ -36,9 +36,25 @@ CCM = os.path.join(ROOT, "Exports", MODULE + ".ccm")
 
 def run(args):
     print("> " + " ".join(args))
-    r = subprocess.run(args, cwd=ROOT)
+    try:
+        r = subprocess.run(args, cwd=ROOT)
+    except FileNotFoundError:
+        sys.exit(f"ÉCHEC : « {args[0]} » est introuvable. Installe le SDK .NET 8 (PowerShell : winget install "
+                 "Microsoft.DotNet.SDK.8), ferme et rouvre PowerShell, puis relance ce script.")
     if r.returncode != 0:
         sys.exit("ÉCHEC : " + " ".join(args))
+
+
+def check_key():
+    """Avant de construire : une vraie clé de compte de service (pas le texte d'exemple de la doc)."""
+    key_id, secret = os.environ.get("UNITY_KEY_ID", ""), os.environ.get("UNITY_KEY_SECRET", "")
+    if not key_id and not secret and os.environ.get("HTTPS_PROXY"):
+        return  # session Claude Code dans le cloud : la clé est un « network secret » ajouté par le proxy
+    looks_like_id = len(key_id) == 36 and key_id.count("-") == 4
+    if not looks_like_id or len(secret) < 16 or "COMPTE" in key_id.upper() or "COMPTE" in secret.upper():
+        sys.exit("ÉCHEC : clé du compte de service absente ou pas remplacée. Dans PowerShell, mets entre les guillemets "
+                 "le Key ID (de la forme xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) et la Secret key affichés par Unity Cloud "
+                 "à la création de la clé :\n  $env:UNITY_KEY_ID=\"...\"; $env:UNITY_KEY_SECRET=\"...\"")
 
 
 def build():
@@ -152,6 +168,8 @@ def self_test():
 
 
 if __name__ == "__main__":
+    if "--ccm" not in sys.argv[1:]:
+        check_key()
     build()
     if "--ccm" in sys.argv[1:]:
         print(f"Pour déployer avec l'outil Unity : ugs deploy {os.path.relpath(CCM, ROOT)}")
