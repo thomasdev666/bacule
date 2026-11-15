@@ -30,6 +30,7 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 **Mise à jour et lancement**
 - [ ] Installer par-dessus la version de l'App Store : le jeu **s'ouvre**, record, têtes, pièces et niveau sont **conservés**.
 - [ ] Classement → Monde : les **vrais joueurs** sont là, « Ta place » s'affiche sans rejouer.
+- [ ] Passer de Monde à Jour à Amis et revenir : chaque onglet s'affiche tout de suite (pas de « Chargement… » à chaque fois).
 - [ ] Une partie complète, puis le classement du jour.
 
 **Duel (deux iPhone, les deux avec ce build)**

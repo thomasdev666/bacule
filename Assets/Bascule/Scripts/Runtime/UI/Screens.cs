@@ -1719,6 +1719,30 @@ namespace Bascule.UI
             }
         }
 
+        /// <summary>
+        /// Dernière page chargée de chaque onglet (et ses joueurs « autour de toi ») : en changeant d'onglet, la liste
+        /// s'affiche tout de suite, puis se met à jour en arrière-plan seulement si quelque chose a changé (retour de
+        /// Thomas : un chargement à chaque passage Monde / Jour / Amis).
+        /// </summary>
+        sealed class CachedPage
+        {
+            public LeaderboardPage Page;
+            public List<LeaderboardEntry> Around;
+            public string Signature;
+        }
+
+        readonly Dictionary<string, CachedPage> _cache = new Dictionary<string, CachedPage>();
+        bool _prefetching;
+
+        /// <summary>Résumé d'une page : sert à savoir si la page fraîche est différente de celle affichée.</summary>
+        static string Signature(LeaderboardPage page)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var e in page.Entries) sb.Append(e.PlayerId).Append(':').Append(e.Rank).Append(':').Append(e.Score).Append(':').Append(e.Head).Append(':').Append(e.Name).Append('|');
+            if (page.Me != null) sb.Append("me:").Append(page.Me.Rank).Append(':').Append(page.Me.Score);
+            return sb.ToString();
+        }
+
         public override async void Refresh()
         {
             foreach (var kv in _tabs)
@@ -1729,29 +1753,34 @@ namespace Bascule.UI
             }
             var pl = Ui.ButtonLabel(_pseudo);
             if (pl != null) pl.text = string.IsNullOrEmpty(App.Profile.pseudo) ? Loc.Get("pseudo_title") : App.Profile.pseudo;
-            bool friends = _board == Friends;
+            string board = _board;
+            bool friends = board == Friends;
             _friendButtons.SetActive(friends);
-            _meBar.gameObject.SetActive(false);
             // Le code court s'affiche sur le bouton : on peut le lire à voix haute à un ami.
             var codeLabel = Ui.ButtonLabel(_myCode);
             if (codeLabel != null)
                 codeLabel.text = string.IsNullOrEmpty(App.Profile.friendCode) ? Loc.Get("friend_code_btn")
                     : Loc.Format("friend_code_short", FriendCode.FormatShort(App.Profile.friendCode));
-            Ui.Stretch(_area, 36, 350, 36, 345);
-            Ui.Clear(_list);
-            _pending.Clear();
             int request = ++_request;
 
             var service = App.Leaderboard.Service;
             if (!service.IsOnline)
             {
+                ClearList();
                 _status.text = Loc.Get(friends ? "friend_offline" : "lb_offline");
-                int best = _board == Boards.Daily ? (App.Profile.daily.bestDate == App.TodayKey ? App.Profile.daily.bestScoreToday : 0) : App.Profile.bestScore;
+                int best = board == Boards.Daily ? (App.Profile.daily.bestDate == App.TodayKey ? App.Profile.daily.bestScoreToday : 0) : App.Profile.bestScore;
                 if (best > 0 && !friends) Row(0, App.Profile.pseudo, best, App.Profile.selectedHead, true);
                 return;
             }
 
-            _status.text = Loc.Get("lb_loading");
+            // Onglet déjà vu : affiché tout de suite, sans « Chargement… ».
+            _cache.TryGetValue(board, out var cached);
+            if (cached != null) Render(cached, friends, request);
+            else
+            {
+                ClearList();
+                _status.text = Loc.Get("lb_loading");
+            }
             // Les scores pas encore envoyés partent d'abord : le classement affiché est à jour.
             await App.Leaderboard.FlushAsync(App.TodayKey);
             if (request != _request || !Visible) return;
@@ -1762,15 +1791,79 @@ namespace Bascule.UI
                 var confirmed = Friendship.ConfirmedFriends(App.Profile);
                 if (confirmed.Count == 0)
                 {
+                    _cache.Remove(Friends);
+                    ClearList();
                     bool requests = App.PendingFriends.Count > 0 || Friendship.SentRequests(App.Profile).Count > 0;
                     _status.text = requests ? "" : Loc.Get("friends_empty");
                     RequestRows();
+                    Prefetch();
                     return;
                 }
                 page = await service.GetFriendsAsync(Boards.World, confirmed);
             }
-            else page = await service.GetTopAsync(_board, PageSize);
+            else page = await service.GetTopAsync(board, PageSize);
             if (request != _request || !Visible) return;
+            if (page == null || !page.Online)
+            {
+                // Réseau raté : on garde la liste déjà affichée ; sinon, comme avant (liste vide et son message).
+                if (cached == null) Render(new CachedPage { Page = page ?? new LeaderboardPage() }, friends, request);
+                return;
+            }
+            string signature = Signature(page);
+            if (cached == null || cached.Signature != signature)
+            {
+                var fresh = new CachedPage { Page = page, Signature = signature };
+                _cache[board] = fresh;
+                Render(fresh, friends, request);
+            }
+            Prefetch();
+        }
+
+        void ClearList()
+        {
+            Ui.Stretch(_area, 36, 350, 36, 345);
+            Ui.Clear(_list);
+            _pending.Clear();
+            _meBar.gameObject.SetActive(false);
+            _around = null;
+            _more = null;
+        }
+
+        /// <summary>
+        /// Les autres onglets sont chargés en arrière-plan, une fois, pendant qu'on regarde le premier : même le premier
+        /// passage à un autre onglet est immédiat.
+        /// </summary>
+        async void Prefetch()
+        {
+            if (_prefetching) return;
+            _prefetching = true;
+            try
+            {
+                var service = App.Leaderboard.Service;
+                foreach (var board in new[] { Boards.World, Boards.Daily, Friends })
+                {
+                    if (_cache.ContainsKey(board) || !service.IsOnline || !Visible) continue;
+                    LeaderboardPage page;
+                    if (board == Friends)
+                    {
+                        var confirmed = Friendship.ConfirmedFriends(App.Profile);
+                        if (confirmed.Count == 0) continue;
+                        page = await service.GetFriendsAsync(Boards.World, confirmed);
+                    }
+                    else page = await service.GetTopAsync(board, PageSize);
+                    if (page != null && page.Online && !_cache.ContainsKey(board))
+                        _cache[board] = new CachedPage { Page = page, Signature = Signature(page) };
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Classement (préchargement) : " + e.Message); }
+            finally { _prefetching = false; }
+        }
+
+        /// <summary>Affiche une page (podium, lignes, « Voir plus », « Autour de toi », ta place) à la place de la liste.</summary>
+        void Render(CachedPage data, bool friends, int request)
+        {
+            ClearList();
+            var page = data.Page;
             // Joueurs bloqués ou signalés : masqués (le rang des autres ne change pas). Pseudos filtrés à l'affichage.
             var shown = new List<LeaderboardEntry>();
             foreach (var e in page.Entries)
@@ -1792,12 +1885,10 @@ namespace Bascule.UI
             }
             _loaded = page.Entries.Count;
             _lastRank = page.Entries.Count > 0 ? page.Entries[page.Entries.Count - 1].Rank : 0;
-            _around = null;
-            _more = null;
             // Mondial et du jour : 50 joueurs à la fois, « Voir plus » pour les suivants (jusqu'à 500).
             if (!friends && page.Entries.Count >= PageSize) AddMoreButton();
             // Plus loin que les joueurs affichés : les joueurs juste devant et juste derrière soi.
-            if (!friends && page.Me != null && page.Me.Rank > _lastRank && _lastRank > 0) AddAroundMe(request);
+            if (!friends && page.Me != null && page.Me.Rank > _lastRank && _lastRank > 0) AddAroundMe(request, data);
             // Ta place (mondial et du jour) : en bas, toujours visible, même hors des 50 premiers.
             if (!friends)
             {
@@ -1910,9 +2001,15 @@ namespace Bascule.UI
             if (page.Entries.Count >= PageSize) AddMoreButton();
         }
 
-        async void AddAroundMe(int request)
+        async void AddAroundMe(int request, CachedPage data)
         {
-            var around = await App.Leaderboard.Service.GetAroundMeAsync(_board, 3);
+            // Déjà chargés avec cette page : affichés tout de suite.
+            var around = data.Around;
+            if (around == null)
+            {
+                around = await App.Leaderboard.Service.GetAroundMeAsync(_board, 3);
+                if (data.Page.Online) data.Around = around;
+            }
             if (request != _request || !Visible || around.Count == 0) return;
             // Une colonne dans la liste : la colonne de la liste lit sa hauteur préférée (pas de ContentSizeFitter ici).
             _around = Ui.Rect("AutourDeToi", _list);

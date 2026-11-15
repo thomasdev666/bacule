@@ -9,6 +9,8 @@ Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Régl
   - quatre divisions selon la place (Légende 1-3, Élite 4-10, Challenger 11-30, Espoir), écran « Ligue » avec le classement par division, récompense du lundi (500 / 250 / 100 pièces) ;
   - personne dans la file au bout de 20 s : fantôme d'un vrai joueur (sa partie classée complète, enregistrée et publiée automatiquement), rejoué avec la même graine : mêmes poids et mêmes rafales, aux mêmes instants ;
   - **à faire une fois dans le tableau de bord Unity** : créer le classement `bascule_ligue` (hebdomadaire, archive cochée), voir `docs/LIGUES.md`.
+- **Classement plus rapide** : chaque onglet (Monde, Jour, Amis) garde sa dernière page. En revenant sur un onglet, la liste s'affiche tout de suite, puis se met à jour en arrière-plan seulement si elle a changé ; les autres onglets se chargent pendant qu'on regarde le premier (retour de Thomas : un chargement à chaque changement d'onglet).
+- **Verre liquide remis** sur les boutons et les pastilles (point de lumière, reflets), comme avant les finitions ; seuls les petits boutons ronds à icône gardent la version sans tache.
 - **Notifications : rappels et invitations au duel** (détail et étapes : `docs/NOTIFICATIONS.md`) :
   - un ami te défie alors que le jeu est fermé : « Léo te défie en duel. Viens vite ! » (iPhone). Toucher la notification ouvre le jeu sur l'invitation ;
   - seulement de la part d'amis **acceptés**, jamais entre 21 h et 8 h, 10 par jour au plus (et 5 par jour du même ami) ; pseudo filtré comme dans le classement ;
