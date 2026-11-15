@@ -709,7 +709,7 @@ namespace Bascule
             Session.StartRun(mode, seed, mode == GameMode.Daily ? TodayKey : "");
             Show(_hud);
             if (Session.Special != SpecialKind.None)
-                _toast.Reward(Icon.Star, Palette.Purple, Loc.Get("special_now"), Loc.Get("special_" + Session.Special), 0, 3.2f);
+                _toast.Reward(Icon.Star, Palette.Purple, Loc.Get("special_now"), Loc.Get("special_" + Session.Special), 0, 3.2f, swipeInGame: true);
             Stats.Event("run_start", ("mode", mode.ToString()), ("n", Profile.gamesPlayed + 1));
         }
 

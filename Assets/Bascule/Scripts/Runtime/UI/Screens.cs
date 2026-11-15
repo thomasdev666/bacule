@@ -2626,7 +2626,7 @@ namespace Bascule.UI
             _timer = 0f; // la suivante (s'il y en a une) arrive tout de suite, sinon tout se range
         }
 
-        struct Item { public bool Reward; public string Text, Detail; public Icon Icon; public Color Color; public int Coins; public float Seconds; public float? Y; }
+        struct Item { public bool Reward, SwipeInGame; public string Text, Detail; public Icon Icon; public Color Color; public int Coins; public float Seconds; public float? Y; }
         readonly Queue<Item> _queue = new Queue<Item>();
 
         protected override void Build()
@@ -2679,8 +2679,12 @@ namespace Bascule.UI
             Enqueue(new Item { Text = message, Icon = icon, Color = color, Seconds = seconds });
 
         /// <summary>Bannière de récompense (mission réussie, niveau gagné…).</summary>
-        public void Reward(Icon icon, Color color, string title, string detail, int coins, float seconds = 2.8f) =>
-            Enqueue(new Item { Reward = true, Icon = icon, Color = color, Text = title, Detail = detail, Coins = coins, Seconds = seconds });
+        /// <param name="swipeInGame">
+        /// Se chasse du doigt même pendant une partie (annonce de la partie spéciale, au lancement, avant le premier poids).
+        /// Un toucher qui commence sur elle ne lâche pas de poids (GameSession ignore ce qui commence sur l'interface).
+        /// </param>
+        public void Reward(Icon icon, Color color, string title, string detail, int coins, float seconds = 2.8f, bool swipeInGame = false) =>
+            Enqueue(new Item { Reward = true, SwipeInGame = swipeInGame, Icon = icon, Color = color, Text = title, Detail = detail, Coins = coins, Seconds = seconds });
 
         /// <summary>Bannière de récompense à une hauteur donnée (bilan de fin de partie), à la place de la file.</summary>
         public void RewardAt(float y, Icon icon, Color color, string title, string detail, int coins, float seconds = 3.2f)
@@ -2747,8 +2751,9 @@ namespace Bascule.UI
             _timer = it.Seconds;
             var pop = rt.GetComponent<PopIn>();
             if (pop != null) { pop.enabled = false; pop.enabled = true; }
-            // Pendant une partie, la bannière ne capte jamais le doigt (on vise avec) : on ne la chasse que sur les menus.
-            bool touch = !App.HudVisible;
+            // Pendant une partie, la bannière ne capte pas le doigt (on vise avec) : on ne la chasse que sur les menus, sauf
+            // l'annonce de la partie spéciale, qui arrive avant le premier poids (retour de Thomas).
+            bool touch = !App.HudVisible || it.SwipeInGame;
             _pillImg.raycastTarget = touch && !it.Reward;
             _cardImg.raycastTarget = touch && it.Reward;
             _swipe = it.Reward ? _cardSwipe : _pillSwipe;
