@@ -174,6 +174,17 @@ if check(st == 200, "Connexion anonyme (comme un joueur)", f"HTTP {st}"):
             check(deployed, "Module Cloud Code BasculePush (notifications de duel)", detail)
         else:
             print("        module BasculePush : pas encore déployé (normal tant que les notifications de duel sont éteintes)")
+        if deployed:
+            # Auto-test : envoi à un faux jeton ; Apple ne le refuse comme « mauvais jeton » que si la clé, l'équipe, l'app
+            # et la sortie de Cloud Code vers Apple sont bonnes (au plus une fois toutes les 5 minutes : sinon « wait »).
+            st, d = http(f"https://cloud-code.services.api.unity.com/v1/projects/{PROJECT}/modules/BasculePush/DuelPushCheck", "POST",
+                         {"params": {}}, H)
+            out = d.get("output", f"HTTP {st}") if st == 200 else f"HTTP {st}"
+            if out == "wait":
+                print("        liaison avec Apple : testée il y a moins de 5 minutes, relancer plus tard pour la revérifier")
+            else:
+                meaning = {"ok": "clé, équipe, app et réseau bons", "nokey": "secrets APNS_* absents ou clé .p8 illisible (docs/NOTIFICATIONS.md, étape 4)"}
+                check(out == "ok", "Notifications de duel : liaison avec Apple", out + " : " + meaning.get(out, "voir le tableau Diagnostic de docs/NOTIFICATIONS.md"))
         for k in INDEXES:
             st, _ = http(f"https://cloud-save.services.api.unity.com/v1/data/projects/{PROJECT}/players/public/query", "POST",
                          {"fields": [{"key": k, "value": "zz", "op": "EQ", "asc": True}], "returnKeys": [k], "offset": 0, "limit": 1}, H)
@@ -206,6 +217,7 @@ if not RAPIDE:
     for label, defs in [("sans paquets", ""),
                         ("UNITY_IOS", pkgs.format(ads="BASCULE_UNITYADS", os="UNITY_IOS")),
                         ("UNITY_IOS avec LevelPlay", pkgs.format(ads="BASCULE_LEVELPLAY", os="UNITY_IOS")),
+                        ("UNITY_IOS avec notifications de duel", pkgs.format(ads="BASCULE_LEVELPLAY", os="UNITY_IOS;BASCULE_PUSH")),
                         ("UNITY_ANDROID", pkgs.format(ads="BASCULE_UNITYADS", os="UNITY_ANDROID"))]:
         r = subprocess.run(["dotnet", "build", "Tools/CompileCheck", "-p:ExtraDefines=" + defs.replace(";", "%3B")], cwd=ROOT, capture_output=True, text=True)
         check(r.returncode == 0 and " error " not in r.stdout, "Compilation " + label)

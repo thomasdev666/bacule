@@ -53,15 +53,21 @@ namespace Bascule.Core.Tests
         [Test]
         public void InviteMustBeFreshAndAddressedToTheTarget()
         {
-            string at = (Now - 10).ToString();
+            long at = Now - 10;
             Assert.That(DuelPush.IsFreshInvite("T1", "CODE", at, "T1", Now));
             Assert.That(DuelPush.IsFreshInvite("T2", "CODE", at, "T1", Now), Is.False);
             Assert.That(DuelPush.IsFreshInvite("T1", "-", at, "T1", Now), Is.False);
             Assert.That(DuelPush.IsFreshInvite("T1", "", at, "T1", Now), Is.False);
-            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", "abc", "T1", Now), Is.False);
-            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", (Now - 120).ToString(), "T1", Now));
-            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", (Now - 121).ToString(), "T1", Now), Is.False);
+            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", -1, "T1", Now), Is.False, "heure inconnue");
+            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", Now - 120, "T1", Now));
+            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", Now - 121, "T1", Now), Is.False);
+            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", Now + 30, "T1", Now));
+            Assert.That(DuelPush.IsFreshInvite("T1", "CODE", Now + 31, "T1", Now), Is.False);
             Assert.That(DuelPush.IsFreshInvite(null, "CODE", at, null, Now), Is.False);
+            Assert.That(DuelPush.ParseUnix("1800000000"), Is.EqualTo(1800000000));
+            Assert.That(DuelPush.ParseUnix("abc"), Is.EqualTo(-1));
+            Assert.That(DuelPush.ParseUnix(null), Is.EqualTo(-1));
+            Assert.That(DuelPush.ParseUnix("-5"), Is.EqualTo(-1));
         }
 
         [TestCase(60, false)]     // 16 h à Paris
@@ -161,6 +167,9 @@ namespace Bascule.Core.Tests
         [TestCase("merde", "Un ami")]
         [TestCase("   ", "Un ami")]
         [TestCase("UnPseudoBeaucoupTropLongPourUneNotification", "UnPseudoBeaucoup")]
+        [TestCase("bit.ly/x", "bitlyx")]
+        [TestCase("Zoé\u202Eabc", "Zoéabc")]
+        [TestCase("ab", "Un ami")]
         public void InviterNameUsesTheLeaderboardFilter(string raw, string shown)
         {
             Assert.That(DuelPush.DisplayName(raw, "Un ami"), Is.EqualTo(shown));
@@ -174,8 +183,11 @@ namespace Bascule.Core.Tests
             try
             {
                 Loc.Language = "fr";
-                StringAssert.Contains("duel", Loc.Get("notifications").ToLowerInvariant());
-                StringAssert.Contains("duel", Loc.Get("notif_ask_body"));
+                StringAssert.Contains("duel", Loc.Get("notifications_duel").ToLowerInvariant());
+                StringAssert.Contains("duel", Loc.Get("notif_ask_body_duel"));
+                // Sans notification de duel (Android, ou interrupteur éteint) : on ne promet pas les duels.
+                StringAssert.DoesNotContain("duel", Loc.Get("notifications").ToLowerInvariant());
+                StringAssert.DoesNotContain("duel", Loc.Get("notif_ask_body"));
             }
             finally { Loc.Language = before; }
         }

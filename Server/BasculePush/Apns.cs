@@ -102,9 +102,11 @@ namespace BasculePush
         {
             string jwt = Jwt(credentials);
             var result = await PostAsync(jwt, message, cancellationToken);
-            if (result.IsBadProviderToken)
+            if (result.StatusCode == 403 && result.Reason == "ExpiredProviderToken")
             {
-                // Jeton refusé (clé changée entre-temps, ou horloge) : un neuf, une seule nouvelle tentative.
+                // Jeton trop vieux pour Apple (horloge) : un neuf, une seule nouvelle tentative. Pas pour une clé fausse
+                // (InvalidProviderToken) : en refaire un à chaque appel ferait répondre Apple « trop de jetons » (429) et
+                // cacherait la vraie cause. Une clé changée dans le Secret Manager donne de toute façon un jeton neuf.
                 lock (_lock) { if (_jwt == jwt) _jwt = null; }
                 result = await PostAsync(Jwt(credentials), message, cancellationToken);
             }

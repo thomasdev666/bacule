@@ -505,7 +505,9 @@ namespace Bascule.Core
 
             // Notifications
             ["notif_ask_title"] = new[] { "Un petit rappel ?", "A little reminder?" },
-            ["notif_ask_body"] = new[] { "Je te préviens quand ta roue ou ton cadeau sont prêts (un rappel par jour au plus), et quand un ami te défie en duel ?", "Shall I tell you when your wheel or gift is ready (one reminder a day at most), and when a friend challenges you to a duel?" },
+            ["notif_ask_body"] = new[] { "Je te préviens quand ta roue, ton cadeau ou ton coffre sont prêts ? Une fois par jour au maximum.", "Shall I tell you when your wheel, gift or chest is ready? At most once a day." },
+            // Avec les notifications de duel (iPhone, interrupteur Bascule > Notifications de duel allumé : GameApp.DuelPushAvailable).
+            ["notif_ask_body_duel"] = new[] { "Je te préviens quand ta roue ou ton cadeau sont prêts (un rappel par jour au plus), et quand un ami te défie en duel ?", "Shall I tell you when your wheel or gift is ready (one reminder a day at most), and when a friend challenges you to a duel?" },
             ["notif_yes"] = new[] { "Oui, préviens-moi", "Yes, remind me" },
             ["notif_gift_title"] = new[] { "Ton cadeau du jour est prêt !", "Your daily gift is ready!" },
             ["notif_gift_body"] = new[] { "Basile t'attend avec {0} et 3 nouvelles missions.", "Basile is waiting with {0} and 3 new missions." },
@@ -513,7 +515,8 @@ namespace Bascule.Core
             ["notif_streak_body"] = new[] { "Joue le défi du jour avant minuit pour la garder.", "Play today's challenge before midnight to keep it." },
             ["notif_comeback_title"] = new[] { "Basile s'ennuie…", "Basile is bored…" },
             ["notif_comeback_body"] = new[] { "Ta planche t'attend. Tu bats ton record de {0} ?", "Your plank is waiting. Can you beat your {0} best?" },
-            ["notifications"] = new[] { "Rappels et duels", "Reminders and duels" },
+            ["notifications"] = new[] { "Rappels", "Reminders" },
+            ["notifications_duel"] = new[] { "Rappels et duels", "Reminders and duels" },
 
             // Note sur le store
             ["update_title"] = new[] { "Nouvelle version !", "New version!" },

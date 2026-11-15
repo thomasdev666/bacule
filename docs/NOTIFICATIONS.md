@@ -1,6 +1,6 @@
 # Notifications : rappels et invitations au duel (1.5)
 
-Deux sortes de notifications, réglées par le même interrupteur du jeu (Réglages → Notifications → **« Rappels et duels »**) :
+Deux sortes de notifications, réglées par le même interrupteur du jeu (Réglages → Notifications → **« Rappels et duels »** ; il s'appelle seulement « Rappels » sur Android et dans un build sans notifications de duel) :
 
 | | Rappels | Invitation au duel |
 |---|---|---|
@@ -11,19 +11,20 @@ Deux sortes de notifications, réglées par le même interrupteur du jeu (Régla
 | Prix | gratuit | gratuit (Apple : inclus dans le compte développeur ; Cloud Code : 1 million d'appels gratuits par mois) |
 | Code | `GameApp.ScheduleNotifications` | `Core/DuelPush.cs`, `Server/BasculePush`, `GameApp.SyncPush` / `SendDuelPush` |
 
-La question « Un petit rappel ? » arrive après le premier coffre et parle des deux. Le jeu ne pose jamais la question d'iOS tout seul au lancement (`Editor/NotificationsSetup.cs`).
+La question « Un petit rappel ? » arrive après le premier coffre ; elle ne parle des duels que si le build les a (`GameApp.DuelPushAvailable` : iPhone et interrupteur allumé). Le jeu ne pose jamais la question d'iOS tout seul au lancement (`Editor/NotificationsSetup.cs`).
 
 ## Comment marche l'invitation
 
-1. **Le joueur B accepte les rappels.** Son jeu demande à iOS le jeton de notification du téléphone et le range dans **ses données privées** Cloud Save (lui seul et le serveur peuvent les lire, jamais les autres joueurs) avec la liste de **ses amis acceptés** et son **fuseau horaire** (`push_token`, `push_friends`, `push_tz`). Mis à jour tout seul quand ses amis changent ; effacé dès qu'il coupe les rappels (ou les coupe dans les Réglages de l'iPhone), et avant la suppression de son compte.
+1. **Le joueur B accepte les rappels.** Son jeu demande à iOS le jeton de notification du téléphone et le range dans **ses données privées** Cloud Save (lui seul et le serveur peuvent les lire, jamais les autres joueurs) avec la liste de **ses amis acceptés** et son **fuseau horaire** (`push_token`, `push_friends`, `push_tz`). Mis à jour tout seul quand ses amis changent (tout de suite après un retrait ou un blocage) ; effacé dès qu'il coupe les rappels dans le jeu, au retour dans le jeu s'il les a coupés dans les Réglages de l'iPhone, et avant la suppression de son compte.
 2. **Le joueur A invite B** (liste d'amis → Défier). Le jeu écrit l'invitation comme avant (données publiques `duel_to`…), puis appelle le module `BasculePush` (fonction `DuelInvite`, paramètre `targetId`).
 3. **Le module vérifie tout**, avec le jeton du serveur, avant d'envoyer quoi que ce soit :
-   - l'invitation existe vraiment, vers B, et date de moins de 2 minutes ;
-   - B a un jeton, et **A fait partie des amis acceptés par B** (une demande pas encore acceptée ou un joueur bloqué ne peut rien envoyer) ;
+   - l'invitation existe vraiment, vers B, et a été écrite il y a moins de 2 minutes (heure du serveur, pas celle du téléphone de A) ;
+   - **A fait partie des amis de B** tels que le jeu de B les a publiés (une demande pas encore acceptée ou un joueur bloqué ne peut rien envoyer), puis B a un jeton. L'amitié est vérifiée d'abord : un inconnu reçoit toujours la même réponse et n'apprend pas si B a les notifications ;
    - il n'est pas entre 21 h et 8 h chez B ;
    - A n'insiste pas : 10 s entre deux envois, 2 min avant de relancer le même ami, 5 par jour au même ami, 20 par jour en tout ;
    - B n'est pas inondé : 10 notifications de duel par jour au plus, tous amis confondus.
-4. **Envoi chez Apple** (HTTP/2, clé `.p8` lue dans le Secret Manager de Unity). Le pseudo de A passe par le même filtre que le classement (`PseudoFilter`) ; refusé, il devient « Un ami ». Si B a le jeu ouvert, rien ne s'affiche par-dessus : l'invitation apparaît déjà dans le jeu. Si B touche la notification, le jeu s'ouvre et l'invitation s'affiche (elle reste valable 5 minutes).
+   - Les deux journaux sont réécrits avec leur verrou d'écriture Cloud Save : 20 appels lancés en même temps par un client modifié ne font partir qu'une notification (testé). Seul le tout premier envoi d'un joueur, quand son journal n'existe pas encore, est vérifié en relisant après l'écriture (Cloud Save ne sait pas « créer seulement si absent »).
+4. **Envoi chez Apple** (HTTP/2, clé `.p8` lue dans le Secret Manager de Unity). Le pseudo de A passe par le même nettoyage qu'à la saisie (`PseudoFilter.Clean` : lettres, chiffres, _ et -, grossièretés refusées) ; refusé, il devient « Un ami ». Si B a le jeu ouvert, iOS n'affiche rien par-dessus : l'invitation apparaît dans le jeu sur un menu, ou à la fin de sa partie (elle reste valable 5 minutes). Si B touche la notification, le jeu s'ouvre et l'invitation s'affiche.
 
 Rien de tout ça ne bloque le duel : sans module, sans clé ou sans réseau, l'invitation marche exactement comme en 1.4 (B la voit en ouvrant le jeu).
 
@@ -76,7 +77,7 @@ $env:UNITY_KEY_ID="…"; $env:UNITY_KEY_SECRET="…"
 python Tools\deploy_push_module.py
 ```
 
-Le script lance les tests du module, le construit (`Exports/BasculePush.ccm`) et le déploie dans l'environnement production. Il doit finir par « Module BasculePush créé » (ou « mis à jour »). En cas de refus 403 : rôle manquant, ou Cloud Code pas encore activé (étape 4).
+Le script lance les tests du module, le construit (`Exports/BasculePush.ccm`), le déploie dans l'environnement production, puis fait un **auto-test** : le module envoie à Apple une notification vers un faux jeton. Apple ne répond « mauvais jeton » que si la clé, l'équipe, l'app et la liaison sont bonnes. Il doit afficher « Module BasculePush créé » (ou « mis à jour ») puis « Auto-test de la liaison avec Apple : ok ». En cas de refus 403 au déploiement : rôle manquant, ou Cloud Code pas encore activé (étape 4). Auto-test en échec : tableau Diagnostic ci-dessous.
 
 Autre possibilité, avec l'outil en ligne de commande de Unity : `python Tools\deploy_push_module.py --ccm` puis `ugs deploy Exports\BasculePush.ccm`.
 
@@ -86,7 +87,9 @@ Autre possibilité, avec l'outil en ligne de commande de Unity : `python Tools\d
 
 Unity → **Bascule → Notifications de duel (iOS) → Activer** (la fenêtre rappelle les étapes 1 à 3). Puis build iOS, copie vers `bacule-ios`, Codemagic, comme d'habitude (`docs/A_FAIRE_1_5.md`). Dans la console du build : « Notifications de duel : ACTIVÉES ».
 
-`python3 Tools/verif_publication.py ../bacule-ios` vérifie ensuite l'export (environnement de production d'Apple, inscription du téléphone, rien par-dessus le jeu ouvert) et que le module répond.
+`python3 Tools/verif_publication.py ../bacule-ios` vérifie ensuite l'export (environnement de production d'Apple, inscription du téléphone, rien par-dessus le jeu ouvert), que le module répond, et refait l'auto-test avec Apple.
+
+Tester **uniquement avec TestFlight** : l'app utilise le serveur de production d'Apple. Un build installé depuis Xcode (profil de développement) ne recevrait rien, et son jeton serait effacé au premier envoi.
 
 ### 7. Test sur deux iPhone (TestFlight)
 
@@ -105,17 +108,19 @@ Le module garde le résultat du dernier envoi dans les **données protégées de
 | Résultat | Signification | Que faire |
 |---|---|---|
 | `sent` | Apple a accepté la notification | si rien n'arrive : notifications du jeu coupées dans les Réglages de l'iPhone de B, ou mode Concentration |
-| `off` (non gardé) | B n'a pas de jeton | B doit accepter les rappels, avoir une version avec l'interrupteur allumé, puis ouvrir le jeu en ligne |
-| `notfriend` | B n'a pas (encore) accepté A comme ami | accepter la demande d'ami |
+| `off` (non gardé) | B a une liste d'amis mais pas de jeton valable | rare : B rouvre le jeu en ligne |
+| `notfriend` | A n'est pas dans les amis publiés par B : demande pas encore acceptée, ou B a coupé les rappels (son jeton et sa liste sont effacés ensemble), ou B n'a pas encore rouvert le jeu en ligne avec ce build | accepter la demande d'ami ; B accepte les rappels et ouvre le jeu |
 | `quiet` | il est entre 21 h et 8 h chez B | normal |
 | `limit` | trop d'envois (A) ou de réceptions (B) aujourd'hui | normal, ça repart au bout de 24 h |
-| `stale` | pas d'invitation récente de A vers B | ne devrait pas arriver : m'envoyer la date et l'heure |
+| `stale` | pas d'invitation de A vers B écrite il y a moins de 2 minutes | ne devrait pas arriver : m'envoyer la date et l'heure |
 | `nokey` | un des trois secrets manque ou la clé `.p8` est illisible | refaire l'étape 4 (contenu complet du fichier, secrets autorisés pour Cloud Code) |
 | `apns:403:InvalidProviderToken` | Apple refuse la clé | vérifier `APNS_KEY_ID` et `APNS_TEAM_ID` (et que la clé n'a pas été révoquée) |
 | `apns:400:TopicDisallowed` | la clé ne couvre pas l'app | clé « Team Scoped (All Topics) » de la même équipe que l'app |
 | `gone` | le jeton de B ne vaut plus rien (app supprimée…) : effacé | rien : B en republie un en rouvrant le jeu |
 | `busy` | Apple demande d'attendre | rien |
-| `error` | Cloud Save ou réseau indisponible | réessayer ; si ça dure, m'envoyer l'heure |
+| `apnsnet:…` | Cloud Code n'a pas pu joindre Apple (`HttpRequestException`, `TaskCanceledException` = délai dépassé) | réessayer ; si ça dure, m'envoyer le mot exact |
+| `error` | Cloud Save indisponible | réessayer ; si ça dure, m'envoyer l'heure |
+| `ok` / `wait` | (auto-test seulement) tout est bon / déjà testé il y a moins de 5 minutes | rien |
 
 Dans le jeu, la console Xcode affiche aussi « [Bascule] Notification de duel : … » pour tout résultat autre que `sent` ou `off`, et l'événement `duel_push` est compté dans les statistiques.
 
@@ -125,6 +130,6 @@ Unity → Bascule → Notifications de duel (iOS) → **Désactiver**, puis buil
 
 ## Confidentialité
 
-- Données ajoutées : jeton de notification (identifiant technique donné par Apple pour ce téléphone et cette app), liste des amis acceptés, fuseau horaire : privées (le joueur et le serveur seulement) ; dates des notifications des dernières 24 h et résultat du dernier envoi : protégées (écrites par le serveur seulement).
+- Données ajoutées : jeton de notification (identifiant technique donné par Apple pour ce téléphone et cette app), liste d'amis, fuseau horaire : privées (le joueur et le serveur seulement) ; journaux des notifications (dates, et pour l'invitant les amis invités, des dernières 24 h, purgés au fil des envois) et résultat du dernier envoi : protégés (écrits par le serveur seulement), effacés avec le compte.
 - Politique de confidentialité mise à jour (`docs/site/bascule/confidentialite.html`, section Notifications) : la remettre sur orpheex.fr.
 - App Store Connect → Confidentialité de l'app : ajouter **Identifiants → Identifiant de l'appareil** pour « Fonctionnalité de l'app », lié à l'utilisateur, pas de suivi (`docs/APP_STORE.md`).

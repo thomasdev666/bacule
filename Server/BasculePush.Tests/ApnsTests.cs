@@ -196,15 +196,20 @@ namespace BasculePush.Tests
         }
 
         [Test]
-        public async Task ProviderTokenRefusedTwiceStopsThere()
+        public async Task WrongKeyIsNotRetriedAndKeepsItsJwt()
         {
+            // Clé fausse : pas de nouveau jeton à chaque appel (Apple répondrait « trop de jetons » et cacherait la cause).
             var handler = new FakeHandler
             {
                 Reply = (_, __) => new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("{\"reason\":\"InvalidProviderToken\"}") },
             };
-            var result = await new ApnsSender(handler, null, null).SendAsync(Credentials(), Message(), CancellationToken.None);
+            var sender = new ApnsSender(handler, null, null);
+            var result = await sender.SendAsync(Credentials(), Message(), CancellationToken.None);
+            await sender.SendAsync(Credentials(), Message(), CancellationToken.None);
             Assert.That(result.StatusCode, Is.EqualTo(403));
-            Assert.That(handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(handler.Requests, Has.Count.EqualTo(2), "une requête par appel");
+            var auth = handler.Requests.Select(r => r.request.Headers.GetValues("authorization").Single()).ToList();
+            Assert.That(auth[1], Is.EqualTo(auth[0]));
         }
 
         [Test]

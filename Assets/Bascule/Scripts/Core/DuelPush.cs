@@ -18,6 +18,12 @@ namespace Bascule.Core
     {
         /// <summary>Module Cloud Code et fonction appelés par le jeu de l'invitant.</summary>
         public const string Module = "BasculePush", Function = "DuelInvite", TargetParam = "targetId";
+        /// <summary>
+        /// Auto-test de la liaison avec Apple (Tools/deploy_push_module.py, Tools/verif_publication.py) : envoi à un faux
+        /// jeton, au plus une fois toutes les 5 minutes pour tout le jeu. « ok » = clé, équipe, app et réseau bons.
+        /// </summary>
+        public const string CheckFunction = "DuelPushCheck";
+        public const long SelfTestGapSeconds = 300;
 
         /// <summary>
         /// Invitation, dans les données PUBLIQUES de l'invitant (écrites par son jeu : UgsLeaderboardService.SendDuelInviteAsync,
@@ -103,16 +109,21 @@ namespace Bascule.Core
         }
 
         /// <summary>
-        /// Invitation publique de l'invitant (clés duel_to, duel_code, duel_at écrites par son jeu) : adressée à ce
-        /// joueur, avec un code de duel, il y a moins de 2 minutes.
+        /// Invitation publique de l'invitant (clés duel_to et duel_code écrites par son jeu) : adressée à ce joueur, avec
+        /// un code de duel, écrite il y a moins de 2 minutes. <paramref name="invitedAtUnix"/> : heure d'écriture donnée par
+        /// le serveur (Cloud Save), pas par le téléphone de l'invitant, dont l'horloge peut être fausse ; -1 si inconnue.
         /// </summary>
-        public static bool IsFreshInvite(string duelTo, string duelCode, string duelAt, string targetId, long nowUnix)
+        public static bool IsFreshInvite(string duelTo, string duelCode, long invitedAtUnix, string targetId, long nowUnix)
         {
             if (string.IsNullOrEmpty(targetId) || duelTo != targetId) return false;
             if (string.IsNullOrWhiteSpace(duelCode) || duelCode == "-") return false;
-            if (!long.TryParse(duelAt, NumberStyles.Integer, CultureInfo.InvariantCulture, out long at)) return false;
-            return nowUnix - at <= InviteMaxAgeSeconds && at - nowUnix <= ClockSkewSeconds;
+            if (invitedAtUnix < 0) return false;
+            return nowUnix - invitedAtUnix <= InviteMaxAgeSeconds && invitedAtUnix - nowUnix <= ClockSkewSeconds;
         }
+
+        /// <summary>Heure Unix écrite en texte (« 1800000000 ») ; -1 si elle est absente ou abîmée.</summary>
+        public static long ParseUnix(string s) =>
+            long.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out long t) && t >= 0 ? t : -1;
 
         /// <summary>Décalage horaire du téléphone en minutes (« 60 » à Paris l'hiver), borné à ±14 h.</summary>
         public static int ParseTz(string s)
@@ -216,20 +227,18 @@ namespace Bascule.Core
         }
 
         /// <summary>
-        /// Pseudo de l'invitant tel qu'il apparaît dans la notification : même filtre que dans le classement
-        /// (<see cref="PseudoFilter.Display"/>), sans le suffixe « #1234 » ; <paramref name="fallback"/> s'il est refusé.
+        /// Pseudo de l'invitant tel qu'il apparaît dans la notification (écran verrouillé) : sans le suffixe « #1234 », puis
+        /// le même nettoyage qu'à la saisie du pseudo (<see cref="PseudoFilter.Clean"/> : lettres, chiffres, _ et -,
+        /// 16 caractères, grossièretés refusées). Rien d'autre ne passe : ni lien (« bit.ly/x »), ni caractère invisible
+        /// qui retourne le texte. Refusé : <paramref name="fallback"/>.
         /// </summary>
         public static string DisplayName(string raw, string fallback)
         {
             if (string.IsNullOrWhiteSpace(raw)) return fallback;
-            var sb = new StringBuilder();
-            foreach (char c in raw)
-                if (!char.IsControl(c)) sb.Append(c);
-            string s = sb.ToString().Trim();
+            string s = raw.Trim();
             int hash = s.IndexOf('#');
             if (hash > 0) s = s.Substring(0, hash).Trim();
-            if (s.Length > PseudoFilter.MaxLength) s = s.Substring(0, PseudoFilter.MaxLength).Trim();
-            return PseudoFilter.Display(s, fallback);
+            return PseudoFilter.Clean(s) ?? fallback;
         }
     }
 }

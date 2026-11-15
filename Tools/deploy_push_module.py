@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -102,7 +103,52 @@ def deploy():
                 403: "la clé n'a pas le rôle « Cloud Code Editor » sur le projet, ou Cloud Code n'est pas activé dans le tableau de bord"}
         sys.exit(f"ÉCHEC du déploiement ({status}) : {hint.get(status, text[:300])}")
     print(f"Module {MODULE} {what} dans l'environnement production.")
-    print("Vérifier ensuite (docs/NOTIFICATIONS.md, étape 6) : deux iPhone amis, l'un invite l'autre, appli fermée.")
+    self_test()
+    print("Ensuite (docs/NOTIFICATIONS.md, étapes 6 et 7) : interrupteur dans Unity, build, puis deux iPhone amis.")
+
+
+def json_call(url, method="POST", body=None, headers=None):
+    req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None)
+    for k, v in (headers or {}).items():
+        req.add_header(k, v)
+    if body is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            raw = r.read()
+            return r.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read() or b"{}")
+        except Exception:
+            return e.code, {}
+
+
+def self_test():
+    """Comme un joueur (compte anonyme temporaire, supprimé ensuite) : le module joint-il Apple avec la bonne clé ?"""
+    st, auth = json_call("https://player-auth.services.api.unity.com/v1/authentication/anonymous", body={},
+                         headers={"ProjectId": PROJECT, "UnityEnvironment": "production"})
+    if st != 200:
+        print(f"Auto-test impossible (connexion anonyme : HTTP {st}). Le relancer avec Tools/verif_publication.py.")
+        return
+    h = {"Authorization": "Bearer " + auth["idToken"], "ProjectId": PROJECT, "UnityEnvironment": "production"}
+    try:
+        # Le premier appel d'un module tout neuf peut être lent : quelques essais.
+        for attempt in range(4):
+            st, d = json_call(f"https://cloud-code.services.api.unity.com/v1/projects/{PROJECT}/modules/{MODULE}/DuelPushCheck",
+                              body={"params": {}}, headers=h)
+            if st == 200:
+                break
+            time.sleep(5)
+        out = d.get("output", "") if st == 200 else f"HTTP {st} {str(d)[:200]}"
+        meaning = {
+            "ok": "OK : clé Apple, équipe, app et réseau bons.",
+            "wait": "déjà testé il y a moins de 5 minutes : relancer Tools/verif_publication.py plus tard.",
+            "nokey": "ÉCHEC : secrets APNS_KEY / APNS_KEY_ID / APNS_TEAM_ID absents, non autorisés pour Cloud Code, ou clé .p8 incomplète (étape 4).",
+        }
+        print("Auto-test de la liaison avec Apple : " + out + " → " + meaning.get(out, "ÉCHEC : voir le tableau Diagnostic de docs/NOTIFICATIONS.md."))
+    finally:
+        json_call(f"https://player-auth.services.api.unity.com/v1/users/{auth['userId']}", "DELETE", headers=h)
 
 
 if __name__ == "__main__":

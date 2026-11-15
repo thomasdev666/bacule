@@ -26,22 +26,45 @@ namespace BasculePush
             _api = api;
         }
 
-        public async Task<Dictionary<string, string>> GetPublicAsync(string playerId, params string[] keys)
+        public async Task<Dictionary<string, StoredItem>> GetPublicAsync(string playerId, params string[] keys)
         {
-            try { return ToStrings((await _api.CloudSaveData.GetPublicItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
-            catch (ApiException e) when (IsNotFound(e)) { return new Dictionary<string, string>(); }
+            try { return ToItems((await _api.CloudSaveData.GetPublicItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
+            catch (ApiException e) when (Is(e, HttpStatusCode.NotFound)) { return new Dictionary<string, StoredItem>(); }
         }
 
-        public async Task<Dictionary<string, string>> GetDefaultAsync(string playerId, params string[] keys)
+        public async Task<Dictionary<string, StoredItem>> GetDefaultAsync(string playerId, params string[] keys)
         {
-            try { return ToStrings((await _api.CloudSaveData.GetItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
-            catch (ApiException e) when (IsNotFound(e)) { return new Dictionary<string, string>(); }
+            try { return ToItems((await _api.CloudSaveData.GetItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
+            catch (ApiException e) when (Is(e, HttpStatusCode.NotFound)) { return new Dictionary<string, StoredItem>(); }
         }
 
-        public async Task<Dictionary<string, string>> GetProtectedAsync(string playerId, params string[] keys)
+        public async Task<Dictionary<string, StoredItem>> GetProtectedAsync(string playerId, params string[] keys)
         {
-            try { return ToStrings((await _api.CloudSaveData.GetProtectedItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
-            catch (ApiException e) when (IsNotFound(e)) { return new Dictionary<string, string>(); }
+            try { return ToItems((await _api.CloudSaveData.GetProtectedItemsAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, keys.ToList())).Data); }
+            catch (ApiException e) when (Is(e, HttpStatusCode.NotFound)) { return new Dictionary<string, StoredItem>(); }
+        }
+
+        public async Task<bool> TrySetProtectedAsync(string playerId, string key, string value, string writeLock)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(writeLock))
+                {
+                    // Avec le verrou lu : Cloud Save refuse (409) si la valeur a changé depuis la lecture.
+                    await _api.CloudSaveData.SetProtectedItemAsync(_context, _context.ServiceToken, _context.ProjectId, playerId,
+                        new SetItemBody(key, value ?? "", writeLock));
+                    return true;
+                }
+                // Valeur encore absente : Cloud Save n'a pas de « créer seulement si absent ». On écrit, puis on relit : si
+                // le verrou relu n'est plus celui de notre écriture, un autre appel a écrit juste après et c'est lui qui
+                // compte. Ne concerne que le tout premier envoi d'un joueur (ensuite, le verrou ci-dessus est strict).
+                var written = await _api.CloudSaveData.SetProtectedItemAsync(_context, _context.ServiceToken, _context.ProjectId, playerId,
+                    new SetItemBody(key, value ?? "", null));
+                string mine = written?.Data?.WriteLock;
+                var now = await GetProtectedAsync(playerId, key);
+                return !string.IsNullOrEmpty(mine) && now.TryGetValue(key, out var item) && item.WriteLock == mine;
+            }
+            catch (ApiException e) when (Is(e, HttpStatusCode.Conflict)) { return false; }
         }
 
         public Task SetProtectedAsync(string playerId, IDictionary<string, string> values) =>
@@ -50,21 +73,42 @@ namespace BasculePush
         public Task SetDefaultAsync(string playerId, IDictionary<string, string> values) =>
             _api.CloudSaveData.SetItemBatchAsync(_context, _context.ServiceToken, _context.ProjectId, playerId, Batch(values));
 
-        static SetItemBatchBody Batch(IDictionary<string, string> values) =>
-            new SetItemBatchBody(values.Select(kv => new SetItemBody(kv.Key, kv.Value ?? "")).ToList());
+        public async Task<StoredItem> GetCustomAsync(string customId, string key)
+        {
+            try
+            {
+                var items = ToItems((await _api.CloudSaveData.GetCustomItemsAsync(_context, _context.ServiceToken, _context.ProjectId, customId, new List<string> { key })).Data);
+                return items.TryGetValue(key, out var item) ? item : null;
+            }
+            catch (ApiException e) when (Is(e, HttpStatusCode.NotFound)) { return null; }
+        }
 
-        /// <summary>Joueur sans aucune donnée (ou compte supprimé) : comme des données vides.</summary>
-        static bool IsNotFound(ApiException e) => e.Response != null && e.Response.StatusCode == HttpStatusCode.NotFound;
+        public Task SetCustomAsync(string customId, string key, string value) =>
+            _api.CloudSaveData.SetCustomItemAsync(_context, _context.ServiceToken, _context.ProjectId, customId, new SetItemBody(key, value ?? "", null));
+
+        static SetItemBatchBody Batch(IDictionary<string, string> values) =>
+            new SetItemBatchBody(values.Select(kv => new SetItemBody(kv.Key, kv.Value ?? "", null)).ToList());
+
+        /// <summary>404 : joueur sans aucune donnée (ou compte supprimé), comme des données vides. 409 : verrou d'écriture périmé.</summary>
+        static bool Is(ApiException e, HttpStatusCode code) => e.Response != null && e.Response.StatusCode == code;
 
         /// <summary>Valeurs en texte : le jeu n'écrit que du texte, mais un nombre ou un objet ne fait pas planter.</summary>
-        internal static Dictionary<string, string> ToStrings(GetItemsResponse data)
+        internal static Dictionary<string, StoredItem> ToItems(GetItemsResponse data)
         {
-            var result = new Dictionary<string, string>();
+            var result = new Dictionary<string, StoredItem>();
             if (data?.Results == null) return result;
             foreach (var item in data.Results)
             {
                 if (item?.Key == null || item.Value == null) continue;
-                result[item.Key] = item.Value is string s ? s : Convert.ToString(item.Value, CultureInfo.InvariantCulture);
+                DateTime? modified = item.Modified?.Date;
+                result[item.Key] = new StoredItem
+                {
+                    Value = item.Value is string s ? s : Convert.ToString(item.Value, CultureInfo.InvariantCulture),
+                    WriteLock = item.WriteLock,
+                    Modified = modified.HasValue
+                        ? new DateTimeOffset(DateTime.SpecifyKind(modified.Value.Kind == DateTimeKind.Local ? modified.Value.ToUniversalTime() : modified.Value, DateTimeKind.Utc))
+                        : (DateTimeOffset?)null,
+                };
             }
             return result;
         }

@@ -2099,7 +2099,7 @@ namespace Bascule.UI
             if (App.NotificationsSupported)
             {
                 var notif = Section(Loc.Get("sec_notif"), 1);
-                SwitchRow(notif, 0, Icon.Bell, Palette.Accent, Loc.Get("notifications"), s.notifications, v => App.SetNotifications(v));
+                SwitchRow(notif, 0, Icon.Bell, Palette.Accent, Loc.Get(App.DuelPushAvailable ? "notifications_duel" : "notifications"), s.notifications, v => App.SetNotifications(v));
             }
 
             bool removeAds = !App.Profile.adsRemoved;

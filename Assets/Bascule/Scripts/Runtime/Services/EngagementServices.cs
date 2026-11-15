@@ -42,6 +42,13 @@ namespace Bascule.Services
     {
         const string Channel = "bascule_rappels";
         readonly MonoBehaviour _host;
+#if UNITY_IOS
+        /// <summary>
+        /// Le joueur vient de dire oui dans cette session. Les réglages relus par GetNotificationSettings sont mis à jour par
+        /// iOS un peu après la réponse : juste après le premier « Oui », ils disent encore « pas décidé ».
+        /// </summary>
+        bool _grantedNow;
+#endif
 
         public MobileNotificationService(MonoBehaviour host)
         {
@@ -66,6 +73,7 @@ namespace Bascule.Services
             using (var req = new Unity.Notifications.iOS.AuthorizationRequest(Unity.Notifications.iOS.AuthorizationOption.Alert | Unity.Notifications.iOS.AuthorizationOption.Badge | Unity.Notifications.iOS.AuthorizationOption.Sound, false))
             {
                 while (!req.IsFinished) yield return null;
+                _grantedNow |= req.Granted;
                 onDone?.Invoke(req.Granted);
             }
 #endif
@@ -76,21 +84,26 @@ namespace Bascule.Services
         System.Collections.IEnumerator PushToken(Action<string> onToken)
         {
 #if UNITY_IOS
-            // Seulement si le joueur a déjà dit oui : sinon iOS ouvrirait sa fenêtre au mauvais moment.
+            // Jamais tant que la question n'a pas été posée : iOS ouvrirait sa fenêtre au mauvais moment. « Pas décidé » peut
+            // aussi venir du cache du paquet, pas encore rempli juste après le lancement : réponse inconnue, rien ne change.
             var status = Unity.Notifications.iOS.iOSNotificationCenter.GetNotificationSettings().AuthorizationStatus;
-            if (status != Unity.Notifications.iOS.AuthorizationStatus.Authorized && status != Unity.Notifications.iOS.AuthorizationStatus.Provisional
-                && status != Unity.Notifications.iOS.AuthorizationStatus.Ephemeral)
+            if (status == Unity.Notifications.iOS.AuthorizationStatus.NotDetermined && !_grantedNow)
             {
-                onToken?.Invoke("");
+                onToken?.Invoke(null);
                 yield break;
             }
-            // Déjà autorisé : pas de fenêtre, iOS inscrit le téléphone chez Apple et rend le jeton (vide si l'app n'a pas
-            // la capacité Push : Bascule > Notifications de duel, dans Unity).
+            // Question déjà posée : pas de fenêtre. iOS donne la vraie réponse (le cache peut avoir un temps de retard) et,
+            // si c'est oui, inscrit le téléphone chez Apple et rend le jeton (vide si l'app n'a pas la capacité Push :
+            // Bascule > Notifications de duel, dans Unity).
             using (var req = new Unity.Notifications.iOS.AuthorizationRequest(Unity.Notifications.iOS.AuthorizationOption.Alert | Unity.Notifications.iOS.AuthorizationOption.Badge | Unity.Notifications.iOS.AuthorizationOption.Sound, true))
             {
                 float until = Time.realtimeSinceStartup + 20f;
                 while (!req.IsFinished && Time.realtimeSinceStartup < until) yield return null;
-                onToken?.Invoke(!req.IsFinished ? null : req.Granted ? (req.DeviceToken ?? "") : "");
+                // Refusé : vide (le jeton en ligne sera effacé). Accordé sans jeton (pas de capacité Push, ou inscription chez
+                // Apple ratée, que le paquet garde en mémoire jusqu'au prochain lancement) : inconnu, on ne touche à rien.
+                if (!req.IsFinished) onToken?.Invoke(null);
+                else if (!req.Granted) onToken?.Invoke("");
+                else onToken?.Invoke(string.IsNullOrEmpty(req.DeviceToken) ? null : req.DeviceToken);
             }
 #else
             // Android : pas de notification de duel (il faudrait Firebase) ; les rappels locaux marchent.

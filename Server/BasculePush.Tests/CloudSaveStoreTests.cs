@@ -40,11 +40,13 @@ namespace BasculePush.Tests
         [Test]
         public async Task PublicDataOfTheInviter()
         {
-            var (store, calls) = Make(new List<Item> { Helpers.Item(DuelPush.DuelToKey, "Target2"), Helpers.Item(DuelPush.DuelAtKey, 1800000000L) });
+            var written = new DateTime(2027, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+            var (store, calls) = Make(new List<Item> { Helpers.Item(DuelPush.DuelToKey, "Target2", written), Helpers.Item(DuelPush.DuelAtKey, 1800000000L) });
             var data = await store.GetPublicAsync("Inviter1", DuelPush.DuelToKey, DuelPush.DuelAtKey);
             AssertRead(calls, "GetPublicItemsAsync", "Inviter1", DuelPush.DuelToKey, DuelPush.DuelAtKey);
-            Assert.That(data[DuelPush.DuelToKey], Is.EqualTo("Target2"));
-            Assert.That(data[DuelPush.DuelAtKey], Is.EqualTo("1800000000"), "un nombre est relu en texte");
+            Assert.That(data[DuelPush.DuelToKey].Value, Is.EqualTo("Target2"));
+            Assert.That(data[DuelPush.DuelToKey].Modified, Is.EqualTo(new DateTimeOffset(written)), "heure d'écriture du serveur");
+            Assert.That(data[DuelPush.DuelAtKey].Value, Is.EqualTo("1800000000"), "un nombre est relu en texte");
         }
 
         [Test]
@@ -53,7 +55,54 @@ namespace BasculePush.Tests
             var (store, calls) = Make(new List<Item> { Helpers.Item(DuelPush.TokenKey, "abc") });
             var data = await store.GetDefaultAsync("Target2", DuelPush.TokenKey);
             AssertRead(calls, "GetItemsAsync", "Target2", DuelPush.TokenKey);
-            Assert.That(data[DuelPush.TokenKey], Is.EqualTo("abc"));
+            Assert.That(data[DuelPush.TokenKey].Value, Is.EqualTo("abc"));
+            Assert.That(data[DuelPush.TokenKey].WriteLock, Is.EqualTo("verrou-" + DuelPush.TokenKey));
+        }
+
+        [Test]
+        public async Task LogsAreRewrittenWithTheirWriteLock()
+        {
+            var (store, calls) = Make();
+            Assert.That(await store.TrySetProtectedAsync("Inviter1", DuelPush.SentLogKey, "1:Target2", "verrou-lu"));
+            var (name, args) = calls.Single();
+            Assert.That(name, Is.EqualTo("SetProtectedItemAsync"));
+            Assert.That(args[1], Is.EqualTo("jeton-service"));
+            var body = (SetItemBody)args[4];
+            Assert.That(body.Key, Is.EqualTo(DuelPush.SentLogKey));
+            Assert.That(body.Value, Is.EqualTo("1:Target2"));
+            Assert.That(body.WriteLock, Is.EqualTo("verrou-lu"));
+        }
+
+        [Test]
+        public async Task FirstWriteIsCheckedByReadingBack()
+        {
+            // Valeur encore absente : écrite sans verrou, puis relue ; gagnée seulement si le verrou relu est le nôtre.
+            var (store, calls) = Make(new List<Item> { Helpers.Item(DuelPush.SentLogKey, "x", writeLock: "nouveau-verrou") });
+            Assert.That(await store.TrySetProtectedAsync("Inviter1", DuelPush.SentLogKey, "x", null));
+            Assert.That(calls.Select(c => c.method), Is.EqualTo(new[] { "SetProtectedItemAsync", "GetProtectedItemsAsync" }));
+            Assert.That(((SetItemBody)calls[0].args[4]).WriteLock, Is.Null);
+            var (other, _) = Make(new List<Item> { Helpers.Item(DuelPush.SentLogKey, "y", writeLock: "verrou-d-un-autre") });
+            Assert.That(await other.TrySetProtectedAsync("Inviter1", DuelPush.SentLogKey, "x", null), Is.False);
+        }
+
+        [Test]
+        public async Task ChangedMeanwhileIsReportedNotThrown()
+        {
+            var (store, _) = Make(error: Helpers.Conflict());
+            Assert.That(await store.TrySetProtectedAsync("Inviter1", DuelPush.SentLogKey, "x", "vieux"), Is.False);
+        }
+
+        [Test]
+        public async Task GameDataForTheSelfTest()
+        {
+            var (store, calls) = Make(new List<Item> { Helpers.Item("selftest_at", "1800000000") });
+            var item = await store.GetCustomAsync("bascule_push", "selftest_at");
+            await store.SetCustomAsync("bascule_push", "selftest_at", "1800000300");
+            Assert.That(item.Value, Is.EqualTo("1800000000"));
+            Assert.That(calls.Select(c => c.method), Is.EqualTo(new[] { "GetCustomItemsAsync", "SetCustomItemAsync" }));
+            Assert.That(calls[0].args[3], Is.EqualTo("bascule_push"));
+            Assert.That(calls[1].args[1], Is.EqualTo("jeton-service"));
+            Assert.That(((SetItemBody)calls[1].args[4]).Value, Is.EqualTo("1800000300"));
         }
 
         [Test]
@@ -89,6 +138,7 @@ namespace BasculePush.Tests
             Assert.That(await store.GetDefaultAsync("Target2", DuelPush.TokenKey), Is.Empty);
             Assert.That(await store.GetPublicAsync("Target2", DuelPush.DuelToKey), Is.Empty);
             Assert.That(await store.GetProtectedAsync("Target2", DuelPush.ReceivedLogKey), Is.Empty);
+            Assert.That(await store.GetCustomAsync("bascule_push", "selftest_at"), Is.Null);
         }
 
         [Test]
@@ -120,9 +170,17 @@ namespace BasculePush.Tests
     public class ModuleShapeTests
     {
         [Test]
+        public void SelfTestIsExposedWithoutParameters()
+        {
+            var method = typeof(DuelPushModule).GetMethods().Single(m => m.GetCustomAttribute<CloudCodeFunctionAttribute>()?.Name == DuelPush.CheckFunction);
+            Assert.That(method.ReturnType, Is.EqualTo(typeof(Task<string>)));
+            Assert.That(method.GetParameters().Where(p => p.ParameterType == typeof(string)), Is.Empty);
+        }
+
+        [Test]
         public void FunctionIsExposedUnderTheNameTheGameCalls()
         {
-            var method = typeof(DuelPushModule).GetMethods().Single(m => m.GetCustomAttribute<CloudCodeFunctionAttribute>() != null);
+            var method = typeof(DuelPushModule).GetMethods().Single(m => m.GetCustomAttribute<CloudCodeFunctionAttribute>()?.Name == DuelPush.Function);
             Assert.That(method.GetCustomAttribute<CloudCodeFunctionAttribute>().Name, Is.EqualTo(DuelPush.Function));
             Assert.That(method.ReturnType, Is.EqualTo(typeof(Task<string>)));
             // Le seul paramètre qui vient du jeu ({"params":{"targetId":…}}) ; les autres sont donnés par Cloud Code.

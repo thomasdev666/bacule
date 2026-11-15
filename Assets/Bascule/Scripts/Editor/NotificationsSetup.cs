@@ -75,7 +75,7 @@ namespace Bascule.EditorTools
             if (!EditorUtility.DisplayDialog("Notifications de duel",
                 "À activer seulement une fois fait chez Apple (docs/NOTIFICATIONS.md, étapes 1 à 3) :\n\n" +
                 "• « Push Notifications » coché sur l'identifiant fr.orpheex.bascule ;\n" +
-                "• l'ancien profil App Store de l'app supprimé (Codemagic en refait un avec Push) ;\n" +
+                "• le profil App Store refait chez Apple (Edit, Save) et récupéré dans Codemagic (Fetch profiles) ;\n" +
                 "• la clé .p8 rangée dans le Secret Manager de Unity.\n\n" +
                 "Sinon Codemagic ne pourra pas signer le prochain build.",
                 "C'est fait, activer", "Annuler"))

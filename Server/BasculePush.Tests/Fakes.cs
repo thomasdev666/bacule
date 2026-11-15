@@ -15,38 +15,95 @@ using Unity.Services.CloudSave.Model;
 
 namespace BasculePush.Tests
 {
-    /// <summary>Cloud Save en mémoire : (accès, joueur, clé) → valeur.</summary>
+    /// <summary>
+    /// Cloud Save en mémoire : (accès, joueur, clé) → valeur, avec un verrou d'écriture qui change à chaque écriture (comme
+    /// le vrai). Interleave : chaque lecture rend la main, pour que des appels simultanés se croisent vraiment.
+    /// </summary>
     sealed class MemoryStore : IPushStore
     {
-        public readonly Dictionary<(string access, string player, string key), string> Data = new Dictionary<(string, string, string), string>();
+        readonly object _lock = new object();
+        public readonly Dictionary<(string access, string player, string key), StoredItem> Data = new Dictionary<(string, string, string), StoredItem>();
+        int _version;
         public int Writes;
-        public bool Fail;
+        public bool Fail, Interleave;
 
-        public void Put(string access, string player, string key, string value) => Data[(access, player, key)] = value;
-        public string Value(string access, string player, string key) => Data.TryGetValue((access, player, key), out var v) ? v : null;
-
-        Task<Dictionary<string, string>> Read(string access, string player, string[] keys)
+        public void Put(string access, string player, string key, string value, long? modifiedUnix = null)
         {
+            lock (_lock)
+                Data[(access, player, key)] = new StoredItem
+                {
+                    Value = value,
+                    WriteLock = "v" + (++_version),
+                    Modified = modifiedUnix.HasValue ? DateTimeOffset.FromUnixTimeSeconds(modifiedUnix.Value) : DateTimeOffset.UtcNow,
+                };
+        }
+
+        public string Value(string access, string player, string key)
+        {
+            lock (_lock) return Data.TryGetValue((access, player, key), out var v) ? v.Value : null;
+        }
+
+        async Task<Dictionary<string, StoredItem>> Read(string access, string player, string[] keys)
+        {
+            if (Interleave) await Task.Yield();
             if (Fail) throw new InvalidOperationException("Cloud Save indisponible");
-            var r = new Dictionary<string, string>();
-            foreach (var k in keys)
-                if (Data.TryGetValue((access, player, k), out var v)) r[k] = v;
-            return Task.FromResult(r);
+            var r = new Dictionary<string, StoredItem>();
+            lock (_lock)
+                foreach (var k in keys)
+                    if (Data.TryGetValue((access, player, k), out var v))
+                        r[k] = new StoredItem { Value = v.Value, WriteLock = v.WriteLock, Modified = v.Modified };
+            return r;
         }
 
         Task Write(string access, string player, IDictionary<string, string> values)
         {
             if (Fail) throw new InvalidOperationException("Cloud Save indisponible");
-            Writes++;
-            foreach (var kv in values) Data[(access, player, kv.Key)] = kv.Value;
+            lock (_lock)
+            {
+                Writes++;
+                foreach (var kv in values) Put(access, player, kv.Key, kv.Value);
+            }
             return Task.CompletedTask;
         }
 
-        public Task<Dictionary<string, string>> GetPublicAsync(string playerId, params string[] keys) => Read("public", playerId, keys);
-        public Task<Dictionary<string, string>> GetDefaultAsync(string playerId, params string[] keys) => Read("default", playerId, keys);
-        public Task<Dictionary<string, string>> GetProtectedAsync(string playerId, params string[] keys) => Read("protected", playerId, keys);
+        public Task<Dictionary<string, StoredItem>> GetPublicAsync(string playerId, params string[] keys) => Read("public", playerId, keys);
+        public Task<Dictionary<string, StoredItem>> GetDefaultAsync(string playerId, params string[] keys) => Read("default", playerId, keys);
+        public Task<Dictionary<string, StoredItem>> GetProtectedAsync(string playerId, params string[] keys) => Read("protected", playerId, keys);
         public Task SetProtectedAsync(string playerId, IDictionary<string, string> values) => Write("protected", playerId, values);
         public Task SetDefaultAsync(string playerId, IDictionary<string, string> values) => Write("default", playerId, values);
+
+        /// <summary>Appelé juste après une écriture sans verrou (pour simuler un autre appel qui écrit à ce moment-là).</summary>
+        public Action<string, string> AfterUnlockedWrite;
+
+        public async Task<bool> TrySetProtectedAsync(string playerId, string key, string value, string writeLock)
+        {
+            if (Interleave) await Task.Yield();
+            if (Fail) throw new InvalidOperationException("Cloud Save indisponible");
+            string mine;
+            lock (_lock)
+            {
+                bool exists = Data.TryGetValue(("protected", playerId, key), out var current);
+                // Comme Cloud Save : avec un verrou, il doit être le verrou actuel (sinon 409).
+                if (writeLock != null && (!exists || current.WriteLock != writeLock)) return false;
+                Writes++;
+                Put("protected", playerId, key, value);
+                if (writeLock != null) return true;
+                mine = Data[("protected", playerId, key)].WriteLock;
+            }
+            // Sans verrou : écrite puis relue, comme CloudSaveStore.
+            AfterUnlockedWrite?.Invoke(playerId, key);
+            if (Interleave) await Task.Yield();
+            lock (_lock) return Data.TryGetValue(("protected", playerId, key), out var now) && now.WriteLock == mine;
+        }
+
+        public async Task<StoredItem> GetCustomAsync(string customId, string key)
+        {
+            var r = await Read("custom", customId, new[] { key });
+            return r.TryGetValue(key, out var v) ? v : null;
+        }
+
+        public Task SetCustomAsync(string customId, string key, string value) =>
+            Write("custom", customId, new Dictionary<string, string> { [key] = value });
     }
 
     sealed class FixedCredentials : IApnsCredentialsSource
@@ -57,14 +114,15 @@ namespace BasculePush.Tests
 
     sealed class RecordingSender : IApnsSender
     {
-        public readonly List<ApnsMessage> Sent = new List<ApnsMessage>();
+        public readonly System.Collections.Concurrent.ConcurrentQueue<ApnsMessage> Queue = new System.Collections.Concurrent.ConcurrentQueue<ApnsMessage>();
+        public List<ApnsMessage> Sent => Queue.ToList();
         public Func<ApnsMessage, ApnsResult> Reply = _ => new ApnsResult { StatusCode = 200 };
         public Exception Throw;
 
         public Task<ApnsResult> SendAsync(ApnsCredentials credentials, ApnsMessage message, CancellationToken cancellationToken)
         {
             if (Throw != null) throw Throw;
-            Sent.Add(message);
+            Queue.Enqueue(message);
             return Task.FromResult(Reply(message));
         }
     }
@@ -125,6 +183,7 @@ namespace BasculePush.Tests
             var dataType = returnType.GetGenericArguments()[0].GetGenericArguments()[0];
             object data = dataType == typeof(GetItemsResponse) ? new GetItemsResponse(Items ?? new List<Item>(), new GetItemsResponseLinks(""))
                 : dataType == typeof(SetItemBatchResponse) ? new SetItemBatchResponse(new List<SetItemBatchResponseResultsInner>())
+                : dataType == typeof(SetItemResponse) ? new SetItemResponse("nouveau-verrou")
                 : null;
             var response = Activator.CreateInstance(typeof(ApiResponse<>).MakeGenericType(dataType));
             Helpers.SetPrivate(response, "Data", data);
@@ -175,8 +234,8 @@ namespace BasculePush.Tests
     static class Helpers
     {
         /// <summary>Valeur rangée dans Cloud Save, comme le serveur la renvoie.</summary>
-        public static Item Item(string key, object value) =>
-            new Item(key, value, "verrou", new Unity.Services.CloudSave.Model.ModifiedMetadata(DateTime.UtcNow), new Unity.Services.CloudSave.Model.ModifiedMetadata(DateTime.UtcNow));
+        public static Item Item(string key, object value, DateTime? modified = null, string writeLock = null) =>
+            new Item(key, value, writeLock ?? "verrou-" + key, new Unity.Services.CloudSave.Model.ModifiedMetadata(modified ?? DateTime.UtcNow), new Unity.Services.CloudSave.Model.ModifiedMetadata(modified ?? DateTime.UtcNow));
 
         /// <summary>Les réponses du client Unity n'ont que des accesseurs privés : on les remplit par réflexion.</summary>
         public static void SetPrivate(object target, string property, object value)
@@ -191,11 +250,14 @@ namespace BasculePush.Tests
             field.SetValue(target, value);
         }
 
-        public static ApiException NotFound()
+        public static ApiException NotFound() => Http(HttpStatusCode.NotFound);
+        public static ApiException Conflict() => Http(HttpStatusCode.Conflict);
+
+        static ApiException Http(HttpStatusCode code)
         {
             var response = new ApiResponse<object>();
-            SetPrivate(response, "StatusCode", HttpStatusCode.NotFound);
-            return new ApiException(ApiExceptionType.Http, "Not Found", response);
+            SetPrivate(response, "StatusCode", code);
+            return new ApiException(ApiExceptionType.Http, code.ToString(), response);
         }
     }
 }

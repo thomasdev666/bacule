@@ -651,7 +651,7 @@ namespace Bascule
             {
                 Profile.notificationsAsked = true;
                 SaveProfile();
-                _confirm.Ask(Loc.Get("notif_ask_title"), Loc.Get("notif_ask_body"), Art.IconSprite(Icon.Bell),
+                _confirm.Ask(Loc.Get("notif_ask_title"), Loc.Get(DuelPushAvailable ? "notif_ask_body_duel" : "notif_ask_body"), Art.IconSprite(Icon.Bell),
                     Loc.Get("notif_yes"), () => SetNotifications(true), Loc.Get("later"), null);
             }
         }
@@ -1222,6 +1222,7 @@ namespace Bascule
             SaveProfile();
             _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
             Stats.Event("friend_request_accept", ("friends", Profile.friends.Count));
+            SyncPush();
             _toast.Say(Loc.Format("freq_now_friends", name), Icon.Heart, Palette.Secondary, 3f);
             GrantDuo();
             if (_leaderboard.Visible) _leaderboard.Refresh();
@@ -2308,6 +2309,17 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Notification de duel (1.5, docs/NOTIFICATIONS.md)
 
+        /// <summary>
+        /// Notifications de duel possibles dans ce build : iPhone, et capacité Push ajoutée à l'app (interrupteur Bascule >
+        /// Notifications de duel (iOS), qui pose le symbole BASCULE_PUSH). Sinon les textes ne parlent que des rappels.
+        /// </summary>
+        public bool DuelPushAvailable =>
+#if UNITY_IOS && BASCULE_PUSH
+            _notifications.IsSupported;
+#else
+            false;
+#endif
+
         /// <summary>Jeton de notification de ce téléphone : null tant qu'iOS ne l'a pas donné, vide s'il n'y en a pas.</summary>
         string _pushToken;
         /// <summary>Dernières données rangées en ligne (jeton, amis, fuseau) : rien n'est renvoyé tant qu'elles ne changent pas.</summary>
@@ -2327,7 +2339,7 @@ namespace Bascule
             _pushTokenAt = DateTime.UtcNow;
             _notifications.GetPushToken(token =>
             {
-                if (token == null) { _pushTokenAt = DateTime.MinValue; return; } // iOS n'a pas répondu : on redemandera
+                if (token == null) return; // pas de réponse claire d'iOS : rien ne change, on redemandera (10 min, ou au lancement)
                 _pushToken = token;
                 SyncPush();
             });
@@ -2351,16 +2363,21 @@ namespace Bascule
             _pushBusy = true;
             try
             {
+                if (token.Length > 0 && !Profile.settings.pushShared)
+                {
+                    // Noté AVANT l'envoi : si la sauvegarde se perdait juste après, couper les rappels n'effacerait plus rien.
+                    Profile.settings.pushShared = true;
+                    SaveProfile();
+                }
                 if (!await Leaderboard.Service.UpdatePushAsync(token, friends, tz))
                 {
                     _pushRetryAt = DateTime.UtcNow.AddSeconds(60); // Cloud Save indisponible : pas une requête toutes les 4 s
                     return;
                 }
                 _pushSynced = state;
-                bool shared = token.Length > 0;
-                if (Profile.settings.pushShared != shared)
+                if (token.Length == 0 && Profile.settings.pushShared)
                 {
-                    Profile.settings.pushShared = shared;
+                    Profile.settings.pushShared = false;
                     SaveProfile();
                 }
             }
@@ -2508,6 +2525,7 @@ namespace Bascule
             SaveProfile();
             _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
             Stats.Event("friend_request_cancel");
+            SyncPush();
             _toast.Say(Loc.Get("freq_cancelled"), 2.5f);
             if (_leaderboard.Visible) _leaderboard.Refresh();
         }
@@ -2518,6 +2536,7 @@ namespace Bascule
             SaveProfile();
             _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
             Stats.Event("friend_remove");
+            SyncPush(); // il ne peut plus m'envoyer de notification de duel
             _toast.Say(Loc.Get("friend_removed"), 2.5f);
             if (_leaderboard.Visible) _leaderboard.Refresh();
         }
@@ -2527,6 +2546,7 @@ namespace Bascule
             Moderation.Block(Profile, playerId, Leaderboard.Service.PlayerId);
             SaveProfile();
             Stats.Event("player_block");
+            SyncPush(); // il ne peut plus m'envoyer de notification de duel
             _toast.Say(Loc.Get("mod_blocked"), 3f);
             if (_leaderboard.Visible) _leaderboard.Refresh();
         }
@@ -3016,6 +3036,7 @@ namespace Bascule
             // en plein écran met aussi le jeu en pause), mais elle est déjà comptée dans la sauvegarde sur le disque.
             SaveProfileWithPendingRun();
             ScheduleNotifications();
+            SyncPush(); // dernier changement d'amis envoyé avant que le jeu s'endorme
             Stats.Event("app_pause", ("games", Profile.gamesPlayed));
             SaveService.Flush();
         }
