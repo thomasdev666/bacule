@@ -15,7 +15,10 @@ Tout le code est sur la branche `v1.1-poids-pubs-achats`. Voici, dans l'ordre, c
 cd "$env:USERPROFILE\Documents\bacule"
 git pull origin v1.1-poids-pubs-achats
 robocopy "$env:USERPROFILE\Documents\bacule\Assets" "$env:USERPROFILE\Downloads\Bascule_V20.5\Bascule\Assets" /E
+robocopy "$env:USERPROFILE\Documents\bacule\Assets\Bascule\Resources" "$env:USERPROFILE\Downloads\Bascule_V20.5\Bascule\Assets\Bascule\Resources" /MIR /XF *.meta
 ```
+
+La 2e copie enlève du projet Unity les fichiers supprimés du dépôt (anciennes images, logo Samb'bach, ancienne musique du duel) : sans elle, ils restaient dans l'appli envoyée à Apple. Elle ne touche qu'au dossier `Resources` du jeu.
 
 Dans Unity : **Bascule → Configurer le projet** (version 1.5, et nouveau réglage iOS « Behavior in Background : Custom » pour que le duel continue avec le Centre de contrôle), puis build iOS dans `Documents\bacule-ios`. Dans la console, après le build, deux lignes doivent apparaître (sinon, envoie-moi une capture) :
 - **« Bascule : le jeu continue quand le Centre de contrôle est ouvert »** ;
