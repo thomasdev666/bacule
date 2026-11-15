@@ -677,6 +677,7 @@ namespace Bascule.UI
             // 12 px d'air de chaque côté : la zone qui défile coupe tout ce qui dépasse, et le contour des titres
             // alignés à gauche (« Gratuit avec une vidéo », « Planches »…) était coupé net.
             _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(ColPad, ColPad, 10, 60);
+            Ui.ClearOfFade(_col.GetComponent<VerticalLayoutGroup>());
         }
 
         public override void Refresh()
@@ -1736,6 +1737,7 @@ namespace Bascule.UI
             g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             g.constraintCount = 4;
             g.childAlignment = TextAnchor.UpperCenter;
+            Ui.ClearOfFade(g); // la première rangée sort du fondu du haut de la liste
             _open = Ui.Button(_offer, "Ouvrir", Palette.Play, () => App.ConfirmSurprise(), Icon.Coin, 60, "Ouvrir");
             Ui.Place((RectTransform)_open.transform, 0.5f, 0, 0, 258, 780, 160);
             var cancel = Ui.Button(_offer, Loc.Get("cancel"), Palette.Dark, Hide, null, 50, "Annuler");

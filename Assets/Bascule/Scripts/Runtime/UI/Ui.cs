@@ -117,8 +117,8 @@ namespace Bascule.UI
         }
 
         /// <summary>
-        /// Texte sans contour ni ombre (texte foncé posé sur une tuile ou une étiquette claire). Un titre a deux contours
-        /// et une ombre : en couper un seul laissait des lettres foncées cernées de foncé, collées et illisibles.
+        /// Texte sans contour ni ombre (texte foncé posé sur une tuile ou une étiquette claire). Un titre a un contour
+        /// et une ombre (deux effets) : les couper tous, sinon des lettres foncées restaient cernées de foncé.
         /// </summary>
         public static Text Plain(Text t)
         {
@@ -231,6 +231,16 @@ namespace Bascule.UI
             var img = Image(parent, sprite, Color.white, name);
             img.preserveAspect = true;
             return img;
+        }
+
+        /// <summary>
+        /// Marges d'une liste qui défile : la première et la dernière ligne s'arrêtent hors du fondu des bords
+        /// (<see cref="ScrollFade"/>). À rappeler après avoir remplacé les marges d'une colonne ou d'une grille.
+        /// </summary>
+        public static void ClearOfFade(LayoutGroup g)
+        {
+            g.padding.top = Mathf.Max(g.padding.top, ScrollFade - 6);
+            g.padding.bottom = Mathf.Max(g.padding.bottom, ScrollFade);
         }
 
         /// <summary>Colonne qui empile ses enfants (menus).</summary>
@@ -735,7 +745,6 @@ namespace Bascule.UI
         void Update() => transform.Rotate(0, 0, Speed * Time.unscaledDeltaTime);
     }
 
-    /// <summary>Balancement de bascule (lettres du logo).</summary>
     /// <summary>
     /// Contour rond et régulier : des copies de l'élément posées tout autour, sur un cercle de rayon effectDistance.x,
     /// assez nombreuses pour que le bord ne fasse pas de vagues, dessinées dessous. Remplace l'Outline de Unity (4 copies
@@ -781,6 +790,7 @@ namespace Bascule.UI
         }
     }
 
+    /// <summary>Balancement de bascule (lettres du logo).</summary>
     public sealed class Rock : MonoBehaviour
     {
         public float Angle = 6f, Speed = 1.6f, Phase;

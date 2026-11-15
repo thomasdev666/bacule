@@ -560,10 +560,6 @@ namespace Bascule.Core
             return img;
         }
 
-        /// <summary>
-        /// Une épée, centrée sur (cx, cy), penchée de <paramref name="tiltDeg"/> depuis la verticale (+ = vers la droite),
-        /// pointe en haut : lame large à la garde et fine à la pointe, garde en travers, poignée, pommeau rond.
-        /// </summary>
         /// <summary>Forme mise à l'échelle k autour de (cx, cy), puis déplacée de (dx, dy).</summary>
         static Shape Scaled(Shape s, float cx, float cy, float k, float dx, float dy)
         {
@@ -592,6 +588,10 @@ namespace Bascule.Core
             return Shape.Subtract(g, Shape.Circle(cx, cy, 11f * u));
         }
 
+        /// <summary>
+        /// Une épée, centrée sur (cx, cy), penchée de <paramref name="tiltDeg"/> depuis la verticale (+ = vers la droite),
+        /// pointe en haut : lame large à la garde et fine à la pointe, garde en travers, poignée, pommeau rond.
+        /// </summary>
         public static Shape Sword(float cx, float cy, float tiltDeg, float length)
         {
             double a = tiltDeg * Math.PI / 180;

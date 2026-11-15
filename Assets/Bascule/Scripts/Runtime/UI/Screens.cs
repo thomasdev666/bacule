@@ -1429,6 +1429,7 @@ namespace Bascule.UI
             _col = Ui.Scroll(_area, out _);
             Ui.Column(_col, 10);
             _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(0, 0, 0, 40);
+            Ui.ClearOfFade(_col.GetComponent<VerticalLayoutGroup>());
         }
 
         /// <summary>Ouvre la collection sur un onglet (« sec_shop » : les têtes de la boutique).</summary>
@@ -2070,6 +2071,7 @@ namespace Bascule.UI
             Ui.Column(_col, 14);
             // Un peu d'air de chaque côté : le contour des titres de section alignés à gauche n'est plus coupé.
             _col.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(12, 12, 4, 40);
+            Ui.ClearOfFade(_col.GetComponent<VerticalLayoutGroup>());
         }
 
         public override void Refresh()

@@ -2870,6 +2870,7 @@ namespace Bascule
         {
             if (!_appAway) return;
             _appAway = false;
+            AudioListener.volume = 1f; // le son revient d'abord : rien de ce qui suit ne peut le laisser coupé
             // Réseau revenu, ou lundi passé pendant que l'appli dormait : connexion et récompense de la ligue.
             if (!Leaderboard.Service.IsOnline) InitLeaderboard(); else CheckLeagueReward();
             // Duel : seul le temps où le jeu était vraiment figé compte (iOS endort l'appli en arrière-plan, Snap,
@@ -2880,7 +2881,6 @@ namespace Bascule
             Duel.OnAppResumed(frozen < 0.5f ? 0f : frozen);
             if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
             _backgroundSince = DateTime.MinValue;
-            AudioListener.pause = false;
             _music?.OnResume();
             // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
             NewDayCheck();
@@ -2896,8 +2896,10 @@ namespace Bascule
             _awayFrozen = 0;
             _backgroundSince = DateTime.UtcNow;
             // 1.5 (iOS « Custom ») : Unity ne coupe plus le son tout seul quand on quitte l'appli ; sans ça, la musique
-            // continuait quelques secondes sur l'écran d'accueil du téléphone. Rétabli dans AppBack.
-            if (!Application.isEditor) AudioListener.pause = true;
+            // continuait quelques secondes sur l'écran d'accueil du téléphone. Volume à zéro plutôt que pause : un duel
+            // continue derrière le Centre de contrôle, et des sons mis en pause seraient tous partis d'un coup au
+            // retour. Rétabli dans AppBack.
+            if (!Application.isEditor) AudioListener.volume = 0f;
             if (Duel.InDuel) Duel.OnAppPaused();
             if (Duel.InMatch) { }
             else if (Session.IsRunning)
