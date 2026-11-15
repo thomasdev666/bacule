@@ -83,6 +83,7 @@ Depuis la 1.4, les pubs peuvent être personnalisées (avec l'accord du joueur e
   - **Identifiants → Identifiant d'utilisateur** : fonctionnalité de l'app ; lié à l'utilisateur : oui ; suivi : non.
   - **Contenu utilisateur → Contenu de jeu** (scores, partie envoyée pendant un duel) : fonctionnalité de l'app ; lié : oui ; suivi : non.
   - **Contenu utilisateur → Autre contenu** (pseudo, code ami) : fonctionnalité de l'app ; lié : oui ; suivi : non.
+  - 1.5, si les notifications de duel sont allumées (`docs/NOTIFICATIONS.md`) : **Identifiants → Identifiant de l'appareil** (jeton de notification) : cocher aussi **fonctionnalité de l'app** ; Apple ne demande qu'une réponse « lié » par type de données : **oui** (le jeton est rangé avec l'identifiant du joueur) ; suivi : oui seulement à cause de la régie, comme avant.
 - Données de la régie publicitaire (Unity LevelPlay et ses réseaux) :
   - **Identifiants → Identifiant de l'appareil** : publicité tierce, analyses ; lié : non ; **utilisé pour le suivi : oui**.
   - **Données d'utilisation → Données publicitaires** : publicité tierce, analyses ; lié : non ; **suivi : oui**.

@@ -390,6 +390,8 @@ namespace Bascule
             // Amis réciproques : les derniers amis ajoutés sont republiés à chaque lancement (un ajout fait hors ligne,
             // ou avec une ancienne version, finit ainsi par arriver chez l'ami).
             if (Profile.friends.Count > 0) _ = Leaderboard.Service.PublishFriendLinksAsync(Profile.friends);
+            // Notification de duel : jeton du téléphone rangé (ou effacé si les rappels ont été coupés).
+            RefreshPushToken(true);
             _socialTimer = 2f;
             _inviteTimer = 1f;
             // Code ami court (Cloud Save) : publié une fois, puis gardé dans le profil.
@@ -1077,6 +1079,8 @@ namespace Bascule
             bool ok = await Leaderboard.Service.SendDuelInviteAsync(friendId, Duel.Code, Profile.pseudo, Profile.selectedHead);
             if (ok)
             {
+                // L'invitation est écrite : le serveur peut prévenir l'ami sur son téléphone (s'il l'a accepté).
+                SendDuelPush(friendId);
                 _inviteSent = true;
                 _invitedFriendId = friendId;
                 InvitedName = name;
@@ -2244,6 +2248,7 @@ namespace Bascule
                 _notifications.CancelAll();
                 SaveProfile();
                 if (_settings.Visible) _settings.Refresh();
+                SyncPush(); // plus de notification de duel non plus : le jeton est effacé en ligne
                 return;
             }
             _notifications.RequestPermission(granted =>
@@ -2252,6 +2257,7 @@ namespace Bascule
                 Stats.Event("notif_permission", ("granted", granted));
                 SaveProfile();
                 if (_settings.Visible) _settings.Refresh();
+                RefreshPushToken(true);
             });
         }
 
@@ -2298,6 +2304,76 @@ namespace Bascule
             }
             Add("retour", Loc.Get("notif_comeback_title"), Loc.Format("notif_comeback_body", Loc.FormatScore(Profile.bestScore)), today.AddDays(3).AddHours(18).AddMinutes(30));
             foreach (var n in plan.Values) _notifications.Schedule(n.id, n.title, n.body, n.at);
+        }
+
+        // ------------------------------------------------------------------ Notification de duel (1.5, docs/NOTIFICATIONS.md)
+
+        /// <summary>Jeton de notification de ce téléphone : null tant qu'iOS ne l'a pas donné, vide s'il n'y en a pas.</summary>
+        string _pushToken;
+        /// <summary>Dernières données rangées en ligne (jeton, amis, fuseau) : rien n'est renvoyé tant qu'elles ne changent pas.</summary>
+        string _pushSynced;
+        bool _pushBusy;
+        DateTime _pushTokenAt = DateTime.MinValue, _pushRetryAt = DateTime.MinValue;
+
+        /// <summary>
+        /// Redemande le jeton (au lancement en ligne, au retour dans l'appli, après l'accord) : iOS peut le changer, et le
+        /// joueur peut couper les notifications dans les Réglages de l'iPhone. Au plus toutes les 10 minutes sauf
+        /// <paramref name="force"/>.
+        /// </summary>
+        void RefreshPushToken(bool force = false)
+        {
+            if (!_notifications.IsSupported || !Profile.settings.notifications) { SyncPush(); return; }
+            if (!force && (DateTime.UtcNow - _pushTokenAt).TotalMinutes < 10) return;
+            _pushTokenAt = DateTime.UtcNow;
+            _notifications.GetPushToken(token =>
+            {
+                if (token == null) { _pushTokenAt = DateTime.MinValue; return; } // iOS n'a pas répondu : on redemandera
+                _pushToken = token;
+                SyncPush();
+            });
+        }
+
+        /// <summary>
+        /// Range en ligne (données privées) le jeton, les amis confirmés et le fuseau horaire, seulement quand ils changent
+        /// (vérifié toutes les 4 s sur les menus : une liste d'amis qui change est prise en compte d'elle-même). Rappels
+        /// coupés ou refusés : le jeton est effacé, plus aucune notification de duel n'arrive.
+        /// </summary>
+        async void SyncPush()
+        {
+            if (_pushBusy || !Leaderboard.Service.IsOnline || DateTime.UtcNow < _pushRetryAt) return;
+            string token = Profile.settings.notifications ? _pushToken : "";
+            if (token == null) return;                                       // jeton pas encore connu
+            if (token.Length == 0 && !Profile.settings.pushShared) return;   // rien en ligne, rien à effacer
+            string friends = token.Length == 0 ? "" : DuelPush.FriendsCsv(Friendship.ConfirmedFriends(Profile));
+            string tz = token.Length == 0 ? "" : DuelPush.FormatTz(DateTimeOffset.Now.Offset);
+            string state = token + "|" + friends + "|" + tz;
+            if (state == _pushSynced) return;
+            _pushBusy = true;
+            try
+            {
+                if (!await Leaderboard.Service.UpdatePushAsync(token, friends, tz))
+                {
+                    _pushRetryAt = DateTime.UtcNow.AddSeconds(60); // Cloud Save indisponible : pas une requête toutes les 4 s
+                    return;
+                }
+                _pushSynced = state;
+                bool shared = token.Length > 0;
+                if (Profile.settings.pushShared != shared)
+                {
+                    Profile.settings.pushShared = shared;
+                    SaveProfile();
+                }
+            }
+            finally { _pushBusy = false; }
+        }
+
+        /// <summary>Le serveur prévient l'ami invité (rien n'est affiché ici : l'invitation marche avec ou sans).</summary>
+        async void SendDuelPush(string friendId)
+        {
+            string status = await Leaderboard.Service.SendDuelPushAsync(friendId);
+            if (string.IsNullOrEmpty(status)) return;
+            Stats.Event("duel_push", ("status", status));
+            if (status != "sent" && status != "off") Debug.Log("[Bascule] Notification de duel : " + status);
         }
 
         public void AskPseudo()
@@ -2791,7 +2867,7 @@ namespace Bascule
             if (SocialScreen)
             {
                 _inviteTimer -= dt;
-                if (_inviteTimer <= 0f) { _inviteTimer = 4f; CheckInvites(); }
+                if (_inviteTimer <= 0f) { _inviteTimer = 4f; CheckInvites(); SyncPush(); }
                 _socialTimer -= dt;
                 if (_socialTimer <= 0f) { _socialTimer = 30f; SyncFriends(); }
             }
@@ -2912,6 +2988,8 @@ namespace Bascule
             // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
             NewDayCheck();
             _notifications.CancelAll();
+            // Notifications peut-être coupées (ou rallumées) dans les Réglages de l'iPhone pendant ce temps.
+            RefreshPushToken();
             if (_home.Visible) { _home.Refresh(); HomePopups(); }
         }
 

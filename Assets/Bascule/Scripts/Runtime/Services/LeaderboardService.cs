@@ -110,6 +110,17 @@ namespace Bascule.Services
         Task<string> FindOpenDuelAsync(string friendShortCode);
         /// <summary>Invitations au duel adressées à ce joueur.</summary>
         Task<List<DuelInvite>> FindDuelInvitesAsync();
+        /// <summary>
+        /// Notification de duel (1.5, docs/NOTIFICATIONS.md) : range dans MES données privées (moi et le serveur seulement)
+        /// le jeton de notification du téléphone, les amis qui peuvent m'en envoyer et mon fuseau horaire. Jeton vide :
+        /// plus aucune notification de duel.
+        /// </summary>
+        Task<bool> UpdatePushAsync(string token, string friendsCsv, string tz);
+        /// <summary>
+        /// Demande au serveur (module Cloud Code BasculePush) de prévenir l'ami que je viens d'inviter. Renvoie sa réponse
+        /// (« sent », « off »…, Server/BasculePush/DuelPushService.cs), « http:404 » s'il n'est pas joignable, vide hors ligne.
+        /// </summary>
+        Task<string> SendDuelPushAsync(string friendId);
     }
 
     /// <summary>Sans backend : rien n'est envoyé, les scores attendent dans le profil (pendingScores).</summary>
@@ -139,6 +150,8 @@ namespace Bascule.Services
         public Task<bool> PublishOpenDuelAsync(string sessionCode) => Task.FromResult(false);
         public Task<string> FindOpenDuelAsync(string friendShortCode) => Task.FromResult<string>(null);
         public Task<List<DuelInvite>> FindDuelInvitesAsync() => Task.FromResult(new List<DuelInvite>());
+        public Task<bool> UpdatePushAsync(string token, string friendsCsv, string tz) => Task.FromResult(false);
+        public Task<string> SendDuelPushAsync(string friendId) => Task.FromResult("");
     }
 
     /// <summary>

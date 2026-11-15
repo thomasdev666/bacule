@@ -6,7 +6,8 @@ qui va partir (dépôt bacule-ios) et les serveurs Unity, pour attraper ce qui a
 - 1.4 : numéro de build déjà utilisé (envoi refusé par Apple) ;
 - 1.4 : duel qui ne démarre pas (Wi-Fi + 4G, retour de Snap, connexion lente) : scénarios simulés
   (Tests/Bascule.Duel.Tests, le vrai DuelController sur un faux réseau), duel classé et fantômes compris ;
-- 1.5 : classement de la ligue absent ou sans remise à zéro le lundi (docs/LIGUES.md).
+- 1.5 : classement de la ligue absent ou sans remise à zéro le lundi (docs/LIGUES.md) ;
+- 1.5 : notifications de duel activées dans l'export sans le module serveur, ou mal réglées (docs/NOTIFICATIONS.md).
 
   python3 Tools/verif_publication.py ../bacule-ios          # tout, tests et compilation compris (~5 min)
   python3 Tools/verif_publication.py ../bacule-ios --rapide # sans les tests ni la compilation
@@ -33,6 +34,7 @@ DYNAMIC = {"IronSourceInMobiAdapter": "InMobiSDK", "IronSourceAppLovinAdapter": 
 INDEXES = ["friend_code", "link1", "link2", "link3", "link4", "link5", "duel_to"]
 
 results = []
+PUSH_EXPORT = False
 
 
 def check(ok, label, detail=""):
@@ -116,6 +118,26 @@ else:
     check(len(plist.get("SKAdNetworkItems", [])) > 50, "Identifiants SKAdNetwork", str(len(plist.get("SKAdNetworkItems", []))))
     cm = git("show", "origin/main:codemagic.yaml")
     check("100 + ${BUILD_NUMBER" in cm, "Numéro de build Codemagic unique", "100 + numéro du build")
+    # Notifications de duel (1.5) : facultatives (interrupteur Bascule > Notifications de duel (iOS)), mais cohérentes.
+    ent_files = [f for f in git("ls-tree", "-r", "--name-only", "origin/main").split("\n") if f.endswith(".entitlements")]
+    aps = None
+    for f in ent_files:
+        try:
+            ent = plistlib.loads(subprocess.run(["git", "show", "origin/main:" + f], cwd=IOS, capture_output=True).stdout)
+        except Exception:
+            continue
+        if "aps-environment" in ent:
+            aps = ent["aps-environment"]
+    push_plist = bool(plist.get("UnityAddRemoteNotificationCapability", False))
+    PUSH_EXPORT = aps is not None or push_plist
+    if not PUSH_EXPORT:
+        print("        notifications de duel : éteintes dans cet export (les rappels marchent ; docs/NOTIFICATIONS.md pour les allumer)")
+    else:
+        check(aps == "production", "Notifications de duel : environnement de production d'Apple", f"aps-environment = {aps}")
+        check(push_plist, "Notifications de duel : inscription du téléphone chez Apple", "UnityAddRemoteNotificationCapability"
+              + (" = true" if push_plist else " absent : refaire le build iOS avec l'interrupteur allumé"))
+        fg = plist.get("UnityRemoteNotificationForegroundPresentationOptions")
+        check(fg == 0, "Notifications de duel : rien par-dessus le jeu ouvert", f"options d'affichage = {fg}")
 
 print("\n== Serveurs Unity ==")
 st, auth = http("https://player-auth.services.api.unity.com/v1/authentication/anonymous", "POST", {},
@@ -143,6 +165,15 @@ if check(st == 200, "Connexion anonyme (comme un joueur)", f"HTTP {st}"):
                      {"fields": [{"key": "friend_code", "value": "0", "op": "GE", "asc": True}], "returnKeys": ["friend_code", "ghost_at"], "offset": 0, "limit": 100}, H)
         ghosts = sum(1 for r in d.get("results", []) if any(i.get("key") == "ghost_at" for i in r.get("data", []))) if st == 200 else 0
         check(st == 200, "Fantômes : recherche par l'index friend_code", f"{ghosts} fantôme(s) publié(s) parmi {len(d.get('results', []))} joueurs" if st == 200 else f"HTTP {st}")
+        # Module des notifications de duel : déployé et qui répond (s'inviter soi-même → « invalid », rien n'est écrit).
+        st, d = http(f"https://cloud-code.services.api.unity.com/v1/projects/{PROJECT}/modules/BasculePush/DuelInvite", "POST",
+                     {"params": {"targetId": uid}}, H)
+        deployed = st == 200 and d.get("output") == "invalid"
+        detail = "répond" if deployed else f"HTTP {st} {str(d)[:120]} : python Tools/deploy_push_module.py (docs/NOTIFICATIONS.md)"
+        if PUSH_EXPORT or deployed:
+            check(deployed, "Module Cloud Code BasculePush (notifications de duel)", detail)
+        else:
+            print("        module BasculePush : pas encore déployé (normal tant que les notifications de duel sont éteintes)")
         for k in INDEXES:
             st, _ = http(f"https://cloud-save.services.api.unity.com/v1/data/projects/{PROJECT}/players/public/query", "POST",
                          {"fields": [{"key": k, "value": "zz", "op": "EQ", "asc": True}], "returnKeys": [k], "offset": 0, "limit": 1}, H)
@@ -167,6 +198,9 @@ if not RAPIDE:
     failed = re.findall(r"^\s+Failed (\S+)", r.stdout, re.M)
     check(r.returncode == 0, "Duel : scénarios simulés (amis, classé, fantômes, Wi-Fi, 4G, Snap, pauses, abandons…)",
           (m.group(0)[:120] if m else r.stdout[-200:]) + (" ; en échec : " + ", ".join(failed[:6]) if failed else ""))
+    r = subprocess.run(["dotnet", "test", "Server/BasculePush.Tests"], cwd=ROOT, capture_output=True, text=True)
+    m = re.search(r"(Passed!|Failed!).*", r.stdout)
+    check(r.returncode == 0, "Notifications de duel : module serveur", m.group(0)[:120] if m else r.stdout[-200:])
     # LevelPlay (pubs, bannière) : c'est la régie qui part chez Apple, compilée avec ses vraies signatures (stubs).
     pkgs = "BASCULE_STUBS;{ads};BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;{os}"
     for label, defs in [("sans paquets", ""),

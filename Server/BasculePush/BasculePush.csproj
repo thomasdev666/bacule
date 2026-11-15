@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Module Cloud Code « BasculePush » : envoie à un joueur la notification « Léo te défie en duel ! » quand un ami
+    l'invite (docs/NOTIFICATIONS.md). Déploiement : python3 Tools/deploy_push_module.py. Tests :
+    dotnet test Server/BasculePush.Tests. Aucun secret ici : la clé Apple est lue dans le Secret Manager de Unity.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>BasculePush</AssemblyName>
+    <RootNamespace>BasculePush</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Règles partagées avec le jeu (même fichier, même comportement des deux côtés). -->
+    <Compile Include="../../Assets/Bascule/Scripts/Core/DuelPush.cs" Link="Shared/DuelPush.cs" />
+    <Compile Include="../../Assets/Bascule/Scripts/Core/PseudoFilter.cs" Link="Shared/PseudoFilter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Com.Unity.Services.CloudCode.Core" Version="0.0.9" />
+    <PackageReference Include="Com.Unity.Services.CloudCode.Apis" Version="0.0.27" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="BasculePush.Tests" />
+  </ItemGroup>
+</Project>

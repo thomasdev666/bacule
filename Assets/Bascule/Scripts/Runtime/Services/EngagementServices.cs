@@ -20,6 +20,12 @@ namespace Bascule.Services
         void RequestPermission(Action<bool> onDone);
         void CancelAll();
         void Schedule(string id, string title, string body, DateTime localTime);
+        /// <summary>
+        /// Jeton de notification à distance de ce téléphone (invitations au duel, 1.5, docs/NOTIFICATIONS.md). Vide s'il
+        /// n'y en a pas (rappels refusés, Android, app sans la capacité Push) ; null si iOS n'a pas répondu à temps.
+        /// N'ouvre jamais la fenêtre d'autorisation : à demander seulement une fois les rappels acceptés.
+        /// </summary>
+        void GetPushToken(Action<string> onToken);
     }
 
     public sealed class NoNotificationService : INotificationService
@@ -28,6 +34,7 @@ namespace Bascule.Services
         public void RequestPermission(Action<bool> onDone) => onDone?.Invoke(false);
         public void CancelAll() { }
         public void Schedule(string id, string title, string body, DateTime localTime) { }
+        public void GetPushToken(Action<string> onToken) => onToken?.Invoke("");
     }
 
 #if BASCULE_NOTIFICATIONS && (UNITY_ANDROID || UNITY_IOS)
@@ -61,6 +68,34 @@ namespace Bascule.Services
                 while (!req.IsFinished) yield return null;
                 onDone?.Invoke(req.Granted);
             }
+#endif
+        }
+
+        public void GetPushToken(Action<string> onToken) => _host.StartCoroutine(PushToken(onToken));
+
+        System.Collections.IEnumerator PushToken(Action<string> onToken)
+        {
+#if UNITY_IOS
+            // Seulement si le joueur a déjà dit oui : sinon iOS ouvrirait sa fenêtre au mauvais moment.
+            var status = Unity.Notifications.iOS.iOSNotificationCenter.GetNotificationSettings().AuthorizationStatus;
+            if (status != Unity.Notifications.iOS.AuthorizationStatus.Authorized && status != Unity.Notifications.iOS.AuthorizationStatus.Provisional
+                && status != Unity.Notifications.iOS.AuthorizationStatus.Ephemeral)
+            {
+                onToken?.Invoke("");
+                yield break;
+            }
+            // Déjà autorisé : pas de fenêtre, iOS inscrit le téléphone chez Apple et rend le jeton (vide si l'app n'a pas
+            // la capacité Push : Bascule > Notifications de duel, dans Unity).
+            using (var req = new Unity.Notifications.iOS.AuthorizationRequest(Unity.Notifications.iOS.AuthorizationOption.Alert | Unity.Notifications.iOS.AuthorizationOption.Badge | Unity.Notifications.iOS.AuthorizationOption.Sound, true))
+            {
+                float until = Time.realtimeSinceStartup + 20f;
+                while (!req.IsFinished && Time.realtimeSinceStartup < until) yield return null;
+                onToken?.Invoke(!req.IsFinished ? null : req.Granted ? (req.DeviceToken ?? "") : "");
+            }
+#else
+            // Android : pas de notification de duel (il faudrait Firebase) ; les rappels locaux marchent.
+            onToken?.Invoke("");
+            yield break;
 #endif
         }
 

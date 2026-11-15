@@ -3,12 +3,14 @@
 // déclaré dans Bascule.Runtime.asmdef). Mise en place : docs/INTEGRATIONS.md, section « Classement ».
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Leaderboards;
 using Bascule.Core;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace Bascule.Services
 {
@@ -167,6 +169,8 @@ namespace Bascule.Services
                 // Le fantôme (dernière partie classée) est effacé avant le compte : plus personne ne peut le rejouer.
                 try { await SavePublic(new Dictionary<string, object> { { GhostKey, "" }, { GhostAtKey, "0" } }); }
                 catch (Exception e) { Debug.LogWarning("[Bascule] Suppression du fantôme : " + e.Message); }
+                // Jeton de notification aussi : plus aucune notification de duel vers ce téléphone.
+                await UpdatePushAsync("", "", "");
 #endif
                 await AuthenticationService.Instance.DeleteAccountAsync();
                 _ready = false;
@@ -227,7 +231,9 @@ namespace Bascule.Services
         // tableau de bord (Cloud Save → Indexes → Player, accès public, type texte), comme friend_code.
 
         public const int FriendLinkSlots = 5;
-        public const string FriendLinkKey = "link", DuelToKey = "duel_to", DuelCodeKey = "duel_code", DuelAtKey = "duel_at", DuelNameKey = "duel_name", DuelHeadKey = "duel_head";
+        // Les clés de l'invitation sont aussi lues par le serveur des notifications de duel : même définition (Core/DuelPush.cs).
+        public const string FriendLinkKey = "link", DuelToKey = DuelPush.DuelToKey, DuelCodeKey = DuelPush.DuelCodeKey, DuelAtKey = DuelPush.DuelAtKey,
+            DuelNameKey = DuelPush.DuelNameKey, DuelHeadKey = "duel_head";
 
         public async Task<bool> PublishFriendLinkAsync(string friendId, int slot)
         {
@@ -412,6 +418,72 @@ namespace Bascule.Services
             await Task.CompletedTask;
             return "";
 #endif
+        }
+
+        // ------------------------------------------------------------------ Notification de duel (1.5, docs/NOTIFICATIONS.md)
+
+        public async Task<bool> UpdatePushAsync(string token, string friendsCsv, string tz)
+        {
+#if BASCULE_CLOUDSAVE
+            if (!IsOnline) return false;
+            try
+            {
+                // Accès par défaut : seuls ce joueur et le serveur lisent ces données, jamais les autres joueurs.
+                await Unity.Services.CloudSave.CloudSaveService.Instance.Data.Player.SaveAsync(new Dictionary<string, object>
+                {
+                    { DuelPush.TokenKey, token ?? "" }, { DuelPush.FriendsKey, friendsCsv ?? "" }, { DuelPush.TzKey, tz ?? "" },
+                });
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Notifications de duel (jeton) : " + e.Message); return false; }
+#else
+            await Task.CompletedTask;
+            return false;
+#endif
+        }
+
+        /// <summary>Adresse du service Cloud Code (même adresse que le paquet Cloud Code de Unity, qu'on n'installe pas).</summary>
+        const string CloudCodeHost = "https://cloud-code.services.api.unity.com";
+
+        [Serializable] public sealed class CloudCodeReply { public string output; }
+
+        public async Task<string> SendDuelPushAsync(string friendId)
+        {
+            if (!IsOnline || !DuelPush.IsPlayerId(friendId)) return "";
+            string token, project;
+            try
+            {
+                token = AuthenticationService.Instance.AccessToken;
+                project = Application.cloudProjectId;
+            }
+            catch (Exception) { return ""; }
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(project)) return "";
+            string url = CloudCodeHost + "/v1/projects/" + UnityWebRequest.EscapeURL(project) + "/modules/" + DuelPush.Module + "/" + DuelPush.Function;
+            // L'identifiant n'a que des lettres et des chiffres (vérifié plus haut) : rien à échapper dans le JSON.
+            string body = "{\"params\":{\"" + DuelPush.TargetParam + "\":\"" + friendId + "\"}}";
+            try
+            {
+                using (var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
+                {
+                    req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" };
+                    req.downloadHandler = new DownloadHandlerBuffer();
+                    req.SetRequestHeader("Content-Type", "application/json");
+                    req.SetRequestHeader("Authorization", "Bearer " + token);
+                    req.timeout = 15;
+                    var done = new TaskCompletionSource<bool>();
+                    req.SendWebRequest().completed += _ => done.TrySetResult(true);
+                    await done.Task;
+                    if (req.result != UnityWebRequest.Result.Success)
+                    {
+                        // 404 : module pas encore déployé (docs/NOTIFICATIONS.md) ; le duel marche quand même.
+                        Debug.LogWarning("[Bascule] Notification de duel : " + req.responseCode + " " + req.error);
+                        return "http:" + req.responseCode;
+                    }
+                    var reply = JsonUtility.FromJson<CloudCodeReply>(req.downloadHandler.text ?? "");
+                    return reply?.output ?? "";
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Notification de duel : " + e.Message); return "error"; }
         }
 
         // ------------------------------------------------------------------ Ligue et fantômes (1.5)

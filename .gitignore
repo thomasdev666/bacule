@@ -27,6 +27,8 @@ Tests/**/bin/
 Tests/**/obj/
 Tools/**/bin/
 Tools/**/obj/
+Server/**/bin/
+Server/**/obj/
 
 # Ancien essai Expo (à supprimer)
 /_expo_abandonne/

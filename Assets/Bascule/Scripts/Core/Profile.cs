@@ -330,6 +330,11 @@ namespace Bascule.Core
         public bool reducedMotion;
         /// <summary>Rappels (notifications locales) : activés seulement si le joueur l'a accepté.</summary>
         public bool notifications;
+        /// <summary>
+        /// 1.5 : le jeton de notification de ce téléphone est rangé en ligne (invitations au duel, Core/DuelPush.cs). Il est
+        /// effacé dès que les rappels sont coupés ou refusés.
+        /// </summary>
+        public bool pushShared;
         /// <summary>120 images/s sur les écrans qui le permettent (plus fluide, mais le téléphone chauffe plus).</summary>
         public bool highFrameRate;
         /// <summary>Mode vidéo : filigrane « BASCULE · défi XXXX » pendant la partie, conseils masqués (pour filmer son écran).</summary>

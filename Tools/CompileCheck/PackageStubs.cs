@@ -96,8 +96,11 @@ namespace Unity.Notifications.iOS
         public AuthorizationRequest(AuthorizationOption options, bool registerForRemote) { }
         public bool IsFinished => true;
         public bool Granted => true;
+        public string DeviceToken => "";
         public void Dispose() { }
     }
+    public enum AuthorizationStatus { NotDetermined = 0, Denied = 1, Authorized = 2, Provisional = 3, Ephemeral = 4 }
+    public class iOSNotificationSettings { public AuthorizationStatus AuthorizationStatus => AuthorizationStatus.NotDetermined; }
     public interface iOSNotificationTrigger { }
     public struct iOSNotificationTimeIntervalTrigger : iOSNotificationTrigger { public TimeSpan TimeInterval { get; set; } public bool Repeats { get; set; } }
     public class iOSNotification
@@ -113,6 +116,7 @@ namespace Unity.Notifications.iOS
         public static void ScheduleNotification(iOSNotification notification) { }
         public static void RemoveAllScheduledNotifications() { }
         public static int ApplicationBadge { get; set; }
+        public static iOSNotificationSettings GetNotificationSettings() => new iOSNotificationSettings();
     }
 }
 
@@ -133,6 +137,7 @@ namespace Unity.Services.Authentication
         bool IsSignedIn { get; }
         string PlayerId { get; }
         string PlayerName { get; }
+        string AccessToken { get; }
         System.Threading.Tasks.Task SignInAnonymouslyAsync(SignInOptions options = null);
         System.Threading.Tasks.Task<string> UpdatePlayerNameAsync(string playerName);
         System.Threading.Tasks.Task DeleteAccountAsync();
@@ -294,6 +299,7 @@ namespace Unity.Services.CloudSave
 {
     public interface IPlayerDataService
     {
+        System.Threading.Tasks.Task<Dictionary<string, string>> SaveAsync(IDictionary<string, object> data);
         System.Threading.Tasks.Task<Dictionary<string, string>> SaveAsync(IDictionary<string, object> data, Models.Data.Player.SaveOptions options);
         System.Threading.Tasks.Task<List<Models.EntityData>> QueryAsync(Models.Query query, Models.Data.Player.QueryOptions options);
         System.Threading.Tasks.Task<Dictionary<string, Models.Item>> LoadAsync(ISet<string> keys, Models.Data.Player.LoadOptions options);

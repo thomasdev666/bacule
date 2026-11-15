@@ -15,6 +15,7 @@ Elle compare le code, l'export iOS qui va partir et les serveurs Unity :
 - numéro de build Codemagic unique ;
 - classements et index Cloud Save présents sur le serveur ;
 - tests des règles et compilation iOS / Android avec tous les paquets ;
+- notifications de duel : tests du module serveur, et, si elles sont allumées dans l'export, environnement de production d'Apple et module déployé qui répond ;
 - **179 duels simulés** (`Tests/Bascule.Duel.Tests`) : le vrai code du duel sur un faux réseau (Wi-Fi, 4G lente,
   Wi-Fi + 4G, relais lent, liaison qui n'aboutit jamais, hôte parti 4 à 40 s dans Snap, Centre de contrôle pendant la
   partie, appli quittée, téléphone éteint, abandon, attente du score, fin au temps, revanche, mauvais code puis bon
@@ -57,6 +58,11 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 - [ ] Avant que B accepte, A voit B dans « Demandes envoyées » (avec Annuler), **pas** dans le classement Amis ; après l'acceptation, A reçoit « B a accepté ta demande d'ami ! » et B passe dans le classement.
 - [ ] B refuse : A ne reçoit rien, la demande ne revient pas chez B.
 - [ ] Toucher un joueur du classement mondial : son profil s'ouvre (tête, place, record), « Ajouter en ami » lui envoie une demande.
+
+**Rappels et notifications de duel (1.5)**
+- [ ] Après le premier coffre (ou une fois pour un joueur déjà installé) : « Un petit rappel ? » parle aussi des duels ; « Oui » ouvre la demande d'iOS, une seule fois.
+- [ ] Réglages → Notifications → « Rappels et duels » : le couper puis le rallumer ne rouvre pas de fenêtre en boucle.
+- [ ] Si l'interrupteur « Notifications de duel » était allumé pour ce build (`docs/NOTIFICATIONS.md`) : B ferme le jeu, A le défie depuis la liste d'amis, B reçoit « A te défie en duel. Viens vite ! » ; la toucher ouvre le jeu sur l'invitation. Jeu ouvert chez B : pas de bandeau iOS, seulement l'invitation dans le jeu.
 
 **Pubs et achats**
 - [ ] Test Suite LevelPlay (7 + 7 touches sur la version) : toutes les régies sans point rouge.
