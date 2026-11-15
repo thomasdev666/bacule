@@ -2880,6 +2880,7 @@ namespace Bascule
             Duel.OnAppResumed(frozen < 0.5f ? 0f : frozen);
             if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
             _backgroundSince = DateTime.MinValue;
+            AudioListener.pause = false;
             _music?.OnResume();
             // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
             NewDayCheck();
@@ -2894,6 +2895,9 @@ namespace Bascule
             _appAway = true;
             _awayFrozen = 0;
             _backgroundSince = DateTime.UtcNow;
+            // 1.5 (iOS « Custom ») : Unity ne coupe plus le son tout seul quand on quitte l'appli ; sans ça, la musique
+            // continuait quelques secondes sur l'écran d'accueil du téléphone. Rétabli dans AppBack.
+            if (!Application.isEditor) AudioListener.pause = true;
             if (Duel.InDuel) Duel.OnAppPaused();
             if (Duel.InMatch) { }
             else if (Session.IsRunning)

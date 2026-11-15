@@ -829,7 +829,7 @@ namespace Bascule.UI
     /// </summary>
     public sealed class DuelResultScreen : UiScreen
     {
-        const float CardTop = -430f, CardHeight = 560f, ColX = 250f, FaceY = -165f, CrownY = -50f;
+        const float CardTop = -430f, CardHeight = 560f, ColX = 250f, FaceY = -165f, CrownY = -44f; // couronne recentrée dans son image (1.5) : remontée d'autant
 
         sealed class Side
         {

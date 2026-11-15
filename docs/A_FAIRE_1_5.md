@@ -17,12 +17,16 @@ git pull origin v1.1-poids-pubs-achats
 robocopy "$env:USERPROFILE\Documents\bacule\Assets" "$env:USERPROFILE\Downloads\Bascule_V20.5\Bascule\Assets" /E
 ```
 
-Dans Unity : **Bascule → Configurer le projet** (version 1.5, et nouveau réglage iOS « Behavior in Background : Custom » pour que le duel continue avec le Centre de contrôle), puis build iOS dans `Documents\bacule-ios`. Dans la console, après le build, la ligne **« Bascule : le jeu continue quand le Centre de contrôle est ouvert »** doit apparaître (sinon, envoie-moi une capture).
+Dans Unity : **Bascule → Configurer le projet** (version 1.5, et nouveau réglage iOS « Behavior in Background : Custom » pour que le duel continue avec le Centre de contrôle), puis build iOS dans `Documents\bacule-ios`. Dans la console, après le build, deux lignes doivent apparaître (sinon, envoie-moi une capture) :
+- **« Bascule : le jeu continue quand le Centre de contrôle est ouvert »** ;
+- **« Bascule : SDK dynamiques ajoutés à la cible Unity-iPhone du Podfile »** (InMobi et AppLovin : sans eux, plantage au lancement).
+
+Le build iOS doit **réussir** (pas d'erreur rouge dans la console) avant la copie ci-dessous. Le 14/11, l'envoi « Export iOS 1.5 » était en fait l'ancien export 1.4 recopié (le build Unity n'avait pas abouti) : il ne faut **pas** utiliser un build Codemagic fait à partir de cet envoi. Codemagic refuse maintenant un export ancien (étape « Vérifier l'export »).
 
 ```
 cd "$env:USERPROFILE\Documents\bacule-ios-git"
 git pull origin main
-robocopy "$env:USERPROFILE\Documents\bacule-ios" "$env:USERPROFILE\Documents\bacule-ios-git" /MIR /XD .git Pods build /XF codemagic.yaml .gitattributes
+robocopy "$env:USERPROFILE\Documents\bacule-ios" "$env:USERPROFILE\Documents\bacule-ios-git" /MIR /XD .git Pods build /XF codemagic.yaml .gitattributes .gitignore
 git add -A
 git commit -m "Export iOS 1.5"
 git push origin main

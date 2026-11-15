@@ -1971,7 +1971,7 @@ namespace Bascule.UI
                 {
                     var crown = Ui.Icon(holder, Art.IconSprite(Icon.Crown), "Couronne");
                     crown.color = Gold;
-                    Ui.Place(crown.rectTransform, 0.5f, 0, x, h + size + 20, 130, 104);
+                    Ui.Place(crown.rectTransform, 0.5f, 0, x, h + size + 25, 130, 104); // dessin recentré dans son image (1.5) : +5
                     crown.gameObject.AddComponent<Rock>().Angle = 6f;
                 }
                 // Toucher un joueur du podium : défier un ami, ou signaler / bloquer.
@@ -2450,7 +2450,7 @@ namespace Bascule.UI
             Ui.Place(disc.rectTransform, 0.5f, 1, 20, -330, 132, 132);
             var heart = Ui.Icon(disc.transform, Art.IconSprite(Icon.Heart), "Coeur");
             heart.color = Palette.Primary;
-            Ui.Stretch(heart.rectTransform, 22, 24, 22, 20);
+            Ui.Stretch(heart.rectTransform, 22, 22, 22, 22); // cœur recentré dans son image (1.5) : marges égales
             disc.gameObject.AddComponent<Pulse>().Amount = 0.09f;
             Ui.Isolate(disc.gameObject);
             _title = Ui.Title(card.transform, "", 62, Color.white);

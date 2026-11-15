@@ -265,7 +265,7 @@ namespace Bascule.UI
             {
                 var crown = Ui.Icon(row.transform, Art.IconSprite(Icon.Crown), "Couronne");
                 crown.color = Gold;
-                Ui.Place(crown.rectTransform, 0, 0.5f, 154 + face * 0.5f - 34, face * 0.5f - 6, 68, 56, 0, 0.5f);
+                Ui.Place(crown.rectTransform, 0, 0.5f, 154 + face * 0.5f - 34, face * 0.5f - 3, 68, 56, 0, 0.5f); // dessin recentré (1.5) : +3
                 crown.rectTransform.localRotation = Quaternion.Euler(0, 0, 12f);
             }
             string shownName = e.IsMe && string.IsNullOrEmpty(e.Name) ? Loc.Get("lb_you") : string.IsNullOrEmpty(e.Name) ? "-" : e.Name;

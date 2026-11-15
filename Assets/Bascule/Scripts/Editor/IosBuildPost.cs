@@ -92,18 +92,20 @@ namespace Bascule.EditorTools
         }
 
         /// <summary>
-        /// 1.5 : Unity arrête sa boucle d'affichage dès que l'appli n'est plus active (Centre de contrôle, notification
-        /// tirée), même en mode « Custom ». Un duel en direct se figeait alors : plus rien n'était envoyé, et le relais
-        /// coupe au bout de 10 s. On la laisse tourner tant que l'appli est seulement « inactive » (toujours à l'écran) ;
-        /// en arrière-plan elle s'arrête comme avant (iOS interdit d'y dessiner).
-        /// Si le texte attendu n'est pas trouvé (autre version de Unity), on ne touche à rien et on le dit.
-        /// </summary>
-        /// <summary>
-        /// En mode « Custom » sans cette retouche, le jeu ne tourne plus du tout quand l'appli devient inactive : les
-        /// sorties ne seraient plus enregistrées à temps. Erreur bien visible : ne pas envoyer ce build, prévenir Claude.
+        /// En mode « Custom » sans la retouche ci-dessous, le jeu ne tourne plus du tout quand l'appli devient inactive :
+        /// les sorties ne seraient plus enregistrées à temps. Erreur bien visible : ne pas envoyer ce build, prévenir Claude.
         /// </summary>
         const string NotPatched = "BASCULE : NE PAS ENVOYER CE BUILD. La retouche de la boucle d'affichage n'a pas pu être appliquée (autre version de Unity ?) : envoyer une capture à Claude";
 
+        /// <summary>
+        /// 1.5 : Unity arrête sa boucle d'affichage dès que l'appli n'est plus active (Centre de contrôle, notification
+        /// tirée), même en mode « Custom ». Un duel en direct se figeait alors : plus rien n'était envoyé, et le relais
+        /// coupe au bout de 10 s. On la laisse tourner tant que l'appli est seulement « inactive » (toujours à l'écran) ;
+        /// en arrière-plan elle s'arrête comme avant (iOS interdit d'y dessiner). Concerne la boucle CADisplayLink
+        /// (iPhone sous iOS 16 et moins) ; sous iOS 17 et plus, Unity 6 passe par CAMetalDisplayLink, qui ne vérifie pas
+        /// cet état : le réglage « Custom » suffit.
+        /// Si le texte attendu n'est pas trouvé (autre version de Unity), on ne touche à rien et on le dit.
+        /// </summary>
         static void KeepRunningWhenInactive(string path)
         {
             var file = Path.Combine(path, "Classes", "UnityAppController+Rendering.mm");

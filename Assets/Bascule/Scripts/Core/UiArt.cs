@@ -138,7 +138,30 @@ namespace Bascule.Core
         /// </summary>
         public static Shape Fit(Shape s, int n, float extent)
         {
-            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            if (!Bounds(s, n, out float x0, out float y0, out float x1, out float y1)) return s;
+            float c = n * 0.5f, mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f;
+            float k = extent / Math.Max(x1 - x0, y1 - y0);
+            var d = s.D;
+            return new Shape((x, y) => d(mx + (x - c) / k, my + (y - c) / k) * k, 0, 0, n, n);
+        }
+
+        /// <summary>
+        /// Déplace une forme (même taille) pour que sa boîte réelle soit pile au centre de l'image n × n : posée dans une
+        /// pastille ronde ou un bouton, l'icône est au milieu (avant : la couronne, l'étoile, le calendrier étaient trop
+        /// hauts, le cœur trop bas, le film et le haut-parleur décalés à droite…).
+        /// </summary>
+        /// <param name="outline">Épaisseur du contour dessiné autour : c'est l'ensemble forme + contour qui est centré.</param>
+        public static Shape Centered(Shape s, int n, float outline = 0f)
+        {
+            if (!Bounds(outline > 0f ? s.Grow(outline) : s, n, out float x0, out float y0, out float x1, out float y1)) return s;
+            float dx = n * 0.5f - (x0 + x1) * 0.5f, dy = n * 0.5f - (y0 + y1) * 0.5f;
+            return Math.Abs(dx) < 0.01f && Math.Abs(dy) < 0.01f ? s : s.Move(dx, dy);
+        }
+
+        /// <summary>Boîte réelle d'une forme dans l'image n × n, mesurée sur une grille (les boîtes des formes combinées sont trop larges).</summary>
+        static bool Bounds(Shape s, int n, out float x0, out float y0, out float x1, out float y1)
+        {
+            x0 = y0 = float.MaxValue; x1 = y1 = float.MinValue;
             float step = n / 256f;
             for (float y = 0; y <= n; y += step)
                 for (float x = 0; x <= n; x += step)
@@ -147,12 +170,14 @@ namespace Bascule.Core
                         if (x < x0) x0 = x; if (x > x1) x1 = x;
                         if (y < y0) y0 = y; if (y > y1) y1 = y;
                     }
-            if (x1 < x0) return s;
-            float c = n * 0.5f, mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f;
-            float k = extent / Math.Max(x1 - x0, y1 - y0);
-            var d = s.D;
-            return new Shape((x, y) => d(mx + (x - c) / k, my + (y - c) / k) * k, 0, 0, n, n);
+            return x1 >= x0;
         }
+
+        /// <summary>
+        /// Icônes qui gardent leur place dans l'image : le triangle « lecture », centré à l'œil sur son centre de gravité
+        /// (et qui sert de repère à la roue), et la main du tutoriel, dont le doigt montre un endroit précis.
+        /// </summary>
+        public static bool KeepsOwnCenter(Icon icon) => icon == Core.Icon.Play || icon == Core.Icon.Hand;
 
         /// <summary>Icône blanche cernée de sombre, avec ombre portée (128 px).</summary>
         public static Raster DrawIcon(Icon icon, int n = 128)
@@ -332,11 +357,28 @@ namespace Bascule.Core
             }
             // Icônes du menu du bas : même taille de dessin et centre exact, pour un rang parfaitement aligné.
             if (Array.IndexOf(MenuIcons, icon) >= 0) s = Fit(s, n, MenuGlyph * n);
+            else if (!KeepsOwnCenter(icon)) s = Centered(s, n, 6 * u);
             img.Fill(s.Grow(6 * u), Ink);
             img.Fill(s, Paint.Linear(Rgba.White, 0, n, Rgba.FromHex("#E3E6F0"), 0, 0));
             Toon.DropShadow(img, 0, -(int)(4 * u), (int)(3 * u) + 1, 0.35f);
             FadeBorder(img, Math.Max(2, n / 64));
             return img;
+        }
+
+        /// <summary>
+        /// Décale le dessin (en pixels entiers) pour que sa partie opaque soit au centre de l'image : un badge, un blason
+        /// ou un tas de pièces posé dans une pastille ou une case est au milieu (les blasons Challenger et Espoir étaient
+        /// 5 % trop bas, le tas de six pièces 5 % trop haut).
+        /// </summary>
+        static Raster CenterContent(Raster img)
+        {
+            int w = img.Width, h = img.Height, x0 = w, y0 = h, x1 = -1, y1 = -1;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (img.Pixels[y * w + x].a > 200) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+            if (x1 < 0) return img;
+            int dx = (int)Math.Round((w - 1 - x0 - x1) * 0.5f), dy = (int)Math.Round((h - 1 - y0 - y1) * 0.5f);
+            return dx == 0 && dy == 0 ? img : img.Offset(dx, dy);
         }
 
         /// <summary>
@@ -468,6 +510,7 @@ namespace Bascule.Core
             }
             foreach (var (x, y, r) in spots) Coin(img, x * n, y * n, r * n);
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            img = CenterContent(img);
             FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
@@ -512,6 +555,8 @@ namespace Bascule.Core
             img.Fill(Shape.Arc(mx, my, n * 0.095f, 0f, 360f, n * 0.012f), CoinEdge);
             img.Fill(StarShape(mx, my, n * 0.075f), Rgba.FromHex("#FFF3B0"), 1.2f);
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            img = CenterContent(img);
+            FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
 
@@ -683,6 +728,7 @@ namespace Bascule.Core
             }
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.32f);
             if (N != n) img = img.Resized(n, n);
+            img = CenterContent(img);
             FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
@@ -715,6 +761,8 @@ namespace Bascule.Core
             for (int i = -1; i <= 1; i++)
                 img.Fill(Shape.Circle(c + i * n * 0.08f, n * 0.165f, n * 0.022f), i < 1 ? Rgba.FromHex("#7C5CFF") : Rgba.FromHex("#D9D2EE"));
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            img = CenterContent(img);
+            FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
 

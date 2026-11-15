@@ -1469,6 +1469,24 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void EveryIconIsCenteredInItsImage()
+        {
+            // Posée dans une pastille ou un bouton, chaque icône est au milieu (dessin et contour), à un pixel près sur
+            // 128 : sauf le triangle « lecture » (centré à l'œil) et la main du tutoriel (son doigt vise un point).
+            foreach (Icon icon in Enum.GetValues(typeof(Icon)))
+            {
+                if (UiArtist.KeepsOwnCenter(icon)) continue;
+                var img = UiArtist.DrawIcon(icon, 128);
+                int x0 = 999, y0 = 999, x1 = -1, y1 = -1;
+                for (int y = 0; y < 128; y++)
+                    for (int x = 0; x < 128; x++)
+                        if (img.Get(x, y).a > 200) { x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, y); y1 = Math.Max(y1, y); }
+                Assert.That((x0 + x1) / 2f, Is.EqualTo(63.5f).Within(1.01f), icon + " : décalé à gauche ou à droite");
+                Assert.That((y0 + y1) / 2f, Is.EqualTo(63.5f).Within(1.01f), icon + " : décalé en haut ou en bas");
+            }
+        }
+
+        [Test]
         public void SettingsGearHasEightRoundedTeeth()
         {
             // Roue crantée : 8 dents (on les compte sur un cercle qui passe dans les dents), moyeu évidé au centre.
