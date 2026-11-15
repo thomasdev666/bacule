@@ -233,9 +233,9 @@ namespace Bascule.Services
         bool _testSuite;
 
         /// <summary>État lisible de la régie (Réglages : toucher 7 fois la ligne de version).</summary>
-        public string Diagnostic => "LevelPlay " + _init + " | Récompensée : " + (_rewarded != null && _rewarded.IsAdReady() ? "prête" : _rewardedState)
-            + " | Entre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState)
-            + " | Bannière : " + (_banner == null ? "aucune" : _bannerLoaded ? "prête" : _bannerState);
+        public string Diagnostic => "LevelPlay " + _init + "\nRécompensée : " + (_rewarded != null && _rewarded.IsAdReady() ? "prête" : _rewardedState)
+            + "\nEntre parties : " + (_interstitial != null && _interstitial.IsAdReady() ? "prête" : _interstitialState)
+            + "\nBannière : " + (_banner == null ? "aucune" : _bannerLoaded ? "prête" : _bannerState);
 
         /// <param name="bannerId">Bloc « Banner » de LevelPlay ; vide ou « A_REMPLIR » : pas de bannière.</param>
         public LevelPlayAdService(string appKey, string rewardedId, string interstitialId, AdPrivacy privacy, string bannerId = null)
@@ -284,7 +284,19 @@ namespace Bascule.Services
             global::Unity.Services.LevelPlay.LevelPlay.SetMetaData("InMobi_AgeRestricted", child);
         }
 
-        static string Err(global::Unity.Services.LevelPlay.LevelPlayAdError e) => e == null ? "erreur" : "erreur " + e.ErrorCode + " " + e.ErrorMessage;
+        /// <summary>
+        /// Erreur courte : « erreur 509 (Mediation No fill) ». Le message complet d'iOS (« Error Domain=… UserInfo={…} »)
+        /// débordait de la notification du diagnostic.
+        /// </summary>
+        static string Err(global::Unity.Services.LevelPlay.LevelPlayAdError e)
+        {
+            if (e == null) return "erreur";
+            string m = e.ErrorMessage ?? "";
+            int a = m.IndexOf('"'), b = a >= 0 ? m.IndexOf('"', a + 1) : -1;
+            if (b > a + 1) m = m.Substring(a + 1, b - a - 1);
+            if (m.Length > 40) m = m.Substring(0, 40) + "…";
+            return "erreur " + e.ErrorCode + (m.Length > 0 ? " (" + m + ")" : "");
+        }
 
         void Post(Action a) { lock (_main) _main.Enqueue(a); }
 

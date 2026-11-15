@@ -2479,7 +2479,8 @@ namespace Bascule
             if (Time.unscaledTime - _versionTapTime > 1.5f) _versionTaps = 0;
             _versionTapTime = Time.unscaledTime;
             _versionTaps++;
-            if (_versionTaps == 7) _toast.Say(AdDiagnostic, 9f);
+            // Dans une fenêtre (une ligne par type de pub) : dans une notification, le texte débordait.
+            if (_versionTaps == 7) _confirm.Ask("LevelPlay", AdDiagnostic, Art.IconSprite(Icon.Film), "OK", null, null, null);
             if (_versionTaps == 14)
             {
 #if BASCULE_LEVELPLAY && !UNITY_EDITOR
