@@ -2703,8 +2703,12 @@ namespace Bascule.Core.Tests
             float lift = BannerPolicy.Lift(2556, 34 * 3, 3f, 9.6f, 2.1f);
             float unitsPerPx = 19.2f / 2556;
             float bannerTop = (34 + 50) * 3 * unitsPerPx;
-            Assert.That(2.1f + lift - bannerTop, Is.EqualTo(0.45f).Within(1e-3), "0,45 unité d'herbe entre la bannière et les pieds");
-            Assert.That(lift, Is.InRange(0.1f, 0.6f), "le monde remonte à peine");
+            Assert.That(2.1f + lift - bannerTop, Is.GreaterThanOrEqualTo(0.2f - 1e-3), "au moins 0,2 unité d'herbe entre la bannière et les pieds");
+            Assert.That(lift, Is.LessThan(0.05f), "Basile ne bouge presque pas");
+            // Bannière estimée plus haute (écran plus étroit en points) : le monde remonte juste assez pour garder l'herbe.
+            float lift2 = BannerPolicy.Lift(2556, 34 * 3, 4f, 9.6f, 2.1f);
+            Assert.That(lift2, Is.GreaterThan(0f));
+            Assert.That(2.1f + lift2 - (34 * 3 + 50 * 4f) * unitsPerPx, Is.EqualTo(0.2f).Within(1e-3));
             Assert.AreEqual(0f, BannerPolicy.Lift(2556, 0, 1f, 9.6f, 2.1f), "assez de place : on ne bouge rien");
         }
 

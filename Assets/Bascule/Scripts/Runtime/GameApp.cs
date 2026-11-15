@@ -1757,7 +1757,7 @@ namespace Bascule
         float BannerLift()
         {
             float ppp = Mathf.Max(1f, Screen.width / 375f);
-            return BannerPolicy.Lift(Screen.height, Screen.safeArea.yMin, ppp, _cam.orthographicSize, WorldLayout.GroundAboveBottom);
+            return BannerPolicy.Lift(Screen.height, SafeArea.Area.yMin, ppp, _cam.orthographicSize, WorldLayout.GroundAboveBottom);
         }
 
         /// <summary>La bannière ne se montre que pendant le jeu lui-même : ni pendant l'arrivée, ni en pause, ni à la fin.</summary>

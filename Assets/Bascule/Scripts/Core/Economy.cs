@@ -647,7 +647,7 @@ namespace Bascule.Core
         /// <param name="pixelsPerPoint">Pixels par point de l'écran.</param>
         /// <param name="orthoSize">Demi-hauteur visible du monde (unités).</param>
         /// <param name="groundUnits">Hauteur du sol au-dessus du bas de l'écran (unités).</param>
-        public static float Lift(float screenHeightPx, float safeBottomPx, float pixelsPerPoint, float orthoSize, float groundUnits, float gapUnits = 0.45f)
+        public static float Lift(float screenHeightPx, float safeBottomPx, float pixelsPerPoint, float orthoSize, float groundUnits, float gapUnits = 0.2f)
         {
             if (screenHeightPx <= 0f || orthoSize <= 0f) return 0f;
             float unitsPerPx = 2f * orthoSize / screenHeightPx;

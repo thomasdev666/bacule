@@ -877,6 +877,28 @@ namespace Bascule.UI
         void Awake() { _rt = (RectTransform)transform; Apply(); }
         void Update() { if (Screen.safeArea != _last) Apply(); }
 
+        /// <summary>
+        /// Zone sûre de l'écran (pixels). Dans l'éditeur (et avec Unity Remote), Unity ne connaît pas l'encoche du
+        /// téléphone : pour un écran de téléphone moderne (plus de 1,9 fois plus haut que large), on simule celle de
+        /// l'iPhone 14 Pro (Dynamic Island : 59 points en haut, barre d'accueil : 34 points en bas, sur 852). Sert aussi à
+        /// la place de la bannière (GameApp.BannerLift) : l'éditeur montre la même chose que le téléphone.
+        /// </summary>
+        public static Rect Area
+        {
+            get
+            {
+                var area = Screen.safeArea;
+#if UNITY_EDITOR
+                if (area.width >= Screen.width - 1 && area.height >= Screen.height - 1 && Screen.height > Screen.width * 1.9f)
+                {
+                    float top = Screen.height * 59f / 852f, bottom = Screen.height * 34f / 852f;
+                    area = new Rect(0, bottom, Screen.width, Screen.height - top - bottom);
+                }
+#endif
+                return area;
+            }
+        }
+
         void Apply()
         {
             _last = Screen.safeArea;
@@ -888,17 +910,7 @@ namespace Bascule.UI
                 _rt.offsetMin = _rt.offsetMax = Vector2.zero;
                 return;
             }
-            var area = _last;
-#if UNITY_EDITOR
-            // Dans l'éditeur (et avec Unity Remote), Unity ne connaît pas l'encoche du téléphone : pour un écran de
-            // téléphone moderne (plus de 1,9 fois plus haut que large), on simule celle de l'iPhone 14 Pro
-            // (Dynamic Island : 59 points en haut, barre d'accueil : 34 points en bas, sur 852).
-            if (area.width >= Screen.width - 1 && area.height >= Screen.height - 1 && Screen.height > Screen.width * 1.9f)
-            {
-                float top = Screen.height * 59f / 852f, bottom = Screen.height * 34f / 852f;
-                area = new Rect(0, bottom, Screen.width, Screen.height - top - bottom);
-            }
-#endif
+            var area = Area;
             var min = area.position;
             var max = area.position + area.size;
             min.x /= Screen.width; min.y /= Screen.height;
