@@ -616,15 +616,7 @@ namespace Bascule
             // Ligue : la semaine finie, ma division et mes pièces.
             if (_leagueRewardPending != null) { ShowLeagueReward(); return; }
             // Mise à jour conseillée : une version plus récente est sur l'App Store (jamais obligatoire).
-            if (AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay))
-            {
-                AppUpdate.MarkSuggested(Profile, _storeVersion, LocalDay);
-                SaveProfile();
-                Stats.Event("update_prompt", ("from", Application.version), ("to", _storeVersion));
-                _confirm.Ask(Loc.Get("update_title"), Loc.Format("update_body", _storeVersion), Art.IconSprite(Icon.Gift),
-                    Loc.Get("update_yes"), OpenStorePage, Loc.Get("later"), null);
-                return;
-            }
+            if (SuggestUpdate()) return;
             if (AdPolicy.ShouldHintRemoveAds(Tuning.ads, Profile.ads, Profile))
             {
                 Profile.ads.removeAdsHintShown = true;
@@ -1213,6 +1205,12 @@ namespace Bascule
         public void AcceptFriendRequest(string playerId)
         {
             if (string.IsNullOrEmpty(playerId)) return;
+            // Liste pleine : la demande reste en attente (il suffit de faire de la place), avec la vraie raison.
+            if (!Profile.friends.Contains(playerId) && Profile.friends.Count >= Core.FriendCode.MaxFriends)
+            {
+                _toast.Say(Loc.Format("friends_full", Core.FriendCode.MaxFriends));
+                return;
+            }
             string name = RequestName(playerId);
             PendingFriends.Remove(playerId);
             bool ok = Core.FriendRequests.Accept(Profile, playerId, Leaderboard.Service.PlayerId);
@@ -1293,7 +1291,8 @@ namespace Bascule
         /// <summary>Une invitation peut s'afficher : pas de partie, de pub, de coffre ni d'autre fenêtre en cours.</summary>
         bool CanShowInvite => !Duel.InDuel && !AdBusy && !Session.IsRunning && !_confirm.Visible && !_prompt.Visible
             && !_friendRequest.Visible && !_playerMenu.Visible && !_league.Visible && !_leagueReward.Visible
-            && !_chest.Visible && !_headReveal.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible;
+            && !_chest.Visible && !_headReveal.Visible && !_surprise.Visible && !_welcome.Visible && !_onboard.Visible && !_duelInvite.Visible && !_gameOver.Visible
+            && !_gift.Visible;
 
         /// <summary>Écrans de menu sur lesquels on vérifie les amis et les invitations.</summary>
         bool SocialScreen => _home.Visible || _wheelScreen.Visible || _leaderboard.Visible || _shop.Visible || _collection.Visible || _missions.Visible
@@ -1568,6 +1567,8 @@ namespace Bascule
             bool canRevive = Session.CanRevive && _ads.CanShowRewarded && AdPolicy.CanWatchRewarded(Tuning.ads, Profile.ads, LocalDay);
             _gameOver.Present(result, rewards, _pendingGain, canRevive, false, card);
             _current = _gameOver;
+            // La partie est sur le disque dès l'écran de fin (record, pièces), sans attendre la sortie de l'appli.
+            SaveProfile();
         }
 
         /// <summary>Enregistre la partie terminée (record, têtes, pièces, missions, classement). Sans effet si déjà fait.</summary>
@@ -1661,9 +1662,11 @@ namespace Bascule
         /// Si iOS ferme l'application, rien n'est perdu ; si le joueur revient, il peut toujours revivre, et la partie
         /// n'est comptée qu'une fois (avant : une pub « revivre » faisait compter la partie deux fois).
         /// </summary>
-        void SaveProfileWithPendingRun()
+        void SaveProfileWithPendingRun() => SaveProfile();
+
+        /// <summary>Copie de la sauvegarde avec la partie en attente comptée (voir <see cref="SaveProfileWithPendingRun"/>).</summary>
+        void SavePendingCopy()
         {
-            if (_pendingFinalized || _pendingResult == null) { SaveProfile(); return; }
             try
             {
                 var copy = JsonUtility.FromJson<Profile>(JsonUtility.ToJson(Profile));
@@ -1671,7 +1674,7 @@ namespace Bascule
                 ApplyRunTo(copy, _pendingResult, out _, out _, out _);
                 _save.SaveProfile(copy);
             }
-            catch (Exception e) { Debug.LogWarning("[Bascule] Sauvegarde de la partie en attente : " + e.Message); SaveProfile(); }
+            catch (Exception e) { Debug.LogWarning("[Bascule] Sauvegarde de la partie en attente : " + e.Message); _save.SaveProfile(Profile); }
         }
 
         /// <summary>Un coffre gagné à cette partie attend d'être ouvert.</summary>
@@ -1791,6 +1794,7 @@ namespace Bascule
                 _gameOver.HideRevive();
                 _pendingFinalized = true; // la partie continue : on enregistrera à la vraie fin
                 _pendingResult = null;
+                SaveProfile(); // la copie de l'écran de fin (partie comptée) est remplacée : rien ne compte deux fois
                 Session.Revive();
                 Show(_hud);
             }
@@ -2700,12 +2704,25 @@ namespace Bascule
                 }
                 catch (Exception) { _storeVersion = ""; }
             }
-            // Le joueur est déjà sur l'accueil : on propose tout de suite (sinon au prochain passage par l'accueil).
-            if (_current == _home && !Session.IsRunning && !_confirm.Visible && AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay))
-                HomePopups();
+            // Le joueur est déjà sur l'accueil et rien n'est ouvert : on propose tout de suite (sinon au prochain passage
+            // par l'accueil). Seulement cette fenêtre : relancer toute la file de l'accueil rouvrait l'accueil du premier
+            // lancement ou un second coffre par-dessus celui en cours.
+            if (_current == _home && CanShowInvite) SuggestUpdate();
 #else
             yield break;
 #endif
+        }
+
+        /// <summary>Propose la mise à jour si une version plus récente est sur l'App Store (jamais obligatoire).</summary>
+        bool SuggestUpdate()
+        {
+            if (!AppUpdate.ShouldSuggest(Profile, Application.version, _storeVersion, LocalDay)) return false;
+            AppUpdate.MarkSuggested(Profile, _storeVersion, LocalDay);
+            SaveProfile();
+            Stats.Event("update_prompt", ("from", Application.version), ("to", _storeVersion));
+            _confirm.Ask(Loc.Get("update_title"), Loc.Format("update_body", _storeVersion), Art.IconSprite(Icon.Gift),
+                Loc.Get("update_yes"), OpenStorePage, Loc.Get("later"), null);
+            return true;
         }
 
         /// <summary>Page du jeu sur l'App Store (bouton « Mettre à jour »).</summary>
@@ -2729,7 +2746,17 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Sauvegarde, cycle de vie
 
-        void SaveProfile() => _save.SaveProfile(Profile);
+        /// <summary>
+        /// Écrit la sauvegarde. Sur l'écran de fin, tant que la partie n'est pas enregistrée (seconde chance possible),
+        /// c'est la copie avec la partie comptée qui est écrite : 1.5, iOS « Custom » ne prévient plus toujours avant
+        /// d'endormir le jeu, et une sauvegarde faite entre-temps (retour dans l'appli, ligue, nouveau jour) ne doit
+        /// pas effacer la partie (record, pièces) écrite sur le disque.
+        /// </summary>
+        void SaveProfile()
+        {
+            if (!_pendingFinalized && _pendingResult != null) { SavePendingCopy(); return; }
+            _save.SaveProfile(Profile);
+        }
 
         void SaveRunSnapshot()
         {

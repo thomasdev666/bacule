@@ -666,6 +666,7 @@ namespace Bascule.Core
             ["freq_later"] = new[] { "Plus tard", "Later" },
             ["freq_section"] = new[] { "Demandes d'ami ({0})", "Friend requests ({0})" },
             ["freq_now_friends"] = new[] { "{0} et toi êtes amis !", "You and {0} are now friends!" },
+            ["friends_full"] = new[] { "Ta liste d'amis est pleine ({0}) : retire un ami pour accepter cette demande.", "Your friend list is full ({0}): remove a friend to accept this request." },
             ["freq_declined"] = new[] { "Demande refusée", "Request declined" },
             ["freq_toast"] = new[] { "{0} veut t'ajouter en ami : réponds dans Classement → Amis", "{0} wants to be your friend: answer in Leaderboard → Friends" },
             // 1.5 : duel classé, ligues, fantômes

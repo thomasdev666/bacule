@@ -86,6 +86,12 @@ else:
     plist = plistlib.loads(subprocess.run(["git", "show", "origin/main:Info.plist"], cwd=IOS, capture_output=True).stdout)
     check(plist.get("CFBundleShortVersionString") == version, "Version de l'export = version du code",
           f"export {plist.get('CFBundleShortVersionString')} (commit {head}), code {version}")
+    # 1.5 : un vrai export Unity du projet à jour contient la retouche de la boucle d'affichage (Editor/IosBuildPost.cs) ;
+    # le 14/11, l'« Export iOS 1.5 » était l'ancien export 1.4 recopié (build Unity en échec), sans elle.
+    rendering = git("show", "origin/main:Classes/UnityAppController+Rendering.mm")
+    check("UIApplicationStateInactive /* Bascule */" in rendering, "Export fait par Unity avec le projet à jour",
+          "retouche du Centre de contrôle présente" if "UIApplicationStateInactive /* Bascule */" in rendering
+          else "retouche absente : ancien export recopié, ou build Unity en échec (refaire le build iOS)")
     meta = subprocess.run(["git", "show", "origin/main:Data/Managed/Metadata/global-metadata.dat"], cwd=IOS, capture_output=True).stdout.decode("latin-1")
     exp_boards = boards_in(meta)
     check(exp_boards == code_boards, "Classements dans l'export = ceux du code", ", ".join(exp_boards))
@@ -161,10 +167,14 @@ if not RAPIDE:
     failed = re.findall(r"^\s+Failed (\S+)", r.stdout, re.M)
     check(r.returncode == 0, "Duel : scénarios simulés (amis, classé, fantômes, Wi-Fi, 4G, Snap, pauses, abandons…)",
           (m.group(0)[:120] if m else r.stdout[-200:]) + (" ; en échec : " + ", ".join(failed[:6]) if failed else ""))
-    for defs in ["", "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_IOS",
-                 "BASCULE_STUBS;BASCULE_UNITYADS;BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;UNITY_ANDROID"]:
+    # LevelPlay (pubs, bannière) : c'est la régie qui part chez Apple, compilée avec ses vraies signatures (stubs).
+    pkgs = "BASCULE_STUBS;{ads};BASCULE_IAP;BASCULE_NOTIFICATIONS;BASCULE_UGS;BASCULE_CLOUDSAVE;BASCULE_MULTIPLAYER;{os}"
+    for label, defs in [("sans paquets", ""),
+                        ("UNITY_IOS", pkgs.format(ads="BASCULE_UNITYADS", os="UNITY_IOS")),
+                        ("UNITY_IOS avec LevelPlay", pkgs.format(ads="BASCULE_LEVELPLAY", os="UNITY_IOS")),
+                        ("UNITY_ANDROID", pkgs.format(ads="BASCULE_UNITYADS", os="UNITY_ANDROID"))]:
         r = subprocess.run(["dotnet", "build", "Tools/CompileCheck", "-p:ExtraDefines=" + defs.replace(";", "%3B")], cwd=ROOT, capture_output=True, text=True)
-        check(r.returncode == 0 and " error " not in r.stdout, "Compilation " + (defs.split(";")[-1] if defs else "sans paquets"))
+        check(r.returncode == 0 and " error " not in r.stdout, "Compilation " + label)
 
 bad = [r for r in results if not r[0]]
 print(f"\n{len(results) - len(bad)}/{len(results)} vérifications OK.")
