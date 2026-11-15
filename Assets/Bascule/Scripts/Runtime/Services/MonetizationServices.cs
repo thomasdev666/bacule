@@ -456,6 +456,35 @@ namespace Bascule.Services
         event Action<string> Purchased;
     }
 
+    /// <summary>
+    /// Version de test (TestFlight, Xcode, éditeur, version de développement) : les achats n'y sont pas payés. Sur
+    /// iPhone, le reçu de l'app le dit (Plugins/iOS/BasculeStore.mm) ; la version de l'App Store répond toujours non.
+    /// </summary>
+    public static class StoreEnvironment
+    {
+#if UNITY_IOS && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")] static extern int BasculeIsSandboxReceipt();
+#endif
+        static int _test = -1;
+
+        public static bool IsTest
+        {
+            get
+            {
+                if (_test < 0)
+                {
+                    bool test = Application.isEditor || Debug.isDebugBuild;
+#if UNITY_IOS && !UNITY_EDITOR
+                    try { test = test || BasculeIsSandboxReceipt() != 0; }
+                    catch (Exception e) { Debug.LogWarning("[Bascule] Reçu de l'app illisible : " + e.Message); }
+#endif
+                    _test = test ? 1 : 0;
+                }
+                return _test == 1;
+            }
+        }
+    }
+
     /// <summary>En attendant Unity IAP : l'achat est simulé dans l'éditeur, indisponible sur téléphone.</summary>
     public sealed class StubPurchaseService : IPurchaseService
     {

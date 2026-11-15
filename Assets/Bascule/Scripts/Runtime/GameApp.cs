@@ -2106,12 +2106,17 @@ namespace Bascule
 
         // ------------------------------------------------------------------ Boutique
 
+        /// <summary>Achats demandés par le joueur et pas encore terminés (voir OnPurchased).</summary>
+        readonly HashSet<string> _buying = new HashSet<string>();
+
         public void BuyProduct(string id)
         {
             if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("store_unavailable")); return; }
             Stats.Event("iap_start", ("product", id));
+            _buying.Add(id);
             _purchases.Buy(id, ok =>
             {
+                _buying.Remove(id);
                 if (!ok) { _toast.Say(Loc.Get("purchase_failed")); Stats.Event("iap_fail", ("product", id)); }
             });
         }
@@ -2119,6 +2124,9 @@ namespace Bascule
         /// <summary>Le store confirme un achat (ou le rend après une réinstallation) : on donne le produit.</summary>
         void OnPurchased(string id)
         {
+            // Achats de test effacés (TestFlight) : ce que le magasin redonne tout seul au lancement est ignoré ; seul un
+            // achat demandé maintenant (ou « Restaurer mes achats », qui lève l'effacement) donne le produit.
+            if (Profile.testPurchasesCleared && !_buying.Contains(id)) return;
             if (!Shop.Grant(Profile, id)) return;
             Stats.Event("iap_done", ("product", id));
             SaveProfile();
@@ -2480,7 +2488,13 @@ namespace Bascule
             _versionTapTime = Time.unscaledTime;
             _versionTaps++;
             // Dans une fenêtre (une ligne par type de pub) : dans une notification, le texte débordait.
-            if (_versionTaps == 7) _confirm.Ask("LevelPlay", AdDiagnostic, Art.IconSprite(Icon.Film), "OK", null, null, null);
+            // Version TestFlight : second bouton « Achats de test » (jamais dans la version de l'App Store).
+            if (_versionTaps == 7)
+            {
+                if (StoreEnvironment.IsTest)
+                    _confirm.Ask("LevelPlay", AdDiagnostic, Art.IconSprite(Icon.Film), "OK", null, Loc.Get("test_purchases"), AskClearTestPurchases);
+                else _confirm.Ask("LevelPlay", AdDiagnostic, Art.IconSprite(Icon.Film), "OK", null, null, null);
+            }
             if (_versionTaps == 14)
             {
 #if BASCULE_LEVELPLAY && !UNITY_EDITOR
@@ -2490,6 +2504,30 @@ namespace Bascule
                 _toast.Say(Loc.Get("diag_testsuite"), 5f);
                 _versionTaps = 0;
             }
+        }
+
+        /// <summary>
+        /// Version de test seulement : efface les achats faits avec TestFlight sur ce téléphone (Apple ne permet pas de les
+        /// effacer, et le jeu les garde dans sa sauvegarde), pour revoir les offres de la boutique et les pubs.
+        /// </summary>
+        void AskClearTestPurchases()
+        {
+            if (!StoreEnvironment.IsTest) return;
+            _confirm.Ask(Loc.Get("test_purchases"), Loc.Get("test_purchases_body"), Art.IconSprite(Icon.Replay),
+                Loc.Get("test_purchases_ok"), ClearTestPurchases, Loc.Get("cancel"), null);
+        }
+
+        void ClearTestPurchases()
+        {
+            if (!StoreEnvironment.IsTest) return;
+            int head = Profile.selectedHead;
+            Shop.ClearTestPurchases(Profile);
+            SaveProfile();
+            if (Profile.selectedHead != head) Session.SetHead(HeadCatalog.Get(Profile.selectedHead));
+            _toast.Say(Loc.Get("test_purchases_done"), 3f);
+            if (_settings.Visible) _settings.Refresh();
+            if (_shop.Visible) _shop.Refresh();
+            if (_home.Visible) _home.Refresh();
         }
 
         string AdDiagnostic
@@ -2681,6 +2719,7 @@ namespace Bascule
         public void RestorePurchases()
         {
             if (!_purchases.IsAvailable) { _toast.Say(Loc.Get("store_unavailable")); return; }
+            if (Profile.testPurchasesCleared) { Profile.testPurchasesCleared = false; SaveProfile(); }
             _purchases.Restore(ok =>
             {
                 // Toujours une réponse visible : réussi, ou boutique injoignable.

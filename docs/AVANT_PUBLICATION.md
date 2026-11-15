@@ -71,6 +71,7 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 - [ ] Coffre de fin de partie : le 1er coup le charge, les suivants font monter la rareté (étiquette sous le coffre), puis il s'ouvre ; un coffre légendaire donne une tête ; les chances sont lisibles en bas.
 - [ ] Bannière (si le bloc est rempli dans `GameApp.AdIds`) : relancer l'appli, 1re partie sans bannière, 2e partie avec, en bas, sans toucher les pieds de Basile ; elle disparaît en pause, à la chute et sur l'écran de fin ; jamais en duel ; pas de pub imposée juste après cette partie.
 - [ ] Restaurer mes achats.
+- Achats faits dans TestFlight (gratuits, impossibles à effacer chez Apple, gardés par le jeu) : 7 touches sur la version dans les réglages, puis **Achats de test** > Effacer. Le téléphone redevient celui d'un joueur qui n'a rien acheté (offres Légendes, Sans pub, Pack de départ, pubs) ; « Restaurer mes achats » les redonne. Ce bouton n'existe pas dans la version de l'App Store.
 
 **Sorties de l'appli (1.5, réglage iOS « Custom » : un iPhone sous iOS 17 ou plus, et un sous iOS 16 si possible)**
 - [ ] En pleine partie : retour à l'écran d'accueil du téléphone, fermer le jeu dans le sélecteur d'applis, relancer : « Reprendre » remet la partie et le score.

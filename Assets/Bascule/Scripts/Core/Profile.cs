@@ -36,6 +36,11 @@ namespace Bascule.Core
         public Settings settings = new Settings();
         public bool adsRemoved;
         public List<string> ownedProducts = new List<string>();
+        /// <summary>
+        /// Achats de test effacés (version TestFlight, Shop.ClearTestPurchases) : ce que le magasin signale tout seul au
+        /// lancement n'est plus repris, seulement un achat demandé ou « Restaurer mes achats ».
+        /// </summary>
+        public bool testPurchasesCleared;
         /// <summary>Codes de partenaires déjà utilisés (forme normalisée, Core/Promo.cs) : un code ne sert qu'une fois.</summary>
         public List<string> redeemedCodes = new List<string>();
         /// <summary>Version de l'écran d'information confidentialité accepté (0 = jamais vu).</summary>
@@ -299,6 +304,7 @@ namespace Bascule.Core
             // Achats définitifs rendus (sans pubs, têtes premium) ; les pièces, elles, repartent toutes de zéro.
             foreach (var id in old.ownedProducts ?? new List<string>()) Shop.Grant(fresh, id);
             if (old.adsRemoved) fresh.adsRemoved = true;
+            fresh.testPurchasesCleared = old.testPurchasesCleared;
             // Codes de partenaires : le code reste utilisé et sa tête reste acquise (comme un achat).
             fresh.redeemedCodes = new List<string>(old.redeemedCodes ?? new List<string>());
             PromoCodes.Regrant(fresh);

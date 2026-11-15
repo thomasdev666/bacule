@@ -2744,6 +2744,40 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void TestPurchasesClearEverythingBoughtButSpentCoins()
+        {
+            var t = new AdTuning();
+            var p = NewProfile();
+            p.gamesPlayed = t.starterOfferAfterGames;
+            Assert.True(Offers.CheckStarter(t, p, 100));
+            Assert.True(Shop.Grant(p, Shop.Starter));
+            Assert.True(Shop.Grant(p, Shop.Legends));
+            Assert.True(Shop.Grant(p, Shop.RemoveAds));
+            var robot = HeadCatalog.All.First(h => h.Product == Shop.Legends);
+            p.selectedHead = robot.Id;
+            p.seenHeads.Add(robot.Id);
+            var shopHead = HeadCatalog.NextShopHead(p.unlockedHeads);
+            Assert.True(EconomyRun.BuyHead(p, shopHead), "pièces achetées dépensées en partie");
+            int left = p.coins;
+
+            Assert.True(Shop.ClearTestPurchases(p));
+            Assert.AreEqual(0, p.ownedProducts.Count);
+            Assert.False(p.adsRemoved);
+            Assert.False(p.unlockedHeads.Any(id => HeadCatalog.Get(id).Unlock == UnlockKind.Premium));
+            Assert.False(p.seenHeads.Contains(robot.Id));
+            Assert.AreEqual(0, p.selectedHead);
+            Assert.True(p.unlockedHeads.Contains(shopHead.Id), "ce qui a été dépensé l'a été");
+            Assert.AreEqual(0, p.coins, "pièces achetées encore en poche retirées (" + left + ")");
+            Assert.AreEqual(0, p.coinsBought);
+            Assert.True(p.testPurchasesCleared);
+            Assert.False(Shop.ClearTestPurchases(p), "deuxième effacement : rien à faire");
+            p.Sanitize();
+            Assert.False(p.adsRemoved, "rien ne remet « sans pub » au chargement");
+            Assert.True(Offers.CheckStarter(t, p, 200), "l'offre de départ peut revenir");
+            Assert.True(Shop.Grant(p, Shop.Legends), "un nouvel achat redonne le produit");
+        }
+
+        [Test]
         public void StarterOfferStartsOnceAndExpires()
         {
             var t = new AdTuning();

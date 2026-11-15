@@ -120,6 +120,10 @@ else:
     if "IronSourceAdMobAdapter" in podfile:
         check(bool(plist.get("GADApplicationIdentifier")), "Identifiant AdMob dans Info.plist", plist.get("GADApplicationIdentifier", "absent : plantage au lancement"))
     check(bool(plist.get("NSUserTrackingUsageDescription")), "Texte de la demande de suivi (ATT)")
+    # Modules natifs du jeu (Assets/Plugins/iOS) : sans eux, l'édition des liens échoue dans Codemagic.
+    exported = set(git("ls-tree", "-r", "--name-only", "origin/main").split("\n"))
+    for mm in sorted(f for f in os.listdir(os.path.join(ROOT, "Assets/Plugins/iOS")) if f.endswith(".mm")):
+        check(f"Libraries/Plugins/iOS/{mm}" in exported, f"Module natif {mm} dans l'export", "" if f"Libraries/Plugins/iOS/{mm}" in exported else "absent : refaire le build iOS puis la copie")
     check(len(plist.get("SKAdNetworkItems", [])) > 50, "Identifiants SKAdNetwork", str(len(plist.get("SKAdNetworkItems", []))))
     cm = git("show", "origin/main:codemagic.yaml")
     check("100 + ${BUILD_NUMBER" in cm, "Numéro de build Codemagic unique", "100 + numéro du build")

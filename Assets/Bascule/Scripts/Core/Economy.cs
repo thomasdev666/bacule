@@ -742,6 +742,32 @@ namespace Bascule.Core
                         p.unlockedHeads.Add(h.Id);
             return true;
         }
+
+        /// <summary>
+        /// Efface les achats faits en test (TestFlight : Apple n'y fait rien payer), pour revoir le jeu comme un joueur qui
+        /// n'a rien acheté : achats définitifs, « sans pub », têtes premium, pièces achetées pas encore dépensées (celles
+        /// dépensées l'ont été) ; l'offre de départ pourra revenir. Le profil retient l'effacement
+        /// (<see cref="Profile.testPurchasesCleared"/>) : le jeu ne reprend plus tout seul ce que le magasin lui signale au
+        /// lancement, seulement un achat demandé ou « Restaurer mes achats ». Vrai si quelque chose a changé.
+        /// </summary>
+        public static bool ClearTestPurchases(Profile p)
+        {
+            bool changed = p.ownedProducts.Count > 0 || p.adsRemoved || !p.testPurchasesCleared;
+            p.ownedProducts.Clear();
+            p.adsRemoved = false;
+            int coins = Seasons.UnspentBoughtCoins(p);
+            if (coins > 0) { p.coins -= coins; changed = true; }
+            p.coinsBought = 0;
+            Predicate<int> premium = id => HeadCatalog.Get(id)?.Unlock == UnlockKind.Premium;
+            if (p.unlockedHeads.RemoveAll(premium) > 0) changed = true;
+            p.seenHeads.RemoveAll(premium);
+            if (!p.unlockedHeads.Contains(p.selectedHead)) p.selectedHead = 0;
+            if (p.offers.starterEnds > 0 || p.offers.starterPopupShown) changed = true;
+            p.offers.starterEnds = 0;
+            p.offers.starterPopupShown = false;
+            p.testPurchasesCleared = true;
+            return changed;
+        }
     }
 
     /// <summary>Dates « jour » (aaaa-mm-jj) partagées par le défi, le cadeau et les missions.</summary>
