@@ -69,8 +69,13 @@ def http(url, method="GET", body=None, headers=None):
             return e.code, {}
 
 
+# Anciens noms que le code ne fait que RENVOYER vers les classements actuels (LeaderboardSync : scores mis en attente par
+# la version d'avant la 1.4). Ils apparaissent donc dans l'export sans être lus ni écrits : ce n'est pas un changement.
+LEGACY_BOARDS = {"bascule_monde_s2", "bascule_jour_s2"}
+
+
 def boards_in(text):
-    return sorted(set(re.findall(r"bascule_(?:monde|jour)(?:_s\d+)?", text)))
+    return sorted(set(re.findall(r"bascule_(?:monde|jour)(?:_s\d+)?", text)) - LEGACY_BOARDS)
 
 
 print("\n== Code et export iOS ==")
