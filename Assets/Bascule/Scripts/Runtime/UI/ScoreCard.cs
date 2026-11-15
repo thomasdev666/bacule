@@ -75,13 +75,15 @@ namespace Bascule.UI
             Ui.Stretch(dim.rectTransform);
 
             // Logo coloré : le nom du jeu doit se lire même en vignette de 200 pixels.
+            // Contours dessous, faces dessus (Ui.Wordmark) : une lettre penchée ne mord pas sur sa voisine.
             string word = "BASCULE";
+            var letters = Ui.Wordmark(root, word, 130, LogoColors);
             for (int i = 0; i < word.Length; i++)
-            {
-                var l = Ui.Title(root, word[i].ToString(), 130, LogoColors[i]);
-                Ui.Place(l.rectTransform, 0.5f, 1, (i - 3) * 112f, -120 + Mathf.Sin(i * 0.9f) * 10f, 140, 170);
-                l.rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(i * 1.3f) * 5f);
-            }
+                foreach (var l in new[] { letters[i].back, letters[i].face })
+                {
+                    Ui.Place(l.rectTransform, 0.5f, 1, (i - 3) * 112f, -120 + Mathf.Sin(i * 0.9f) * 10f, 140, 170);
+                    l.rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(i * 1.3f) * 5f);
+                }
 
             _rays = Ui.Image(root, _art.Rays, new Color(1, 1, 1, 0.5f), "Rayons");
             Ui.Place(_rays.rectTransform, 0.5f, 1, 0, -720, 1300, 1300);

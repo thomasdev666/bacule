@@ -127,14 +127,16 @@ namespace Bascule.UI
             rock.Angle = 3.5f; rock.Speed = 1.2f;
             string word = Loc.Get("title");
             float step = 118f, x0 = -(word.Length - 1) * step * 0.5f;
+            // Contours dessous, faces dessus (Ui.Wordmark) : le contour d'une lettre ne mord pas sur sa voisine. Le contour
+            // et la face d'une lettre ont le même balancement (même phase) : ils restent l'un sur l'autre.
+            var letters = Ui.Wordmark(logo, word, 156, LogoColors);
             for (int i = 0; i < word.Length; i++)
-            {
-                var letter = Ui.Title(logo, word[i].ToString(), 156, LogoColors[i % LogoColors.Length], "Lettre");
-                Ui.Place(letter.rectTransform, 0.5f, 0.5f, x0 + i * step, 0, 150, 200);
-                letter.horizontalOverflow = HorizontalWrapMode.Overflow;
-                var r = letter.gameObject.AddComponent<Rock>();
-                r.Angle = 5f; r.Speed = 2.2f; r.Phase = i * 0.6f; r.Bob = 10f;
-            }
+                foreach (var letter in new[] { letters[i].back, letters[i].face })
+                {
+                    Ui.Place(letter.rectTransform, 0.5f, 0.5f, x0 + i * step, 0, 150, 200);
+                    var r = letter.gameObject.AddComponent<Rock>();
+                    r.Angle = 5f; r.Speed = 2.2f; r.Phase = i * 0.6f; r.Bob = 10f;
+                }
 
             // Record : bien détaché du logo, étiquette ajustée à son texte.
             _best = Tag(Safe, Icon.Trophy, "", 520, 80, out var bestRt);
@@ -224,8 +226,7 @@ namespace Bascule.UI
                     Ui.Place((RectTransform)go.transform, 1, 1, 26, 26, 50, 50, 1, 1);
                     var disc = go.GetComponent<Image>();
                     disc.sprite = Art.Circle; disc.type = Image.Type.Simple;
-                    var ring = go.AddComponent<Outline>(); // liseré blanc : la pastille rouge se détache aussi sur la Boutique rouge
-                    ring.effectColor = Color.white; ring.effectDistance = new Vector2(3, -3);
+                    Ui.Ring(disc, Color.white, 3.5f); // liseré blanc : la pastille rouge se détache aussi sur la Boutique rouge
                     t.fontSize = Mathf.RoundToInt(32 * Ui.TextScale);
                     Ui.Stretch(t.rectTransform, -4, -2, -4, 3);
                 }
@@ -1413,7 +1414,7 @@ namespace Bascule.UI
                 var nb = MetaUi.Badge(b.transform, Art, out var nbGo);
                 Ui.Place((RectTransform)nbGo.transform, 1, 1, 14, 14, 50, 50, 1, 1);
                 var nd = nbGo.GetComponent<Image>(); nd.sprite = Art.Circle; nd.type = Image.Type.Simple;
-                var nr = nbGo.AddComponent<Outline>(); nr.effectColor = Color.white; nr.effectDistance = new Vector2(3, -3);
+                Ui.Ring(nd, Color.white, 3.5f);
                 nb.fontSize = Mathf.RoundToInt(30 * Ui.TextScale);
                 Ui.Stretch(nb.rectTransform, -4, -2, -4, 3);
                 nbGo.SetActive(false);

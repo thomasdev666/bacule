@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Bascule.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -126,17 +127,46 @@ namespace Bascule.UI
             return t;
         }
 
+        /// <summary>
+        /// Contour rond et régulier (<see cref="RoundOutline"/>, rayon 1,75 fois l'épaisseur : autant qu'avant sur les côtés),
+        /// puis ombre portée vers le bas.
+        /// </summary>
         public static void Outlined(Text t, float thickness)
         {
-            var o = t.gameObject.AddComponent<Outline>();
-            o.effectColor = Palette.Outline;
-            o.effectDistance = new Vector2(thickness, -thickness);
-            var o2 = t.gameObject.AddComponent<Outline>();
-            o2.effectColor = Palette.Outline;
-            o2.effectDistance = new Vector2(thickness * 0.7f, thickness * 0.7f);
+            Ring(t, Palette.Outline, thickness * 1.75f);
             var s = t.gameObject.AddComponent<Shadow>();
             s.effectColor = new Color(0.16f, 0.1f, 0.25f, 0.8f);
             s.effectDistance = new Vector2(0, -thickness * 1.9f);
+        }
+
+        /// <summary>Liseré rond et régulier autour d'un élément (texte, pastille, icône) : voir <see cref="RoundOutline"/>.</summary>
+        public static RoundOutline Ring(Graphic g, Color color, float radius)
+        {
+            var o = g.gameObject.AddComponent<RoundOutline>();
+            o.effectColor = color;
+            o.effectDistance = new Vector2(radius, 0f);
+            return o;
+        }
+
+        /// <summary>
+        /// Mot en grandes lettres colorées (logo) : deux couches, tous les contours et ombres d'abord, toutes les faces
+        /// ensuite. Le contour d'une lettre ne mord jamais sur la lettre voisine, même quand elles se balancent et se
+        /// touchent. Chaque lettre a deux textes (contour, face) que l'appelant place et anime de la même façon.
+        /// </summary>
+        public static (Text back, Text face)[] Wordmark(Transform parent, string word, int size, Color[] colors)
+        {
+            var backs = Stretch(Rect("Contours", parent));
+            var faces = Stretch(Rect("Faces", parent));
+            var letters = new (Text back, Text face)[word.Length];
+            for (int i = 0; i < word.Length; i++)
+            {
+                var color = colors[i % colors.Length];
+                var back = Title(backs, word[i].ToString(), size, color, "Lettre");
+                var face = Label(faces, word[i].ToString(), size, color, TextAnchor.MiddleCenter, "Lettre");
+                back.horizontalOverflow = face.horizontalOverflow = HorizontalWrapMode.Overflow;
+                letters[i] = (back, face);
+            }
+            return letters;
         }
 
         /// <summary>
@@ -706,6 +736,51 @@ namespace Bascule.UI
     }
 
     /// <summary>Balancement de bascule (lettres du logo).</summary>
+    /// <summary>
+    /// Contour rond et régulier : des copies de l'élément posées tout autour, sur un cercle de rayon effectDistance.x,
+    /// assez nombreuses pour que le bord ne fasse pas de vagues, dessinées dessous. Remplace l'Outline de Unity (4 copies
+    /// en diagonale) : son contour était carré, plus épais dans les coins, avec de petites encoches sur les lettres
+    /// rondes et des bosses sur les pastilles rondes. Hérite de Shadow : <see cref="Ui.Plain"/> le coupe aussi.
+    /// </summary>
+    public sealed class RoundOutline : Shadow
+    {
+        static readonly List<UIVertex> Verts = new List<UIVertex>();
+
+        /// <summary>Nombre de copies pour un rayon : le bord s'écarte d'au plus un cinquième de pixel du vrai cercle.</summary>
+        public static int Directions(float radius)
+        {
+            if (radius <= 1f) return 8;
+            double step = Math.Acos(1.0 - 0.2 / radius);
+            return Mathf.Clamp((int)Math.Ceiling(Math.PI / step), 8, 24);
+        }
+
+        public override void ModifyMesh(VertexHelper vh)
+        {
+            if (!IsActive()) return;
+            var verts = Verts;
+            verts.Clear();
+            vh.GetUIVertexStream(verts);
+            int count = verts.Count;
+            if (count == 0) return;
+            float r = effectDistance.x;
+            // Un maillage d'interface s'arrête à 65 000 sommets (ombre portée comprise, qui double tout) : moins de copies
+            // pour un très long texte.
+            int n = Mathf.Max(4, Mathf.Min(Directions(r), 64000 / (2 * count) - 1));
+            if (verts.Capacity < count * (n + 1)) verts.Capacity = count * (n + 1);
+            int start = 0, end = count;
+            for (int k = 0; k < n; k++)
+            {
+                float a = k * 2f * Mathf.PI / n;
+                ApplyShadowZeroAlloc(verts, effectColor, start, end, Mathf.Cos(a) * r, Mathf.Sin(a) * r);
+                start = end;
+                end = verts.Count;
+            }
+            vh.Clear();
+            vh.AddUIVertexTriangleStream(verts);
+            verts.Clear();
+        }
+    }
+
     public sealed class Rock : MonoBehaviour
     {
         public float Angle = 6f, Speed = 1.6f, Phase;

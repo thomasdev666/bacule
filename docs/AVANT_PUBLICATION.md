@@ -65,6 +65,10 @@ Toujours sur le build qui sera soumis (même numéro), pas sur un autre.
 - [ ] Bannière (si le bloc est rempli dans `GameApp.AdIds`) : relancer l'appli, 1re partie sans bannière, 2e partie avec, en bas, sans toucher les pieds de Basile ; elle disparaît en pause, à la chute et sur l'écran de fin ; jamais en duel ; pas de pub imposée juste après cette partie.
 - [ ] Restaurer mes achats.
 
+**Finitions graphiques (1.5)**
+- [ ] Accueil : roue crantée sans tache blanche ; lettres du logo au contour rond et régulier, aucune lettre mordue par sa voisine quand elles se balancent (regarder le A et le S de près, capture zoomée).
+- [ ] Roue de la chance : l'ombre reste en bas pendant et après le tour ; pastilles rouges (menu, Têtes) avec un liseré blanc bien rond.
+
 Si une case ne passe pas : on ne soumet pas, on envoie une capture à Claude.
 
 ## 3. Après l'envoi

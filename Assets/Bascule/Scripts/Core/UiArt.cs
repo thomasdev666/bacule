@@ -42,7 +42,10 @@ namespace Bascule.Core
             // Brillance en haut.
             var gloss = Shape.Intersect(face.Grow(-7f * k), Shape.HalfPlane(0, -1, -(h * 0.66f)));
             img.Fill(gloss, Rgba.White.WithAlpha(0.55f), 3f * k);
-            img.Fill(Shape.Capsule(w * 0.24f, h - o - 26 * k, w * 0.34f, h - o - 26 * k, 7f * k), Rgba.White.WithAlpha(0.9f));
+            // Trait de lumière en haut à gauche, entièrement dans le coin gauche de l'image (les 64 px jamais étirés en
+            // 9-slice) : avant, son bout droit dépassait dans la partie étirée et s'allongeait en traînée sur les grands
+            // boutons, et faisait un petit décroché au milieu des boutons ronds.
+            img.Fill(Shape.Capsule(w * 0.17f, h - o - 26 * k, w * 0.25f, h - o - 26 * k, 7f * k), Rgba.White.WithAlpha(0.9f));
             return img;
         }
 
@@ -71,7 +74,7 @@ namespace Bascule.Core
 
         /// <summary>
         /// Verre liquide (pastilles, dock, barre de score, onglets) : verre bleu nuit translucide, liseré lumineux
-        /// (vif en haut, discret en bas), reflet spéculaire en haut à gauche et reflet de lumière en bas.
+        /// (vif en haut, discret en bas) et reflet de lumière en bas.
         /// Dessiné avec ses propres couleurs : à afficher sans teinte (blanc). 9-slice de 46 px.
         /// </summary>
         public static Raster Glass(int w = 160, int h = 96, float k = 1f)
@@ -94,10 +97,7 @@ namespace Bascule.Core
             // Liseré : un anneau fin, lumineux en haut.
             var rim = Shape.Subtract(body, body.Grow(-2.6f * k));
             img.Fill(rim, Paint.Linear(Rgba.White.WithAlpha(0.85f), 0, h, Rgba.White.WithAlpha(0.22f), 0, 0), 1.2f * k);
-            // Reflet spéculaire : un petit trait arrondi en haut à gauche, entièrement dans le bout gauche de l'image
-            // (les 46 px qui ne sont jamais étirés en 9-slice). Sinon il s'allonge en traînée sur les éléments larges.
-            float sx = 30f * k, sy = h - m - 15f * k;
-            img.Fill(Shape.Capsule(sx, sy, sx + 10f * k, sy + 3f * k, 3.2f * k), Rgba.White.WithAlpha(0.8f), 1.5f * k);
+            // Pas de petit trait blanc en haut à gauche : posé seul sur le verre, il se lisait comme une trace.
             // Reflet de lumière en bas.
             img.FillClipped(body.Grow(-4f * k), Shape.HalfPlane(0, 1, m + 12f * k), Rgba.White.WithAlpha(0.1f), 5f * k);
             return img;
@@ -105,7 +105,7 @@ namespace Bascule.Core
 
         /// <summary>
         /// Reflet « liquide » posé sur les boutons (même taille et mêmes bords que <see cref="Button"/>) : un voile
-        /// blanc bombé sur le haut, un liseré lumineux et un point de lumière, en blanc pur (non teinté), pour que
+        /// blanc bombé sur le haut, un liseré lumineux et un reflet en bas, en blanc pur (non teinté), pour que
         /// les boutons de couleur aient l'air de verre coloré.
         /// </summary>
         public static Raster ButtonGloss(int w = 192, int h = 200, float k = 1f)
@@ -120,8 +120,8 @@ namespace Bascule.Core
             // Liseré intérieur lumineux sur le haut de la face.
             var edge = Shape.Intersect(Shape.Subtract(face.Grow(-2f * k), face.Grow(-6f * k)), Shape.HalfPlane(0, -1, -(h * 0.8f)));
             img.Fill(edge, Rgba.White.WithAlpha(0.55f), 1.5f * k);
-            // Point de lumière et reflet de lumière en bas de la face (le verre renvoie la lumière).
-            img.Fill(Shape.Circle(w * 0.22f, h - o - 30f * k, 6f * k), Rgba.White.WithAlpha(0.95f), 1.5f * k);
+            // Reflet de lumière en bas de la face (le verre renvoie la lumière). Plus de point blanc opaque en haut à
+            // gauche : sur les petits boutons ronds (réglages), il se lisait comme une tache.
             var low = Shape.Intersect(face.Grow(-9f * k), Shape.Ellipse(w * 0.5f, o + d + 10f * k, w * 0.36f, 12f * k));
             img.Fill(low, Rgba.White.WithAlpha(0.22f), 5f * k);
             return img;
@@ -167,30 +167,36 @@ namespace Bascule.Core
                 case Core.Icon.Play:
                     s = Shape.Poly(c - 18 * u, c - 28 * u, c + 30 * u, c, c - 18 * u, c + 28 * u).Grow(5 * u); break;
                 case Core.Icon.Home:
+                    // Porte assez étroite pour que le contour la remplisse : une porte pleine, pas une fente claire.
                     s = Shape.Union(Shape.Poly(c - 34 * u, c + 4 * u, c, c + 34 * u, c + 34 * u, c + 4 * u).Grow(4 * u),
-                        Shape.Subtract(Shape.Box(c, c - 14 * u, 24 * u, 22 * u, 4 * u), Shape.Box(c, c - 22 * u, 8 * u, 14 * u, 3 * u))); break;
+                        Shape.Subtract(Shape.Box(c, c - 14 * u, 24 * u, 22 * u, 4 * u), Shape.Box(c, c - 26 * u, 5.5f * u, 14 * u, 4 * u))); break;
                 case Core.Icon.Trophy:
                     s = Shape.Union(Shape.Intersect(Shape.Circle(c, c + 14 * u, 26 * u), Shape.HalfPlane(0, -1, -(c + 2 * u))).Grow(0),
                         Shape.Box(c, c + 26 * u, 26 * u, 14 * u, 4 * u), Shape.Box(c, c - 14 * u, 5 * u, 14 * u, 2 * u), Shape.Box(c, c - 30 * u, 20 * u, 6 * u, 3 * u),
                         Shape.Arc(c - 26 * u, c + 22 * u, 10 * u, 90f, 270f, 6 * u), Shape.Arc(c + 26 * u, c + 22 * u, 10 * u, -90f, 90f, 6 * u)); break;
                 case Core.Icon.Gear:
-                {
-                    s = Shape.Circle(c, c, 24 * u);
-                    for (int i = 0; i < 8; i++)
-                    {
-                        double a = i * Math.PI / 4;
-                        s = Shape.Union(s, Shape.Box(c + (float)Math.Cos(a) * 28 * u, c + (float)Math.Sin(a) * 28 * u, 8 * u, 8 * u, 3 * u, (float)(a * 180 / Math.PI)));
-                    }
-                    s = Shape.Subtract(s, Shape.Circle(c, c, 11 * u)); break;
-                }
+                    s = GearShape(c, c, u); break;
                 case Core.Icon.Face:
                     s = Shape.Subtract(Shape.Circle(c, c, 34 * u), Shape.Union(Shape.Circle(c - 12 * u, c + 8 * u, 6 * u), Shape.Circle(c + 12 * u, c + 8 * u, 6 * u),
                         Shape.Arc(c, c - 2 * u, 18 * u, 205f, 335f, 7 * u))); break;
                 case Core.Icon.Share:
-                    s = Shape.Union(Shape.Subtract(Shape.Box(c, c - 12 * u, 30 * u, 24 * u, 8 * u), Shape.Box(c, c - 6 * u, 20 * u, 24 * u, 3 * u)),
-                        Shape.Box(c, c + 6 * u, 6 * u, 26 * u, 3 * u), Shape.Poly(c - 20 * u, c + 20 * u, c + 20 * u, c + 20 * u, c, c + 40 * u).Grow(2 * u)); break;
+                {
+                    // Bac ouvert et flèche qui en sort : ouverture large, sans double trait autour de la flèche.
+                    var tray = Shape.Subtract(Shape.Box(c, c - 17 * u, 33 * u, 17 * u, 8 * u), Shape.Box(c, c - 9 * u, 24 * u, 17 * u, 4 * u));
+                    var arrow = Shape.Union(Shape.Capsule(c, c - 18 * u, c, c + 16 * u, 5 * u),
+                        Shape.Poly(c - 15 * u, c + 12 * u, c + 15 * u, c + 12 * u, c, c + 33 * u).Grow(3 * u));
+                    s = Shape.Union(tray, arrow); break;
+                }
                 case Core.Icon.Replay:
-                    s = Shape.Union(Shape.Arc(c, c, 24 * u, -200f, 110f, 11 * u), Shape.Poly(c - 34 * u, c + 22 * u, c - 6 * u, c + 34 * u, c - 10 * u, c + 6 * u).Grow(2 * u)); break;
+                {
+                    // Flèche circulaire : arc de 265° et pointe dans son prolongement (sans bosse à la jonction), ouverture
+                    // assez large pour rester visible sous le contour.
+                    float cy = c - 2 * u, r = 23 * u, a1 = 105f * (float)Math.PI / 180f;
+                    float nx = (float)Math.Cos(a1), ny = (float)Math.Sin(a1), tx = -ny, ty = nx;  // rayon, tangente
+                    float ex = c + nx * r, ey = cy + ny * r;                                     // bout de l'arc
+                    var head = Shape.Poly(ex + nx * 13 * u, ey + ny * 13 * u, ex + tx * 13 * u, ey + ty * 13 * u, ex - nx * 13 * u, ey - ny * 13 * u).Grow(2 * u);
+                    s = Shape.Union(Shape.Arc(c, cy, r, -160f, 105f, 10 * u), head); break;
+                }
                 case Core.Icon.Film:
                     s = Shape.Union(Shape.Box(c - 8 * u, c, 26 * u, 22 * u, 6 * u), Shape.Poly(c + 20 * u, c - 2 * u, c + 38 * u, c - 16 * u, c + 38 * u, c + 16 * u, c + 20 * u, c + 2 * u).Grow(2 * u)); break;
                 case Core.Icon.Flame:
@@ -199,7 +205,8 @@ namespace Bascule.Core
                     var outer = Shape.Smooth(Shape.Smooth(Shape.Circle(c, c - 14 * u, 25 * u), Shape.Tapered(c + 2 * u, c - 6 * u, 18 * u, c + 6 * u, c + 40 * u, 1.5f * u), 9 * u),
                         Shape.Tapered(c - 14 * u, c - 10 * u, 12 * u, c - 26 * u, c + 20 * u, 1.5f * u), 8 * u);
                     var inner = Shape.Smooth(Shape.Circle(c + 1 * u, c - 20 * u, 11 * u), Shape.Tapered(c + 1 * u, c - 16 * u, 8 * u, c + 4 * u, c + 6 * u, 1f * u), 5 * u);
-                    s = Shape.Subtract(outer, inner);
+                    // Un peu réduite : en bas, le contour et l'ombre sortaient de l'image (bord coupé net).
+                    s = Scaled(Shape.Subtract(outer, inner), c, c, 0.86f, 0f, 0.5f * u);
                     break;
                 }
                 case Core.Icon.Star:
@@ -214,8 +221,14 @@ namespace Bascule.Core
                     s = Shape.Poly(pts).Grow(3 * u); break;
                 }
                 case Core.Icon.Lock:
-                    s = Shape.Union(Shape.Box(c, c - 10 * u, 26 * u, 22 * u, 6 * u), Shape.Arc(c, c + 12 * u, 16 * u, 0f, 180f, 8 * u),
-                        Shape.Box(c - 16 * u, c + 8 * u, 4 * u, 6 * u), Shape.Box(c + 16 * u, c + 8 * u, 4 * u, 6 * u)); break;
+                {
+                    // Cadenas : anse haute (le jour se voit sous l'anse, au lieu d'un demi-disque sombre), trou de serrure.
+                    float by = c - 12 * u;
+                    var shackle = Shape.Union(Shape.Arc(c, c + 18 * u, 14 * u, 0f, 180f, 7.5f * u),
+                        Shape.Box(c - 14 * u, c + 12 * u, 3.75f * u, 7 * u), Shape.Box(c + 14 * u, c + 12 * u, 3.75f * u, 7 * u));
+                    var key = Shape.Union(Shape.Circle(c, by + 4 * u, 5 * u), Shape.Box(c, by - 4 * u, 2.2f * u, 7 * u, 1.5f * u));
+                    s = Shape.Subtract(Shape.Union(Shape.Box(c, by, 27 * u, 20 * u, 7 * u), shackle), key); break;
+                }
                 case Core.Icon.Check:
                     s = Shape.Union(Shape.Capsule(c - 26 * u, c, c - 8 * u, c - 18 * u, 8 * u), Shape.Capsule(c - 8 * u, c - 18 * u, c + 28 * u, c + 22 * u, 8 * u)); break;
                 case Core.Icon.Back:
@@ -240,18 +253,33 @@ namespace Bascule.Core
                     s = Shape.Smooth(Shape.Union(Shape.Circle(c - 17 * u, c + 10 * u, 20 * u), Shape.Circle(c + 17 * u, c + 10 * u, 20 * u)),
                         Shape.Poly(c - 34 * u, c + 2 * u, c + 34 * u, c + 2 * u, c, c - 34 * u).Grow(3 * u), 8 * u); break;
                 case Core.Icon.Swords:
-                    // Deux épées croisées (1.5) : lame qui s'affine en pointe, garde, poignée et pommeau.
-                    s = Shape.Union(Sword(c, c - 1 * u, 42f, 92 * u), Sword(c, c - 1 * u, -42f, 92 * u)); break;
+                {
+                    // Deux épées croisées au milieu des lames : gardes et pommeaux bien séparés en bas (rien ne s'emmêle).
+                    float L = 86 * u, at = 0.16f;
+                    double ta = 40 * Math.PI / 180;
+                    float sx = (float)Math.Sin(ta) * at * L, sy = (float)Math.Cos(ta) * at * L;
+                    s = Shape.Union(Sword(c - sx, c - sy, 40f, L), Sword(c + sx, c - sy, -40f, L)); break;
+                }
                 case Core.Icon.Coin:
                     s = Shape.Union(Shape.Subtract(Shape.Circle(c, c, 36 * u), Shape.Subtract(Shape.Circle(c, c, 27 * u), Shape.Circle(c, c, 22 * u))),
                         Shape.Box(c, c, 5 * u, 14 * u, 3 * u)); break;
                 case Core.Icon.Gift:
-                    s = Shape.Subtract(Shape.Union(Shape.Box(c, c - 12 * u, 28 * u, 22 * u, 4 * u), Shape.Box(c, c + 16 * u, 34 * u, 8 * u, 3 * u),
-                            Shape.Arc(c - 10 * u, c + 30 * u, 9 * u, -20f, 200f, 5 * u), Shape.Arc(c + 10 * u, c + 30 * u, 9 * u, -20f, 200f, 5 * u)),
-                        Shape.Union(Shape.Box(c, c, 4 * u, 40 * u), Shape.Box(c, c + 7 * u, 40 * u, 2 * u))); break;
+                {
+                    // Boîte et couvercle séparés par le ruban ; nœud à deux boucles pleines posé sur le couvercle.
+                    var lid = Shape.Box(c, c + 13 * u, 34 * u, 8 * u, 3 * u);
+                    var box = Shape.Subtract(Shape.Union(Shape.Box(c, c - 14 * u, 28 * u, 21 * u, 4 * u), lid),
+                        Shape.Union(Shape.Box(c, c - 2 * u, 3.5f * u, 40 * u), Shape.Box(c, c + 4 * u, 40 * u, 1.8f * u)));
+                    var knot = Shape.Circle(c, c + 25 * u, 5 * u);
+                    // Boucles penchées vers l'extérieur (comme des oreilles), chacune avec son jour.
+                    var loops = Shape.Subtract(Shape.Union(Shape.Ellipse(c - 13 * u, c + 28 * u, 11 * u, 6.5f * u, -32f), Shape.Ellipse(c + 13 * u, c + 28 * u, 11 * u, 6.5f * u, 32f)),
+                        Shape.Union(Shape.Ellipse(c - 14 * u, c + 29 * u, 4.5f * u, 1.6f * u, -32f), Shape.Ellipse(c + 14 * u, c + 29 * u, 4.5f * u, 1.6f * u, 32f), knot.Grow(2.2f * u)));
+                    s = Shape.Union(box, Shape.Subtract(Shape.Union(loops, knot), lid.Grow(2.5f * u))); break;
+                }
                 case Core.Icon.Bag:
-                    s = Shape.Union(Shape.Smooth(Shape.Box(c, c - 10 * u, 30 * u, 26 * u, 8 * u), Shape.Box(c, c - 30 * u, 33 * u, 6 * u, 4 * u), 4 * u),
-                        Shape.Arc(c, c + 18 * u, 15 * u, 0f, 180f, 6 * u)); break;
+                    // Sac de boutique : corps un peu évasé aux coins arrondis, anse haute (le jour se voit sous l'anse).
+                    s = Shape.Union(Shape.Poly(c - 24 * u, c + 8 * u, c + 24 * u, c + 8 * u, c + 28 * u, c - 30 * u, c - 28 * u, c - 30 * u).Grow(5 * u),
+                        Shape.Arc(c, c + 18 * u, 14 * u, 0f, 180f, 6.5f * u),
+                        Shape.Box(c - 14 * u, c + 13 * u, 3.25f * u, 5 * u), Shape.Box(c + 14 * u, c + 13 * u, 3.25f * u, 5 * u)); break;
                 case Core.Icon.Target:
                     s = Shape.Union(Shape.Subtract(Shape.Circle(c, c, 36 * u), Shape.Circle(c, c, 27 * u)), Shape.Subtract(Shape.Circle(c, c, 20 * u), Shape.Circle(c, c, 12 * u)),
                         Shape.Circle(c, c, 6 * u)); break;
@@ -263,9 +291,10 @@ namespace Bascule.Core
                         Shape.Circle(c, c - 26 * u, 8 * u), Shape.Circle(c, c + 30 * u, 5 * u)); break;
                 case Core.Icon.Flag:
                     // Petit drapeau de signalement : mât à gauche, fanion qui ondule.
-                    s = Shape.Union(Shape.Capsule(c - 24 * u, c - 36 * u, c - 24 * u, c + 34 * u, 5 * u),
-                        Shape.Poly(c - 22 * u, c + 34 * u, c + 4 * u, c + 26 * u, c + 32 * u, c + 32 * u, c + 30 * u, c - 2 * u,
-                            c + 4 * u, c - 6 * u, c - 22 * u, c + 2 * u).Grow(2 * u)); break;
+                    // Mât moins long : en bas, son contour et son ombre sortaient de l'image (bord coupé net).
+                    s = Shape.Union(Shape.Capsule(c - 24 * u, c - 28 * u, c - 24 * u, c + 33 * u, 5 * u),
+                        Shape.Poly(c - 22 * u, c + 33 * u, c + 4 * u, c + 25 * u, c + 32 * u, c + 31 * u, c + 30 * u, c - 3 * u,
+                            c + 4 * u, c - 7 * u, c - 22 * u, c + 1 * u).Grow(2 * u)); break;
                 case Core.Icon.Plus:
                     s = Shape.Union(Shape.Capsule(c - 28 * u, c, c + 28 * u, c, 9 * u), Shape.Capsule(c, c - 28 * u, c, c + 28 * u, 9 * u)); break;
                 case Core.Icon.Wheel:
@@ -306,7 +335,26 @@ namespace Bascule.Core
             img.Fill(s.Grow(6 * u), Ink);
             img.Fill(s, Paint.Linear(Rgba.White, 0, n, Rgba.FromHex("#E3E6F0"), 0, 0));
             Toon.DropShadow(img, 0, -(int)(4 * u), (int)(3 * u) + 1, 0.35f);
+            FadeBorder(img, Math.Max(2, n / 64));
             return img;
+        }
+
+        /// <summary>
+        /// Amène l'alpha à zéro sur les <paramref name="band"/> pixels du bord : une ombre floue qui atteint le bord de
+        /// l'image s'éteint en douceur au lieu de s'arrêter en ligne droite.
+        /// </summary>
+        static void FadeBorder(Raster img, int band)
+        {
+            int w = img.Width, h = img.Height;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int d = Math.Min(Math.Min(x, y), Math.Min(w - 1 - x, h - 1 - y));
+                    if (d >= band) continue;
+                    int i = y * w + x;
+                    var p = img.Pixels[i];
+                    img.Pixels[i] = new Rgba(p.r, p.g, p.b, (byte)(p.a * d / band));
+                }
         }
 
         /// <summary>
@@ -352,7 +400,8 @@ namespace Bascule.Core
                 img.Fill(Shape.Circle(bx, by, rim * 0.3f), Rgba.FromHex("#8A5A00"));
             }
             _ = gold;
-            Toon.DropShadow(img, 0, -(int)(n * 0.012f), (int)(n * 0.01f) + 1, 0.35f);
+            // Pas d'ombre portée dans l'image : la roue tourne, son ombre tournait avec elle (et finissait en haut à
+            // gauche une fois la roue arrêtée) ; elle était aussi coupée en bas. L'ombre est posée dessous, fixe.
             return img;
         }
 
@@ -411,13 +460,15 @@ namespace Bascule.Core
             {
                 case 1: spots = new[] { (0.5f, 0.54f, 0.34f) }; break;
                 case 2: spots = new[] { (0.63f, 0.62f, 0.26f), (0.38f, 0.44f, 0.29f) }; break;
-                case 3: spots = new[] { (0.5f, 0.66f, 0.24f), (0.29f, 0.4f, 0.25f), (0.71f, 0.4f, 0.25f) }; break;
+                case 3: spots = new[] { (0.5f, 0.66f, 0.24f), (0.3f, 0.4f, 0.245f), (0.7f, 0.4f, 0.245f) }; break;
                 default:
-                    spots = new[] { (0.3f, 0.7f, 0.18f), (0.7f, 0.7f, 0.18f), (0.5f, 0.76f, 0.19f), (0.22f, 0.4f, 0.2f), (0.78f, 0.4f, 0.2f), (0.5f, 0.42f, 0.23f) };
+                    // Pièces des côtés rentrées : elles sortaient de l'image (bord coupé net).
+                    spots = new[] { (0.31f, 0.7f, 0.18f), (0.69f, 0.7f, 0.18f), (0.5f, 0.76f, 0.19f), (0.255f, 0.4f, 0.19f), (0.745f, 0.4f, 0.19f), (0.5f, 0.42f, 0.23f) };
                     break;
             }
             foreach (var (x, y, r) in spots) Coin(img, x * n, y * n, r * n);
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.3f);
+            FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
 
@@ -468,6 +519,34 @@ namespace Bascule.Core
         /// Une épée, centrée sur (cx, cy), penchée de <paramref name="tiltDeg"/> depuis la verticale (+ = vers la droite),
         /// pointe en haut : lame large à la garde et fine à la pointe, garde en travers, poignée, pommeau rond.
         /// </summary>
+        /// <summary>Forme mise à l'échelle k autour de (cx, cy), puis déplacée de (dx, dy).</summary>
+        static Shape Scaled(Shape s, float cx, float cy, float k, float dx, float dy)
+        {
+            var d = s.D;
+            return new Shape((x, y) => d(cx + (x - cx - dx) / k, cy + (y - cy - dy) / k) * k,
+                cx + (s.X0 - cx) * k + dx, cy + (s.Y0 - cy) * k + dy, cx + (s.X1 - cx) * k + dx, cy + (s.Y1 - cy) * k + dy);
+        }
+
+        /// <summary>
+        /// Roue crantée : dents en trapèze aux coins arrondis, fondues dans le disque par une union douce (creux arrondis,
+        /// sans pointe ni cran irrégulier entre deux dents), moyeu évidé. Une dent pile en haut. Unité : u = n / 100.
+        /// </summary>
+        public static Shape GearShape(float cx, float cy, float u, int teeth = 8)
+        {
+            float rIn = 19f * u, rOut = 33f * u, wIn = (teeth <= 6 ? 9.5f : 7.2f) * u, wOut = (teeth <= 6 ? 6.5f : 4.6f) * u;
+            var g = Shape.Circle(cx, cy, 25f * u);
+            for (int i = 0; i < teeth; i++)
+            {
+                double a = Math.PI / 2 + i * 2 * Math.PI / teeth;
+                float ax = (float)Math.Cos(a), ay = (float)Math.Sin(a), bx = -ay, by = ax; // le long de la dent, en travers
+                var tooth = Shape.Poly(
+                    cx + ax * rIn - bx * wIn, cy + ay * rIn - by * wIn, cx + ax * rOut - bx * wOut, cy + ay * rOut - by * wOut,
+                    cx + ax * rOut + bx * wOut, cy + ay * rOut + by * wOut, cx + ax * rIn + bx * wIn, cy + ay * rIn + by * wIn).Grow(2.2f * u);
+                g = Shape.Smooth(g, tooth, 3.5f * u);
+            }
+            return Shape.Subtract(g, Shape.Circle(cx, cy, 11f * u));
+        }
+
         public static Shape Sword(float cx, float cy, float tiltDeg, float length)
         {
             double a = tiltDeg * Math.PI / 180;
@@ -495,8 +574,12 @@ namespace Bascule.Core
         /// </summary>
         public static Raster LeagueCrest(int division, int n = 256)
         {
-            var img = new Raster(n, n);
-            float c = n * 0.5f, size = n * 0.8f;
+            // La Légende (ailes et couronne) sortait de l'image en haut et en bas (pointe et couronne coupées net) :
+            // dessinée sur une image 12 % plus grande, même centre, puis réduite à n × n.
+            int N = division == 0 ? (int)Math.Ceiling(n * 1.12f) : n;
+            float off = (N - n) * 0.5f;
+            var img = new Raster(N, N);
+            float c = N * 0.5f, size = n * 0.8f;
             Rgba metal, metalDark, field, fieldLight, emblem;
             switch (division)
             {
@@ -506,7 +589,7 @@ namespace Bascule.Core
                 default: metal = Rgba.FromHex("#B4C3D8"); metalDark = Rgba.FromHex("#7C8CA6"); field = Rgba.FromHex("#3D4A63"); fieldLight = Rgba.FromHex("#52627F"); emblem = Rgba.FromHex("#E4EAF3"); break;
             }
             bool wings = division <= 1, crown = division == 0;
-            float cy = n * (crown ? 0.405f : division == 1 ? 0.46f : 0.5f);
+            float cy = off + n * (crown ? 0.405f : division == 1 ? 0.46f : 0.5f);
 
             // Ailes (Élite et Légende) : trois plumes de chaque côté, derrière l'écu.
             if (wings)
@@ -552,7 +635,9 @@ namespace Bascule.Core
                 }
                 case 2:
                 {
-                    var swords = Shape.Union(Sword(c, ey0 + n * 0.02f, 40f, n * 0.5f), Sword(c, ey0 + n * 0.02f, -40f, n * 0.5f));
+                    // Croisées au milieu des lames (comme l'icône du duel) : gardes bien séparées.
+                    float L = n * 0.46f, at = 0.16f, sx = (float)Math.Sin(40 * Math.PI / 180) * at * L, sy = (float)Math.Cos(40 * Math.PI / 180) * at * L;
+                    var swords = Shape.Union(Sword(c - sx, ey0 + n * 0.04f - sy, 40f, L), Sword(c + sx, ey0 + n * 0.04f - sy, -40f, L));
                     Toon.Part(img, swords, emblem, size, CrestStyle);
                     break;
                 }
@@ -597,6 +682,8 @@ namespace Bascule.Core
                 Toon.Part(img, StarShape(c, top + n * 0.1f, n * 0.07f, 0.5f), emblem, size, CoinStyle);
             }
             Toon.DropShadow(img, 0, -(int)(n * 0.02f), (int)(n * 0.02f) + 1, 0.32f);
+            if (N != n) img = img.Resized(n, n);
+            FadeBorder(img, Math.Max(2, n / 64));
             return img;
         }
 
@@ -636,21 +723,22 @@ namespace Bascule.Core
         {
             w = (int)(w * k); h = (int)(h * k);
             var img = new Raster(w, h);
-            float o = 6f * k;
-            var frame = Shape.Box(w * 0.5f, h * 0.5f, w * 0.5f - o, h * 0.5f - o, h * 0.5f - o);
-            var glass = Shape.Box(w * 0.5f, h * 0.5f, w * 0.5f - o - 12 * k, h * 0.5f - o - 12 * k, h * 0.5f - o - 12 * k);
+            // Un pixel et demi de marge : le contour sombre touchait le bord de l'image (bord coupé net, sans lissage).
+            float o = 6f * k, m = 1.5f * k, fw = w * 0.5f - o - m, fh = h * 0.5f - o - m, gw = fw - 12 * k, gh = fh - 12 * k;
+            var frame = Shape.Box(w * 0.5f, h * 0.5f, fw, fh, fh);
+            var glass = Shape.Box(w * 0.5f, h * 0.5f, gw, gh, gh);
             img.Fill(frame.Grow(o), Ink);
             img.Fill(frame, Paint.Linear(Rgba.FromHex("#FFD86B"), 0, h, Rgba.FromHex("#E0A030"), 0, 0));
             var green = Rgba.FromHex("#6FD38A"); var orange = Rgba.FromHex("#FFB547"); var red = Rgba.FromHex("#FF5A5F");
             img.Fill(glass, Paint.Custom((x, y) =>
             {
-                float t = Math.Abs(x - w * 0.5f) / (w * 0.5f - o - 12 * k);
+                float t = Math.Abs(x - w * 0.5f) / gw;
                 var c = t < 0.55f ? green : t < 0.82f ? Rgba.Lerp(green, orange, (t - 0.55f) / 0.08f) : Rgba.Lerp(orange, red, (t - 0.82f) / 0.06f);
                 return Rgba.Lerp(c.Light(1.15f), c.Shade(0.9f), 1f - y / h);
             }));
             // Repères au centre et aux limites.
             foreach (float t in new[] { -0.82f, -0.12f, 0.12f, 0.82f })
-                img.FillClipped(glass, Shape.Box(w * 0.5f + t * (w * 0.5f - o - 12 * k), h * 0.5f, 2.5f * k, h), Ink.WithAlpha(0.55f), 1f);
+                img.FillClipped(glass, Shape.Box(w * 0.5f + t * gw, h * 0.5f, 2.5f * k, h), Ink.WithAlpha(0.55f), 1f);
             img.FillClipped(glass, Shape.Box(w * 0.5f, h * 0.68f, w, h * 0.08f, h * 0.06f), Rgba.White.WithAlpha(0.6f), 3f * k);
             return img;
         }

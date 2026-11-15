@@ -881,8 +881,9 @@ namespace Bascule.Core
         public static Raster SweatDrop(int n)
         {
             var img = new Raster(n, n);
-            float x = n * 0.5f, y = n * 0.38f;
-            var drop = Shape.Smooth(Shape.Circle(x, y, n * 0.25f), Shape.Poly(x - n * 0.18f, y + n * 0.1f, x + n * 0.18f, y + n * 0.1f, x, y + n * 0.58f), n * 0.1f);
+            // Pointe moins haute : elle sortait de l'image (goutte au bout plat).
+            float x = n * 0.5f, y = n * 0.36f;
+            var drop = Shape.Smooth(Shape.Circle(x, y, n * 0.25f), Shape.Poly(x - n * 0.18f, y + n * 0.1f, x + n * 0.18f, y + n * 0.1f, x, y + n * 0.5f), n * 0.1f);
             Toon.Part(img, drop, Rgba.FromHex("#8FD3FF"), n, new Toon.Style { Outline = 0.06f, OutlineColor = Rgba.FromHex("#3D7FB8"), Shade = 0.15f, Rim = 0f, Specular = true, SpecSize = 0.14f });
             return img;
         }

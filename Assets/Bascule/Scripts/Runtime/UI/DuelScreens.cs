@@ -604,13 +604,8 @@ namespace Bascule.UI
             Ui.Stretch(_count.rectTransform);
             _count.horizontalOverflow = HorizontalWrapMode.Overflow;
             // Contour fin : celui d'un titre (6 % de la taille) rendait les gros chiffres pâteux.
-            var fx = _count.GetComponents<Shadow>(); // deux contours (Outline hérite de Shadow), puis l'ombre portée
-            if (fx.Length >= 3)
-            {
-                fx[0].effectDistance = new Vector2(6f, -6f);
-                fx[1].effectDistance = new Vector2(4f, 4f);
-                fx[2].effectDistance = new Vector2(0f, -12f);
-            }
+            foreach (var sh in _count.GetComponents<Shadow>()) UnityEngine.Object.DestroyImmediate(sh);
+            Ui.Outlined(_count, 6f);
             Ui.Isolate(_countRt.gameObject);
 
             // ---- Bandeau K.O. / attente
@@ -968,8 +963,7 @@ namespace Bascule.UI
             crown.color = Palette.Accent;
             s.Crown = crown.rectTransform;
             Ui.Place(s.Crown, 0.5f, 1, x < 0 ? -34 : 34, CrownY, 124, 124);
-            var crownOutline = crown.gameObject.AddComponent<Outline>();
-            crownOutline.effectColor = Palette.Outline; crownOutline.effectDistance = new Vector2(4, -4);
+            Ui.Ring(crown, Palette.Outline, 4.5f);
             s.Name = Ui.Title(s.Col, "", 44, nameColor, "Nom");
             Ui.Place(s.Name.rectTransform, 0.5f, 1, 0, -305, 420, 56);
             s.Score = Ui.Title(s.Col, "", 84, Color.white, "Score");

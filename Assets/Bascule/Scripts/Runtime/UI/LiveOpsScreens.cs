@@ -78,8 +78,7 @@ namespace Bascule.UI
             // Pastille « ! » sur le coin du médaillon.
             var badge = Ui.Image(rim.transform, art.Circle, Palette.Primary, "Pastille");
             Ui.Place(badge.rectTransform, 1, 1, -8, -8, 40, 40, 0.5f, 0.5f);
-            var o = badge.gameObject.AddComponent<Outline>();
-            o.effectColor = Color.white; o.effectDistance = new Vector2(3, -3);
+            Ui.Ring(badge, Color.white, 3.5f);
             var t = Ui.Title(badge.transform, "!", 28);
             Ui.Stretch(t.rectTransform, 0, 0, 0, 3);
             badge.gameObject.AddComponent<Pulse>().Amount = 0.1f;
@@ -136,6 +135,10 @@ namespace Bascule.UI
             Ui.Place(rays.rectTransform, 0.5f, 0.5f, 0, 0, Size * 1.7f, Size * 1.7f);
             rays.gameObject.AddComponent<Spin>().Speed = 8f;
             Ui.Isolate(rays.gameObject);
+
+            // Ombre douce sous la roue, fixe (l'image de la roue n'en a plus : elle tournait avec elle).
+            var wheelShadow = Ui.Image(holder, Art.SoftDisc, new Color(0.12f, 0.08f, 0.24f, 0.4f), "Ombre");
+            Ui.Place(wheelShadow.rectTransform, 0.5f, 0.5f, 0, -14, Size * 1.1f, Size * 1.1f);
 
             // La roue elle-même (tourne), ses lots et ses ampoules.
             _wheel = Ui.Rect("Plateau", holder);

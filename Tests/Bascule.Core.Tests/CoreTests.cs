@@ -1448,6 +1448,45 @@ namespace Bascule.Core.Tests
             Assert.LessOrEqual(sizes.Max() - sizes.Min(), 2, "tailles : " + string.Join(", ", sizes));
             Assert.AreEqual(Icon.Heads, UiArtist.MenuIcons[0]);
         }
+
+        [Test]
+        public void PicturesStayInsideTheirImage()
+        {
+            // Rien n'est coupé net au bord de l'image, contour et ombre compris : icônes (le drapeau et la flamme l'étaient
+            // en bas), blasons de ligue (couronne et pointe de la Légende), tas de pièces (pièces des côtés), goutte.
+            foreach (Icon ic in Enum.GetValues(typeof(Icon))) AssertInside(UiArtist.DrawIcon(ic, 128), "icône " + ic, 2);
+            for (int d = 0; d < 4; d++) AssertInside(UiArtist.LeagueCrest(d, 128), "blason " + d, 2);
+            foreach (int c in ArtCatalog.CoinPiles) AssertInside(UiArtist.CoinPile(c, 128), "pièces " + c, 2);
+            AssertInside(ShapeArtist.SweatDrop(64), "goutte", 8);
+        }
+
+        static void AssertInside(Raster r, string what, int maxAlpha)
+        {
+            int worst = 0;
+            for (int x = 0; x < r.Width; x++) worst = Math.Max(worst, Math.Max(r.Get(x, 0).a, r.Get(x, r.Height - 1).a));
+            for (int y = 0; y < r.Height; y++) worst = Math.Max(worst, Math.Max(r.Get(0, y).a, r.Get(r.Width - 1, y).a));
+            Assert.That(worst, Is.LessThanOrEqualTo(maxAlpha), what + " : touche le bord de l'image");
+        }
+
+        [Test]
+        public void SettingsGearHasEightRoundedTeeth()
+        {
+            // Roue crantée : 8 dents (on les compte sur un cercle qui passe dans les dents), moyeu évidé au centre.
+            var img = UiArtist.DrawIcon(Icon.Gear, 128);
+            float c = 64f, r = 30f * 1.28f;
+            int teeth = 0; bool was = false;
+            for (int i = 0; i <= 720; i++)
+            {
+                double a = i * Math.PI / 360;
+                var p = img.Get((int)(c + Math.Cos(a) * r), (int)(c + Math.Sin(a) * r));
+                bool white = p.a > 200 && p.r > 200;
+                if (white && !was && i > 0 && i < 720) teeth++;
+                was = white;
+            }
+            Assert.AreEqual(8, teeth);
+            var hub = img.Get(64, 64);
+            Assert.That(hub.r, Is.LessThan(120), "moyeu évidé (contour sombre au centre)");
+        }
     }
 
     public class LeagueTests
