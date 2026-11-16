@@ -109,6 +109,8 @@ namespace Bascule.Core
         public int progress;
         /// <summary>Paliers déjà gagnés (0 à 3).</summary>
         public int tiers;
+        /// <summary>Objectif de ce joueur pour la semaine, fixé au début de sa semaine (0 : objectif de base).</summary>
+        public int target;
     }
 
     /// <summary>
@@ -162,6 +164,38 @@ namespace Bascule.Core
             return Math.Max(0, (int)Math.Floor((d - Epoch).TotalDays) / 7);
         }
 
+        /// <summary>
+        /// Objectif du joueur : celui de base, multiplié selon son niveau (record), fixé pour toute sa semaine au premier
+        /// passage (il ne bouge plus ensuite, même si le record monte). Une semaine déjà commencée garde l'objectif de base.
+        /// </summary>
+        public static Def For(string week, Profile p)
+        {
+            var d = For(week);
+            if (p == null) return d;
+            if (p.week == null) p.week = new EventState();
+            Roll(p.week, week);
+            if (p.week.target <= 0 && p.week.progress == 0 && p.week.tiers == 0) p.week.target = Scaled(d, p.bestScore);
+            if (p.week.target > 0) d.Target = p.week.target;
+            return d;
+        }
+
+        /// <summary>Score par partie d'un bon joueur, sur lequel l'objectif de base est réglé (environ 30 parties).</summary>
+        public const int ReferenceScore = 3100;
+        public const float MaxScale = 3f;
+
+        /// <summary>
+        /// Objectif selon le record : × racine(record / 3 100), entre × 1 et × 3, arrondi (5 000 points, 50 fusions ou poids,
+        /// une minute). Un record de 15 000 donne 110 000 points. Le nombre de parties ne change pas (un bon joueur fait
+        /// déjà des parties plus longues).
+        /// </summary>
+        public static int Scaled(Def d, int bestScore)
+        {
+            if (d.Kind == Kind.Games) return d.Target;
+            double k = Math.Max(1.0, Math.Min(MaxScale, Math.Sqrt(Math.Max(0, bestScore) / (double)ReferenceScore)));
+            int step = d.Kind == Kind.TotalScore ? 5000 : d.Kind == Kind.HoldSeconds ? 60 : 50;
+            return Math.Max(d.Target, (int)Math.Round(d.Target * k / step) * step);
+        }
+
         public static Def For(string week)
         {
             int n = WeekNumber(week);
@@ -193,6 +227,7 @@ namespace Bascule.Core
             s.week = week;
             s.progress = 0;
             s.tiers = 0;
+            s.target = 0;
         }
 
         public static int Gain(Def d, RunStats r)

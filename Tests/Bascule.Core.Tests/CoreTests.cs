@@ -1076,6 +1076,34 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
+        public void WeeklyGoalGrowsWithTheRecordAndStaysFixedForTheWeek()
+        {
+            string week = "2026-11-16";
+            var baseDef = WeeklyEvent.For(week);
+            var p = new Profile { bestScore = 15391 };
+            var d = WeeklyEvent.For(week, p);
+            if (baseDef.Kind == WeeklyEvent.Kind.Games) Assert.AreEqual(baseDef.Target, d.Target);
+            else Assert.Greater(d.Target, baseDef.Target, "bon joueur : objectif plus haut");
+            p.bestScore = 40000;
+            Assert.AreEqual(d.Target, WeeklyEvent.For(week, p).Target, "fixé pour la semaine");
+
+            var score = new WeeklyEvent.Def { Kind = WeeklyEvent.Kind.TotalScore, Target = 50000 };
+            Assert.AreEqual(50000, WeeklyEvent.Scaled(score, 0), "débutant : objectif de base");
+            Assert.AreEqual(50000, WeeklyEvent.Scaled(score, 2000));
+            Assert.AreEqual(110000, WeeklyEvent.Scaled(score, 15391));
+            Assert.AreEqual(150000, WeeklyEvent.Scaled(score, 1000000), "au plus × 3");
+
+            // Semaine déjà commencée avec l'ancien objectif : il reste celui de base.
+            var q = new Profile { bestScore = 15391 };
+            q.week.week = week; q.week.progress = 12000;
+            Assert.AreEqual(baseDef.Target, WeeklyEvent.For(week, q).Target);
+            // La semaine suivante, le nouvel objectif s'applique.
+            var next = WeeklyEvent.For("2026-11-23", q);
+            Assert.AreEqual(WeeklyEvent.Scaled(WeeklyEvent.For("2026-11-23"), 15391), next.Target);
+            Assert.AreEqual(0, q.week.progress);
+        }
+
+        [Test]
         public void WeeklyEventChangesEveryMondayAndPaysThreeTiers()
         {
             Assert.AreEqual("2026-11-09", WeeklyEvent.WeekKey(new DateTime(2026, 11, 12, 10, 0, 0)), "jeudi : lundi de la semaine");

@@ -1638,7 +1638,7 @@ namespace Bascule
         readonly Queue<(Chest.Loot loot, string title)> _bonusChests = new Queue<(Chest.Loot, string)>();
 
         /// <summary>Événement de la semaine en cours (lundi 00:00 UTC).</summary>
-        public WeeklyEvent.Def CurrentEvent => WeeklyEvent.For(WeeklyEvent.WeekKey(DateTime.UtcNow));
+        public WeeklyEvent.Def CurrentEvent => WeeklyEvent.For(WeeklyEvent.WeekKey(DateTime.UtcNow), Profile);
 
         /// <summary>Récompenses de la quête et de l'événement : un bandeau chacune, les coffres attendent l'accueil.</summary>
         void ShowLiveRewards()

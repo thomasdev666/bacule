@@ -3,6 +3,7 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## Prochaine mise à jour (après la 1.5)
+- **Événement de la semaine à la mesure du joueur** : l'objectif de base (50 000 points, 900 fusions…) est multiplié selon le record, × racine(record / 3 100), entre × 1 et × 3 (record 15 000 → 110 000 points). Il est fixé au début de la semaine du joueur ; le nombre de parties ne change pas. Un très bon joueur finissait l'événement le lundi.
 - **Fiche d'un joueur** (toucher un joueur dans le classement) : la tuile dit d'où vient la place, « Place mondiale » depuis l'onglet Monde, « Place du jour » et « Score du jour » depuis l'onglet Jour (avant : « Place » et « Record » partout, sans savoir de quel classement).
 
 ## 1.5 (build 9) – en préparation : tous les correctifs ci-dessous (prévus pour une 1.4.1 qui ne sortira pas seule) + matchmaking et ligues
