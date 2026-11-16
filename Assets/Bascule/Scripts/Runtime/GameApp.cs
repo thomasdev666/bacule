@@ -2553,11 +2553,12 @@ namespace Bascule
         /// « Ajouter en ami », « Accepter / Refuser » sa demande, ou « Défier » et « Retirer des amis » ; « Signaler » et
         /// « Bloquer » toujours. <paramref name="head"/> = -1 : inconnue (on prend celle publiée avec son code ami).
         /// </summary>
-        public void ShowPlayerProfile(string playerId, string name, int head, int rank, int score)
+        /// <param name="daily">Joueur touché dans l'onglet Jour : sa place et son score sont ceux du jour.</param>
+        public void ShowPlayerProfile(string playerId, string name, int head, int rank, int score, bool daily = false)
         {
             if (string.IsNullOrEmpty(playerId) || playerId == Leaderboard.Service.PlayerId) return;
             if (head < 0) head = FriendHeads.TryGetValue(playerId, out var fh) ? fh : RequestHead(playerId);
-            _playerMenu.Open(playerId, name, head, rank, score);
+            _playerMenu.Open(playerId, name, head, rank, score, daily);
         }
 
         /// <summary>J'annule une demande d'ami envoyée (pas encore acceptée).</summary>

@@ -2084,7 +2084,7 @@ namespace Bascule.UI
                     ring.raycastTarget = true;
                     var b = ring.gameObject.AddComponent<Button>();
                     int pHead = e.Head, pRank = friends ? 0 : e.Rank, pScore = e.Score;
-                    b.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, pHead, pRank, pScore); });
+                    b.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, pHead, pRank, pScore, _board == Boards.Daily); });
                     ring.gameObject.AddComponent<PressScale>();
                 }
             }
@@ -2127,7 +2127,7 @@ namespace Bascule.UI
                 row.raycastTarget = true;
                 var open = row.gameObject.AddComponent<Button>();
                 open.transition = Selectable.Transition.None;
-                open.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, head, pRank, score); });
+                open.onClick.AddListener(() => { Ui.Click?.Invoke(); App.ShowPlayerProfile(id, who, head, pRank, score, _board == Boards.Daily); });
             }
             if (challenge)
             {
@@ -2143,7 +2143,7 @@ namespace Bascule.UI
                 Ui.Place(hit, 1, 0.5f, -264, 0, 88, 100, 1, 0.5f);
                 var hitImg = hit.gameObject.AddComponent<Image>();
                 hitImg.color = new Color(0, 0, 0, 0);
-                hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerProfile(id, who, head, friend ? 0 : rank, score));
+                hit.gameObject.AddComponent<Button>().onClick.AddListener(() => App.ShowPlayerProfile(id, who, head, friend ? 0 : rank, score, _board == Boards.Daily));
                 var flag = Ui.Icon(hit, Art.IconSprite(Icon.Flag), "Drapeau");
                 Ui.Place(flag.rectTransform, 0.5f, 0.5f, 0, 0, 54, 54);
                 flag.color = new Color(1f, 1f, 1f, 0.55f);
@@ -2421,7 +2421,7 @@ namespace Bascule.UI
     /// </summary>
     public sealed class PlayerMenuScreen : UiScreen
     {
-        Text _title, _status, _rank, _best;
+        Text _title, _status, _rank, _best, _rankLabel, _bestLabel;
         string _id, _name;
         GameObject _unfriend, _duel, _add, _accept, _decline, _cancel, _statusPill;
         Image _card, _face, _ring, _statusBack;
@@ -2457,8 +2457,9 @@ namespace Bascule.UI
             Ui.Stretch(_status.rectTransform, 20, 2, 20, 0);
 
             // Deux tuiles : sa place et son record.
-            _rank = Tile(card.transform, -222, Loc.Get("profile_place"), Icon.Trophy, Palette.Accent);
-            _best = Tile(card.transform, 222, Loc.Get("profile_best"), Icon.Star, Palette.Secondary);
+            // Libellés selon l'onglet d'où vient le joueur (Monde ou Jour), posés à chaque ouverture.
+            _rank = Tile(card.transform, -222, Loc.Get("profile_place"), Icon.Trophy, Palette.Accent, out _rankLabel);
+            _best = Tile(card.transform, 222, Loc.Get("profile_best"), Icon.Star, Palette.Secondary, out _bestLabel);
 
             var close = Ui.Button(card.transform, "", Palette.Dark, Hide, Icon.Close, 40, "Fermer");
             Ui.Place((RectTransform)close.transform, 1, 1, -22, -22, 104, 104, 1, 1);
@@ -2476,7 +2477,7 @@ namespace Bascule.UI
         }
 
         /// <summary>Tuile crème : pastille d'icône, petit libellé, grande valeur.</summary>
-        Text Tile(Transform card, float x, string label, Icon icon, Color tint)
+        Text Tile(Transform card, float x, string label, Icon icon, Color tint, out Text labelText)
         {
             var tile = Ui.Card(card, "Tuile");
             Ui.Place(tile.rectTransform, 0.5f, 1, x, -640, 420, 150);
@@ -2486,19 +2487,24 @@ namespace Bascule.UI
             Ui.Stretch(ic.rectTransform, 18, 18, 18, 18);
             var l = Ui.Plain(Ui.Label(tile.transform, label, 32, Palette.Muted, TextAnchor.MiddleLeft));
             Ui.Place(l.rectTransform, 0, 0.5f, 136, 36, 270, 44, 0, 0.5f);
+            labelText = l;
             var v = Ui.Plain(Ui.Label(tile.transform, "", 54, Palette.Ink, TextAnchor.MiddleLeft));
             Ui.Place(v.rectTransform, 0, 0.5f, 136, -20, 270, 70, 0, 0.5f);
             return v;
         }
 
-        public void Open(string playerId, string name, int head = 0, int rank = 0, int score = 0)
+        /// <param name="daily">Ouvert depuis l'onglet Jour : sa place et son meilleur score du jour.</param>
+        public void Open(string playerId, string name, int head = 0, int rank = 0, int score = 0, bool daily = false)
         {
             Show();
+            bool known = rank > 0 && score > 0;
+            _rankLabel.text = Loc.Get(!known ? "profile_place" : daily ? "profile_place_daily" : "profile_place_world");
+            _bestLabel.text = Loc.Get(daily ? "profile_best_daily" : "profile_best");
             _id = playerId;
             _name = string.IsNullOrEmpty(name) ? Loc.Get("lb_player") : name;
             _title.text = _name;
             _face.sprite = Art.Portrait(HeadCatalog.Get(head));
-            _rank.text = rank > 0 && score > 0 ? Loc.Rank(rank) : "–";
+            _rank.text = known ? Loc.Rank(rank) : "–";
             _best.text = score > 0 ? Loc.FormatScore(score) : "–";
             bool friend = Friendship.IsConfirmed(App.Profile, playerId);
             bool sent = Friendship.IsSent(App.Profile, playerId);
