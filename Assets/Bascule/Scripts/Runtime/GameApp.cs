@@ -46,7 +46,9 @@ namespace Bascule
             public const string LevelPlayBanner = "358ljy0tx574p6cx";
 #else
             public const string Game = "0000000", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
-            public const string LevelPlayAppKey = "A_REMPLIR", LevelPlayRewarded = "A_REMPLIR", LevelPlayInterstitial = "A_REMPLIR", LevelPlayBanner = "A_REMPLIR";
+            /// <summary>LevelPlay, app Android (clé 299cf570d) : blocs récompensé, interstitiel et bannière (30 s).</summary>
+            public const string LevelPlayAppKey = "299cf570d", LevelPlayRewarded = "9zq2w621w6nu8vqp", LevelPlayInterstitial = "9tx9lj4ofxc1qwgh";
+            public const string LevelPlayBanner = "naplg4d3pzw55lsf";
 #endif
             /// <summary>
             /// Pubs de test dans les builds de développement seulement : la version envoyée à Apple (build normal)

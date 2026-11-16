@@ -70,6 +70,17 @@ namespace Bascule.EditorTools
                 SettingsService.OpenProjectSettings("Project/Player");
                 return;
             }
+            // Adaptateur AdMob installé (Network Manager) sans identifiant d'app Android : le SDK de Google fermerait
+            // l'application au lancement. On refuse de construire plutôt que d'envoyer une app qui plante.
+            if (string.IsNullOrEmpty(AdNetworkSettings.AdMobAndroidAppId)
+                && Directory.GetFiles("Assets", "*AdMob*Dependencies.xml", SearchOption.AllDirectories).Length > 0)
+            {
+                EditorUtility.DisplayDialog("Bascule : identifiant AdMob Android",
+                    "L'adaptateur AdMob est installé, mais l'identifiant de l'app Android AdMob (ca-app-pub-…~…) n'est pas rempli " +
+                    "(Editor/AdNetworkSettings.cs, AdMobAndroidAppId). Sans lui, l'app se ferme au lancement sur Android.\n\n" +
+                    "Crée l'app Android dans AdMob et envoie l'identifiant pour qu'il soit ajouté.", "OK");
+                return;
+            }
             BasculeSetup.ConfigureMenuSilent();
             // Google Play : 64 bits obligatoire, niveau d'API le plus récent installé.
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
