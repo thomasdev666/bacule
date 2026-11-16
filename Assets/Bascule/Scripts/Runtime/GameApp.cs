@@ -45,7 +45,7 @@ namespace Bascule
             /// <summary>Bloc « Banner » (1.5, LevelPlay → Ad units, rafraîchissement 30 s). « A_REMPLIR » : pas de bannière.</summary>
             public const string LevelPlayBanner = "358ljy0tx574p6cx";
 #else
-            public const string Game = "800440542", Rewarded = "Rewarded_Android", Interstitial = "Interstitial_Android";
+            public const string Game = "800440542", Rewarded = "BP_Rewarded_Android", Interstitial = "BP_Interstitial_Android";
             /// <summary>LevelPlay, app Android (clé 299cf570d) : blocs récompensé, interstitiel et bannière (30 s).</summary>
             public const string LevelPlayAppKey = "299cf570d", LevelPlayRewarded = "9zq2w621w6nu8vqp", LevelPlayInterstitial = "9tx9lj4ofxc1qwgh";
             public const string LevelPlayBanner = "naplg4d3pzw55lsf";
