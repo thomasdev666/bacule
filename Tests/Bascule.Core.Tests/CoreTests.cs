@@ -2690,7 +2690,7 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
-        public void BannerNeverOnFirstGameThenSecondThenEveryOther()
+        public void BannerNeverOnFirstGameOfLaunchThenEveryGame()
         {
             var t = new AdTuning();
             var p = NewProfile();
@@ -2698,7 +2698,13 @@ namespace Bascule.Core.Tests
             var shown = new List<int>();
             for (int game = 1; game <= 9; game++)
                 if (BannerPolicy.ShouldShow(t, p, GameMode.Infinite, game)) shown.Add(game);
-            CollectionAssert.AreEqual(new[] { 2, 4, 6, 8 }, shown, "jamais la 1re partie du lancement, la 2e oui, puis une sur deux");
+            CollectionAssert.AreEqual(new[] { 2, 3, 4, 5, 6, 7, 8, 9 }, shown, "jamais la 1re partie du lancement, puis toutes");
+            t.bannerEveryGames = 2;
+            shown.Clear();
+            for (int game = 1; game <= 9; game++)
+                if (BannerPolicy.ShouldShow(t, p, GameMode.Infinite, game)) shown.Add(game);
+            CollectionAssert.AreEqual(new[] { 2, 4, 6, 8 }, shown, "réglage une sur deux");
+            t.bannerEveryGames = 1;
             Assert.True(BannerPolicy.ShouldShow(t, p, GameMode.Daily, 2), "défi du jour : comme une partie normale");
             Assert.False(BannerPolicy.ShouldShow(t, p, GameMode.Duel, 2), "jamais en duel");
             p.gamesPlayed = t.bannerFirstAfterGames - 1;
@@ -2710,7 +2716,7 @@ namespace Bascule.Core.Tests
         }
 
         [Test]
-        public void NoInterstitialRightAfterABannerGame()
+        public void InterstitialStillShowsAfterABannerGameUnlessTuned()
         {
             var t = new AdTuning();
             var s = new AdState();
@@ -2719,9 +2725,9 @@ namespace Bascule.Core.Tests
             for (int i = 0; i < 20; i++) AdPolicy.OnRunEnded(s);
             const string day = "2026-11-14";
             Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6));
-            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true), "la bannière de cette partie suffit");
-            t.bannerSkipsInterstitial = false;
-            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true));
+            Assert.True(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true), "bannière à toutes les parties : l'interstitielle reste");
+            t.bannerSkipsInterstitial = true;
+            Assert.False(AdPolicy.ShouldShowInterstitial(t, s, p, false, 60, 1_000_000, day, 6, afterBannerRun: true), "réglage : la bannière de cette partie suffit");
         }
 
         [Test]

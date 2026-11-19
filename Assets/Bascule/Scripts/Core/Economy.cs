@@ -76,9 +76,9 @@ namespace Bascule.Core
         /// </summary>
         public bool bannerEnabled = true;
         public int bannerFromSessionGame = 2;
-        public int bannerEveryGames = 2;
+        public int bannerEveryGames = 1;
         public int bannerFirstAfterGames = 3;
-        public bool bannerSkipsInterstitial = true;
+        public bool bannerSkipsInterstitial = false;
     }
 
     // =====================================================================================================
