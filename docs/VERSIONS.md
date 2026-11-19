@@ -3,6 +3,7 @@
 Chaque zip porte son numéro (Bascule_V3.zip = version 3.0, affichée dans Réglages).
 
 ## Prochaine mise à jour (après la 1.5)
+- **Bannière : une partie quittée en cours compte aussi** (avant, seule une partie finie comptait : quitter la 1re partie puis en relancer une ne montrait toujours pas de bannière).
 - **Bannière à toutes les parties sauf la 1re de chaque lancement** (avant : une partie sur deux). L'interstitielle n'est plus sautée après une partie avec bannière (sinon il n'y en aurait plus jamais). Inchangé : jamais en duel, jamais pendant les 3 premières parties d'un nouveau joueur, cachée en pause, à la chute et en fin de partie. Réglages `bannerEveryGames` et `bannerSkipsInterstitial` du tuning.
 - **Événement de la semaine à la mesure du joueur** : l'objectif de base (50 000 points, 900 fusions…) est multiplié selon le record, × racine(record / 3 100), entre × 1 et × 3 (record 15 000 → 110 000 points). Il est fixé au début de la semaine du joueur ; le nombre de parties ne change pas. Un très bon joueur finissait l'événement le lundi.
 - **Fiche d'un joueur** (toucher un joueur dans le classement) : la tuile dit d'où vient la place, « Place mondiale » depuis l'onglet Monde, « Place du jour » et « Score du jour » depuis l'onglet Jour (avant : « Place » et « Record » partout, sans savoir de quel classement).

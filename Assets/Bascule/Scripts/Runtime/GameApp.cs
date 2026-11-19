@@ -133,6 +133,8 @@ namespace Bascule
         // Parties finies depuis le lancement du jeu : pas de pub imposée pendant les premières (AdTuning.sessionGraceGames).
         // Un retour dans le jeu après plus de 30 min en arrière-plan compte comme un nouveau lancement.
         int _gamesThisSession;
+        /// <summary>Parties lancées depuis l'ouverture de l'appli, finies ou quittées (choix de la bannière).</summary>
+        int _runsStartedThisSession;
         DateTime _backgroundSince = DateTime.MinValue;
         bool _pendingFinalized = true;
         float _autosave;
@@ -707,8 +709,10 @@ namespace Bascule
             // Mode infini seulement : objectif de la partie et partie spéciale (récompenses, jamais le score).
             Session.Goal = mode == GameMode.Infinite ? RunGoal.For(Profile) : 0;
             Session.Special = mode == GameMode.Infinite ? SpecialRun.Next(Profile) : SpecialKind.None;
-            // Bannière : pas à chaque partie (Core.BannerPolicy), et seulement si elle est déjà chargée.
-            _bannerRun = BannerPolicy.ShouldShow(Tuning.ads, Profile, mode, _gamesThisSession + 1) && _ads != null && _ads.BannerReady;
+            // Bannière : jamais la 1re partie du lancement (Core.BannerPolicy), et seulement si elle est déjà chargée. On
+            // compte les parties lancées, pas seulement les parties finies : une partie quittée en cours compte aussi.
+            _runsStartedThisSession++;
+            _bannerRun = BannerPolicy.ShouldShow(Tuning.ads, Profile, mode, _runsStartedThisSession) && _ads != null && _ads.BannerReady;
             _bannerShownThisRun = false;
             Session.BannerLift = _bannerRun ? BannerLift() : 0f;
             Session.StartRun(mode, seed, mode == GameMode.Daily ? TodayKey : "");
@@ -3048,7 +3052,7 @@ namespace Bascule
             float frozen = (float)Math.Max(_awayFrozen, sinceFrame);
             _awayFrozen = 0;
             Duel.OnAppResumed(frozen < 0.5f ? 0f : frozen);
-            if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) _gamesThisSession = 0;
+            if (_backgroundSince != DateTime.MinValue && (DateTime.UtcNow - _backgroundSince).TotalMinutes > 30) { _gamesThisSession = 0; _runsStartedThisSession = 0; }
             _backgroundSince = DateTime.MinValue;
             _music?.OnResume();
             // Retour dans l'appli : peut-être un nouveau jour (cadeau, missions).
