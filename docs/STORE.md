@@ -118,6 +118,8 @@ Conseil : 5 captures, avec la plus spectaculaire en premier (une planche bien ch
 
 ## Fichier pour Google Play (.aab)
 
+**Version de Unity : 6000.0.58f2 ou plus récente (pas 6000.0.58f1).** Les versions plus anciennes contiennent la faille CVE-2025-59489 (avis de sécurité Unity de septembre 2025) : Google Play refuse l'app pour « utilisation abusive de l'appareil et du réseau » (refus du 18/11/2026). Unity Hub → Installs → Install Editor → 6000.0.58f2, puis ouvrir le projet avec cette version et reconstruire.
+
 1. Unity : **Bascule → Android : construire le fichier Google Play (.aab)**.
 2. La première fois, il demande une **clé d'envoi** (keystore) : Edit → Project Settings → Player → Android → Publishing Settings → Keystore Manager → Create New. Enregistrer le fichier `.keystore` **hors du projet** (et en sauvegarde : clé USB, Drive privé), noter le mot de passe. Sans cette clé, plus aucune mise à jour possible. Unity oublie les mots de passe à chaque redémarrage : les retaper avant chaque construction.
 3. Le fichier sort dans `Builds/fr.orpheex.bascule_<versionCode>.aab` (le nom doit reprendre le nom du paquet) (IL2CPP + ARM64, API Android la plus récente installée ; versionCode augmenté tout seul).
